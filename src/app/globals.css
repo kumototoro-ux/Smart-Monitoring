@@ -1,0 +1,64 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-canvas text-ink antialiased;
+    font-feature-settings: 'tnum' 1;
+  }
+  ::selection {
+    background: #dcdff7;
+  }
+  :focus-visible {
+    outline: 2px solid #7d82d8;
+    outline-offset: 2px;
+    border-radius: 10px;
+  }
+  /* إخفاء أسهم حقول الأرقام */
+  input[type='number']::-webkit-outer-spin-button,
+  input[type='number']::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type='number'] {
+    -moz-appearance: textfield;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-card bg-white shadow-soft;
+  }
+  .field {
+    @apply h-11 w-full rounded-xl border border-line bg-white px-3.5 text-[15px] text-ink outline-none transition
+      placeholder:text-ink-faint focus:border-peri focus:ring-4 focus:ring-peri/15 disabled:bg-surface disabled:text-ink-muted;
+  }
+  .label {
+    @apply mb-1.5 block text-[13px] font-medium text-ink-soft;
+  }
+  .num {
+    font-variant-numeric: tabular-nums;
+  }
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #d6d6e2 transparent;
+  }
+}
+
+/* مساحة البار السفلي في الجوال مع مراعاة حواف الآيفون */
+.pb-safe {
+  padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
