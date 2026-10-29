@@ -2,6 +2,8 @@ import 'server-only';
 import { cache } from 'react';
 import { redirect } from 'next/navigation';
 import { createClient } from './supabase/server';
+import { headers } from 'next/headers';
+import { audit } from './audit';
 import type { Profile, Role } from './types';
 
 /** الإيميل الداخلي المخفي لكل اسم مستخدم */
@@ -25,6 +27,10 @@ export const getSession = cache(async () => {
 export async function requireRole(...roles: Role[]) {
   const s = await getSession();
   if (!s) redirect('/login');
-  if (roles.length && !roles.includes(s.profile.role)) redirect('/');
+  if (roles.length && !roles.includes(s.profile.role)) {
+    const h = await headers();
+    await audit({ action: 'page.forbidden', severity: 'security', actor: s.profile, details: { path: h.get('x-pathname') ?? h.get('referer') ?? null, required: roles } });
+    redirect('/');
+  }
   return s;
 }

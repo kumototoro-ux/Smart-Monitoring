@@ -4,6 +4,7 @@ import { createServerClient } from '@supabase/ssr';
 const PUBLIC = ['/login'];
 
 export async function updateSession(request: NextRequest) {
+  request.headers.set('x-pathname', request.nextUrl.pathname);
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(

@@ -21,7 +21,7 @@ const config: Config = {
         amber: { DEFAULT: '#B7791F', soft: '#FBF1DD' },
       },
       fontFamily: {
-        sans: ['var(--font-readex)', 'system-ui', 'sans-serif'],
+        sans: ['"Readex Pro Variable"', 'system-ui', 'Tahoma', 'sans-serif'],
       },
       borderRadius: {
         card: '18px',

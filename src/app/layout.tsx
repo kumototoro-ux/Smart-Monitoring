@@ -1,10 +1,8 @@
 import type { Metadata, Viewport } from 'next';
-import { Readex_Pro } from 'next/font/google';
+import '@fontsource-variable/readex-pro';
 import { ToastProvider } from '@/components/ui/toast';
 import { ConfirmProvider } from '@/components/ui/confirm';
 import './globals.css';
-
-const readex = Readex_Pro({ subsets: ['arabic', 'latin'], variable: '--font-readex', display: 'swap' });
 
 export const metadata: Metadata = {
   title: { default: 'مِرقاة للرصد الذكي', template: '%s · مِرقاة' },
@@ -21,7 +19,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl" className={readex.variable}>
+    <html lang="ar" dir="rtl">
       <body className="font-sans">
         <ToastProvider>
           <ConfirmProvider>{children}</ConfirmProvider>

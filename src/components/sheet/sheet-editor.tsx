@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowRight, AlertTriangle, Lock, Clock, UserPlus, UserMinus, CheckCircle2, Info, Undo2,
-  ClipboardCheck, PencilLine, Save, Send, RotateCcw, ChevronDown, History,
+  ClipboardCheck, PencilLine, Save, Send, RotateCcw, ChevronDown, History, Download,
 } from 'lucide-react';
 import type { SheetData } from '@/app/actions/grading';
 import { saveSheet, teacherAddStudent, excludeStudent, restoreStudent, createRequest, loadSheet } from '@/app/actions/grading';
@@ -258,7 +258,11 @@ export function SheetEditor({ initial, scope, role, onBack }: {
             {role !== 'teacher' && ` · ${data.meta.branch_name}`}
           </p>
         </div>
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <a href={`/api/export?type=subject&section=${data.meta.section_id}&subject=${data.meta.grade_subject_id}&term=${data.meta.term}`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1 text-[12px] text-ink-soft hover:border-ink-faint" title="تحميل الكشف إكسل">
+            <Download className="h-3.5 w-3.5" />إكسل
+          </a>
           {comps.map((c) => {
             const left = c.deadline ? timeLeft(c.deadline) : null;
             return !c.submitted_at ? null : c.editable
@@ -332,7 +336,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
           </Banner>
         )}
         {phase === 'review' && (
-          <Banner tone="info" icon={<ClipboardCheck className="h-4 w-4" />}>راجعي الكشف جيداً قبل الحفظ النهائي. للتعديل اضغطي "رجوع للتعديل".</Banner>
+          <Banner tone="info" icon={<ClipboardCheck className="h-4 w-4" />}>راجعي الكشف جيداً قبل الحفظ النهائي. للتعديل اضغطي «رجوع للتعديل».</Banner>
         )}
       </AnimatePresence>
 
@@ -341,7 +345,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
       {phase === 'entry' && editableComps.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 text-[12.5px] text-ink-muted">
           <Info className="h-4 w-4" />
-          {verbal ? 'اختاري المستوى لكل طالب، أو "غائب".' : <>اكتبي الدرجة، و<b className="text-ink">0</b> للصفر، و<b className="text-ink">غ</b> للغائب. Enter ينقلك للطالب التالي.</>}
+          {verbal ? 'اختاري المستوى لكل طالب، أو «غائب».' : <>اكتبي الدرجة، و<b className="text-ink">0</b> للصفر، و<b className="text-ink">غ</b> للغائب. Enter ينقلك للطالب التالي.</>}
         </div>
       )}
 
@@ -506,7 +510,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
         <div className="space-y-2 pb-2 text-[13.5px] leading-7 text-ink-soft">
           <p className="rounded-xl bg-surface p-3">لا يُحفظ الكشف إلا بعد رصد كل الطلاب.</p>
           {!verbal && <p>• إذا كان الطالب يستحق <b className="text-ink">صفراً</b> اكتبي <b className="text-ink">0</b> صراحةً.</p>}
-          <p>• إذا كان الطالب <b className="text-ink">غائباً</b> {verbal ? 'اختاري "غائب"' : <>اكتبي <b className="text-ink">غ</b></>}.</p>
+          <p>• إذا كان الطالب <b className="text-ink">غائباً</b> {verbal ? 'اختاري «غائب»' : <>اكتبي <b className="text-ink">غ</b></>}.</p>
           <p>• إذا كان الطالب <b className="text-ink">ليس في صفك</b> استبعديه بزر الاستبعاد بجانب اسمه.</p>
         </div>
       </Dialog>
