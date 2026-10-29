@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "import:students": "node scripts/import-students.mjs"
+    "create-admin": "node scripts/create-admin.mjs"
   },
   "engines": {
     "node": ">=20"

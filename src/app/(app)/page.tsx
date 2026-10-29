@@ -79,8 +79,8 @@ export default async function Dashboard() {
         <StatTile tone="peri" icon={<GraduationCap className="h-5 w-5" />} label="الطلاب" value={(stats?.students ?? 0).toLocaleString('en')} unit="طالب" />
       </div>
 
-      <div className="grid gap-4 xl:grid-cols-[1fr_320px]">
-        <section className="card p-5 sm:p-6">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="card min-w-0 p-5 sm:p-6">
           <div className="mb-2 flex items-center justify-between">
             <h2 className="text-[18px] font-semibold">{s.profile.role === 'admin' ? 'تقدم الرصد حسب الفرع' : 'تقدم الرصد حسب المعلمة'}</h2>
             <span className="text-[13px] text-ink-muted">الترم {settings.current_term === 1 ? 'الأول' : 'الثاني'}</span>
@@ -90,7 +90,7 @@ export default async function Dashboard() {
           )}
         </section>
 
-        <section className="card p-5 sm:p-6">
+        <section className="card min-w-0 p-5 sm:p-6">
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-[18px] font-semibold">الطلبات</h2>
             <Link href="/requests" className="text-[13px] text-ink-muted hover:text-ink">عرض الكل</Link>

@@ -8,10 +8,10 @@ export function ProgressChart({ data }: { data: { label: string; done: number; t
   const best = rows.reduce((m, r, i) => (r.pct > (rows[m]?.pct ?? -1) ? i : m), 0);
   return (
     <div className="scrollbar-thin overflow-x-auto">
-      <div className="relative flex h-64 min-w-full items-end gap-2.5 pt-10 sm:gap-3" style={{ minWidth: rows.length * 64 }}>
+      <div className="relative flex h-64 min-w-full items-end gap-2.5 pl-12 pt-10 sm:gap-3" style={{ minWidth: rows.length * 64 }}>
         <div className="pointer-events-none absolute inset-x-0 top-10 flex items-center">
-          <span className="z-10 rounded-full bg-rose px-2 py-0.5 text-[11px] font-medium text-white">100%</span>
           <span className="flex-1 border-t-2 border-dashed border-rose/60" />
+          <span className="z-10 -ml-1 rounded-full bg-rose px-2 py-0.5 text-[11px] font-medium text-white">100%</span>
         </div>
         {rows.map((r, i) => (
           <div key={r.label + i} className="flex h-full flex-1 flex-col items-center justify-end gap-2">

@@ -15,9 +15,9 @@ export function StatTile({ tone, icon, label, value, unit }: {
       <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-white text-ink">{icon}</span>
       <div className="min-w-0">
         <p className="truncate text-[13px] text-ink-soft">{label}</p>
-        <p className="num text-[22px] font-semibold leading-tight text-ink">
-          {value}
-          {unit && <span className="mr-1.5 text-[13px] font-normal text-ink-muted">{unit}</span>}
+        <p className="num flex flex-wrap items-baseline gap-x-2 text-[22px] font-semibold leading-tight text-ink">
+          <span>{value}</span>
+          {unit && <span className="text-[13px] font-normal text-ink-muted">{unit}</span>}
         </p>
       </div>
     </div>

@@ -358,11 +358,11 @@ export function SheetEditor({ initial, scope, role, onBack }: {
             <table className="w-full border-separate border-spacing-0 text-[14px]">
               <thead>
                 <tr className="text-[12.5px] text-ink-muted">
-                  <th className="sticky right-0 z-10 w-10 border-b border-line bg-white px-3 py-3 text-center font-medium">م</th>
-                  <th className="sticky right-10 z-10 min-w-[150px] border-b border-line bg-white px-2 py-3 text-right font-medium sm:min-w-[220px]">الطالب</th>
+                  <th className="sticky right-0 z-10 w-8 min-w-[2rem] border-b border-line bg-white px-1 py-3 text-center font-medium sm:w-10 sm:min-w-[2.5rem] sm:px-3">م</th>
+                  <th className="sticky right-8 z-10 min-w-[112px] border-b border-l border-line bg-white px-2 py-3 text-right font-medium sm:right-10 sm:min-w-[220px]">الطالب</th>
                   {comps.map((c) => (
-                    <th key={c.id} className="border-b border-line px-2 py-3 text-center font-medium">
-                      <span className="block whitespace-nowrap text-ink-soft">{c.name}</span>
+                    <th key={c.id} className={cn('border-b border-line px-1 py-3 text-center font-medium sm:px-2', verbal ? 'min-w-[120px]' : 'min-w-[62px] sm:min-w-[82px]')}>
+                      <span className="block text-[11.5px] leading-4 text-ink-soft sm:whitespace-nowrap sm:text-[12.5px]">{c.name}</span>
                       {!verbal && <span className="num mt-0.5 block text-[11.5px]">من {c.max_score}</span>}
                     </th>
                   ))}
@@ -378,14 +378,15 @@ export function SheetEditor({ initial, scope, role, onBack }: {
               <tbody>
                 {data.students.map((s, ri) => {
                   const missingRow = showErrors && editableComps.some((c) => cellState(values[k(s.id, c.id)], c.max_score, verbal) === 'empty');
+                  const rowComplete = comps.every((c) => { const st = cellState(values[k(s.id, c.id)], c.max_score, false); return st === 'ok' || st === 'absent'; });
                   const total = comps.reduce((a, c) => {
                     const v = values[k(s.id, c.id)];
                     return a + (v && !v.absent && cellState(v, c.max_score, false) === 'ok' ? Number(normalizeDigits(v.raw)) : 0);
                   }, 0);
                   return (
                     <tr key={s.id} className={missingRow ? 'bg-[#FDF7EA]' : 'bg-white'}>
-                      <td className={cn('num sticky right-0 z-[1] border-b border-line px-3 py-2 text-center text-[12.5px] text-ink-muted', missingRow ? 'bg-[#FDF7EA]' : 'bg-white')}>{ri + 1}</td>
-                      <td className={cn('sticky right-10 z-[1] border-b border-line px-2 py-2', missingRow ? 'bg-[#FDF7EA]' : 'bg-white')}>
+                      <td className={cn('num sticky right-0 z-[1] w-8 min-w-[2rem] border-b border-line px-1 py-2 text-center text-[12px] text-ink-muted sm:w-10 sm:min-w-[2.5rem] sm:px-3 sm:text-[12.5px]', missingRow ? 'bg-[#FDF7EA]' : 'bg-white')}>{ri + 1}</td>
+                      <td className={cn('sticky right-8 z-[1] border-b border-l border-line px-2 py-2 sm:right-10', missingRow ? 'bg-[#FDF7EA]' : 'bg-white')}>
                         <span className="line-clamp-2 text-[13.5px] font-medium leading-5 sm:text-[14px]">{s.full_name}</span>
                         {s.needs_review && <span className="text-[11px] text-peri-deep">أُضيف من المعلمة</span>}
                       </td>
@@ -396,7 +397,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
                         const canEdit = phase === 'entry' && editable(c);
                         const bad = showErrors && canEdit && st !== 'ok' && st !== 'absent';
                         return (
-                          <td key={c.id} className="border-b border-line px-1.5 py-2 text-center">
+                          <td key={c.id} className="border-b border-line px-1 py-2 text-center sm:px-1.5">
                             {verbal ? (
                               <VerbalCell value={v} levels={data.levels} disabled={!canEdit} bad={bad} dataKey={key} pos={`${ri}-${ci}`}
                                 pills={comps.length === 1 && data.levels.length <= 5}
@@ -405,7 +406,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
                               v?.absent ? (
                                 <button data-key={key} data-pos={`${ri}-${ci}`} onKeyDown={(e) => onKey(e, ri, ci)}
                                   onClick={() => setCell(key, { absent: false, raw: '' })}
-                                  className="mx-auto flex h-10 w-[66px] items-center justify-center gap-1 rounded-xl bg-surface text-[12.5px] text-ink-soft ring-1 ring-line" title="اضغطي لإلغاء الغياب">
+                                  className="mx-auto flex h-10 w-full max-w-[54px] items-center sm:w-[66px] justify-center gap-1 rounded-xl bg-surface text-[12.5px] text-ink-soft ring-1 ring-line" title="اضغطي لإلغاء الغياب">
                                   غائب <Undo2 className="h-3 w-3" />
                                 </button>
                               ) : (
@@ -418,7 +419,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
                                   onFocus={(e) => e.target.select()}
                                   aria-label={`${s.full_name} — ${c.name}`}
                                   aria-invalid={st === 'over' || st === 'invalid'}
-                                  className={cn('num mx-auto block h-10 w-[66px] rounded-xl border bg-white text-center text-[15px] font-medium outline-none transition focus:ring-4',
+                                  className={cn('num mx-auto block h-10 w-full min-w-[46px] max-w-[54px] rounded-xl border sm:max-w-[66px] bg-white text-center text-[15px] font-medium outline-none transition focus:ring-4',
                                     st === 'over' || st === 'invalid' ? 'border-rose bg-rose-soft text-rose focus:ring-rose/15'
                                       : bad ? 'border-amber bg-amber-soft focus:ring-amber/20'
                                       : 'border-line focus:border-peri focus:ring-peri/15')}
@@ -432,7 +433,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
                         );
                       })}
                       {!verbal && comps.length > 1 && (
-                        <td className="num border-b border-line px-2 py-2 text-center text-[14px] font-semibold">{total}</td>
+                        <td className="num border-b border-line px-2 py-2 text-center text-[14px] font-semibold">{rowComplete ? total : <span className="text-ink-faint">—</span>}</td>
                       )}
                       {phase === 'entry' && role !== 'supervisor' && (
                         <td className="border-b border-line px-1 py-2 text-center">
