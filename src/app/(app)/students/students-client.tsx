@@ -73,7 +73,7 @@ export function StudentsClient(p: Props) {
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
           <div className="relative flex-1">
             <Search className="pointer-events-none absolute right-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
-            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="الاسم أو رقم الهوية أو رقم الطالب" className="pr-10" />
+            <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="الاسم أو الرقم الأكاديمي أو رقم الهوية" className="pr-10" />
             {pending && <Loader2 className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-ink-muted" />}
           </div>
           <div className="grid grid-cols-2 gap-2 sm:flex">
@@ -160,7 +160,7 @@ export function StudentsClient(p: Props) {
                       {gName.get(s.grade_id)}{s.section_id ? ` · شعبة ${sName.get(s.section_id) ?? ''}` : ''}{p.isAdmin && !p.filters.branch ? ` · ${bName.get(s.branch_id)}` : ''}
                     </p>
                   </div>
-                  <span className="num hidden w-28 text-[12.5px] text-ink-muted md:block" dir="ltr">{s.national_id ?? '—'}</span>
+                  <span className="num hidden w-28 text-[12.5px] text-ink-muted md:block" dir="ltr" title="الرقم الأكاديمي">{s.student_number ?? '—'}</span>
                   {!s.section_id && <Badge tone="warning">بدون شعبة</Badge>}
                   {s.needs_review && <Badge tone="info">أضافته معلمة</Badge>}
                   <button onClick={() => setEdit(s as Edit)} className="rounded-full p-2 text-ink-muted hover:bg-surface hover:text-ink" aria-label="تعديل"><Pencil className="h-4 w-4" /></button>
@@ -184,6 +184,7 @@ export function StudentsClient(p: Props) {
             if (!edit) return;
             const r = await exec(() => saveStudent({
               id: edit.id, full_name: edit.full_name ?? '', national_id: edit.national_id ?? '', student_number: edit.student_number ?? '',
+              name_en: edit.name_en ?? '', birth_date: edit.birth_date ?? '', nationality: edit.nationality ?? '', id_type: edit.id_type ?? '',
               gender: edit.gender ?? null, branch_id: edit.branch_id, grade_id: edit.grade_id, section_id: edit.section_id || null,
             }), { success: 'تم حفظ بيانات الطالب' });
             if (r?.ok) setEdit(null);
@@ -192,10 +193,21 @@ export function StudentsClient(p: Props) {
         </>}>
         {edit && (
           <div className="space-y-4">
-            <Field label="اسم الطالب"><Input value={edit.full_name ?? ''} onChange={(e) => setEdit({ ...edit, full_name: e.target.value })} placeholder="الاسم رباعياً" /></Field>
+            <Field label="الرقم الأكاديمي" hint="المعرّف الأساسي للطالب — لا يتكرر">
+              <Input value={edit.student_number ?? ''} onChange={(e) => setEdit({ ...edit, student_number: e.target.value })} dir="ltr" className="text-right" inputMode="numeric" />
+            </Field>
+            <Field label="اسم الطالب الرباعي (عربي)"><Input value={edit.full_name ?? ''} onChange={(e) => setEdit({ ...edit, full_name: e.target.value })} /></Field>
+            <Field label="اسم الطالب (إنجليزي)"><Input value={edit.name_en ?? ''} onChange={(e) => setEdit({ ...edit, name_en: e.target.value })} dir="ltr" className="text-right" /></Field>
             <div className="grid grid-cols-2 gap-3">
-              <Field label="رقم الهوية"><Input value={edit.national_id ?? ''} onChange={(e) => setEdit({ ...edit, national_id: e.target.value })} inputMode="numeric" dir="ltr" className="text-right" /></Field>
-              <Field label="رقم الطالب"><Input value={edit.student_number ?? ''} onChange={(e) => setEdit({ ...edit, student_number: e.target.value })} dir="ltr" className="text-right" /></Field>
+              <Field label="تاريخ الميلاد"><Input value={edit.birth_date ?? ''} onChange={(e) => setEdit({ ...edit, birth_date: e.target.value })} placeholder="هجري أو ميلادي" /></Field>
+              <Field label="الجنسية"><Input value={edit.nationality ?? ''} onChange={(e) => setEdit({ ...edit, nationality: e.target.value })} /></Field>
+              <Field label="نوع الهوية">
+                <Select value={edit.id_type ?? ''} onChange={(e) => setEdit({ ...edit, id_type: e.target.value })}>
+                  <option value="">غير محدد</option>
+                  {['هوية وطنية', 'إقامة', 'جواز سفر', 'هوية زائر', 'بدون', ...(edit.id_type && !['هوية وطنية', 'إقامة', 'جواز سفر', 'هوية زائر', 'بدون'].includes(edit.id_type) ? [edit.id_type] : [])].map((t) => <option key={t} value={t}>{t}</option>)}
+                </Select>
+              </Field>
+              <Field label="رقم الهوية"><Input value={edit.national_id ?? ''} onChange={(e) => setEdit({ ...edit, national_id: e.target.value })} dir="ltr" className="text-right" /></Field>
             </div>
             <Field label="الجنس">
               <Select value={edit.gender ?? ''} onChange={(e) => setEdit({ ...edit, gender: (e.target.value || null) as Student['gender'] })}>

@@ -15,7 +15,7 @@ export default async function StudentsPage({ searchParams }: {
   const page = Math.max(1, Number(sp.page ?? 1) || 1);
 
   let q = supabase.from('students')
-    .select('id, branch_id, grade_id, section_id, full_name, national_id, student_number, gender, source, needs_review, is_active, created_at', { count: 'exact' })
+    .select('id, branch_id, grade_id, section_id, full_name, national_id, student_number, name_en, birth_date, nationality, id_type, gender, source, needs_review, is_active, created_at', { count: 'exact' })
     .order('full_name')
     .range((page - 1) * PAGE, page * PAGE - 1);
   if (branchId) q = q.eq('branch_id', branchId);
@@ -23,7 +23,7 @@ export default async function StudentsPage({ searchParams }: {
   if (sp.section) q = q.eq('section_id', sp.section);
   if (sp.q) {
     const s = sp.q.replace(/[%,()]/g, ' ').trim();
-    q = q.or(`full_name.ilike.%${s}%,national_id.ilike.%${s}%,student_number.ilike.%${s}%`);
+    q = q.or(`full_name.ilike.%${s}%,name_en.ilike.%${s}%,national_id.ilike.%${s}%,student_number.ilike.%${s}%`);
   }
   if (sp.flag === 'review') q = q.eq('needs_review', true);
   else if (sp.flag === 'nosection') q = q.is('section_id', null);

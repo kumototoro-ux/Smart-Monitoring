@@ -576,7 +576,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
                 <option value="">غير محدد</option><option value="male">طالب</option><option value="female">طالبة</option>
               </Select>
             </Field>
-            <Field label="رقم الهوية (اختياري)"><Input value={newStudent.national_id} onChange={(e) => setNewStudent({ ...newStudent, national_id: e.target.value })} inputMode="numeric" dir="ltr" className="text-right" /></Field>
+            <Field label="الرقم الأكاديمي (إن وُجد)"><Input value={newStudent.student_number} onChange={(e) => setNewStudent({ ...newStudent, student_number: e.target.value })} inputMode="numeric" dir="ltr" className="text-right" /></Field>
           </div>
         </div>
       </Dialog>

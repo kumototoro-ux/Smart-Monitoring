@@ -4,6 +4,7 @@ import ExcelJS from 'exceljs';
 import { run, must, ActionError, parseOr } from '@/lib/action';
 import { gradeKey, normAr, sectionKey } from '@/lib/arabic';
 import { normalizeDigits } from '@/lib/utils';
+import { createAdminClient } from '@/lib/supabase/admin';
 import type { Profile } from '@/lib/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -11,9 +12,12 @@ const uuid = z.string().uuid();
 const studentSchema = z.object({
   id: uuid.optional(),
   full_name: z.string().trim().min(6, 'اكتبي اسم الطالب ثلاثياً على الأقل').max(150),
-  national_id: z.string().trim().max(20).optional().transform((v) => (v ? normalizeDigits(v) : null))
-    .refine((v) => !v || /^\d{10}$/.test(v), 'رقم الهوية يجب أن يكون 10 أرقام'),
-  student_number: z.string().trim().max(30).optional().transform((v) => v || null),
+  national_id: z.string().trim().max(20, 'رقم الهوية طويل جداً').optional().transform((v) => (v ? normalizeDigits(v) : null)),
+  student_number: z.string().trim().max(30).optional().transform((v) => (v ? normalizeDigits(v) : null)),
+  name_en: z.string().trim().max(150).optional().transform((v) => v || null),
+  birth_date: z.string().trim().max(30).optional().transform((v) => v || null),
+  nationality: z.string().trim().max(60).optional().transform((v) => v || null),
+  id_type: z.string().trim().max(40).optional().transform((v) => v || null),
   gender: z.enum(['male', 'female']).nullable().optional(),
   branch_id: uuid,
   grade_id: uuid,
@@ -80,27 +84,36 @@ export async function deleteStudents(ids: string[]) {
 // ===================================================================== استيراد إكسل
 export interface ImportRow {
   row: number; full_name: string; national_id: string | null; student_number: string | null;
+  name_en: string | null; birth_date: string | null; nationality: string | null; id_type: string | null;
   gender: 'male' | 'female' | null; branch: string; grade: string; section: string;
   branch_id?: string; grade_id?: string; section_id?: string | null; newSection?: boolean;
   existing?: boolean; error?: string;
 }
 export interface ImportPreview {
-  total: number; valid: number; errors: number; updates: number; newSections: string[];
+  total: number; valid: number; errors: number; updates: number; noNumber: number; newSections: string[];
   rows: ImportRow[]; headers: Record<string, string | null>;
 }
 
-const HEADERS: Record<keyof Pick<ImportRow, 'full_name' | 'national_id' | 'student_number' | 'gender' | 'branch' | 'grade' | 'section'>, string[]> = {
-  full_name: ['اسم الطالب', 'اسم الطالبه', 'الاسم', 'الاسم الكامل', 'اسم الطالب رباعي', 'name'],
-  national_id: ['رقم الهويه', 'الهويه', 'السجل المدني', 'رقم السجل', 'الهويه الوطنيه', 'رقم الاقامه', 'id'],
-  student_number: ['رقم الطالب', 'الرقم', 'رقم القيد', 'الرقم الاكاديمي', 'رقم الطالبه'],
+type Col = 'student_number' | 'full_name' | 'name_en' | 'grade' | 'birth_date' | 'nationality' | 'id_type' | 'national_id' | 'gender' | 'section' | 'branch';
+const HEADERS: Record<Col, string[]> = {
+  student_number: ['الرقم الأكاديمي', 'رقم أكاديمي', 'الرقم الجامعي', 'رقم الطالب', 'رقم الطالبة', 'رقم القيد', 'الرقم', 'academic number', 'student id'],
+  full_name: ['اسم الطالب الرباعي (عربي)', 'اسم الطالب الرباعي', 'اسم الطالب (عربي)', 'اسم الطالب عربي', 'اسم الطالب', 'اسم الطالبة', 'الاسم', 'الاسم الكامل', 'الاسم الرباعي', 'الاسم بالعربي'],
+  name_en: ['اسم الطالب (إنجليزي)', 'اسم الطالب انجليزي', 'اسم الطالب بالإنجليزي', 'الاسم بالإنجليزي', 'الاسم الإنجليزي', 'name', 'english name', 'name en'],
+  grade: ['الصف الدراسي', 'الصف', 'المرحلة والصف', 'grade'],
+  birth_date: ['تاريخ الميلاد', 'الميلاد', 'birth date', 'date of birth'],
+  nationality: ['الجنسية', 'nationality'],
+  id_type: ['نوع الهوية', 'نوع الإثبات', 'id type'],
+  national_id: ['رقم الهوية', 'الهوية', 'السجل المدني', 'رقم السجل', 'رقم الإقامة', 'رقم الإثبات', 'id number'],
   gender: ['الجنس', 'النوع'],
-  branch: ['الفرع', 'المدرسه', 'اسم الفرع'],
-  grade: ['الصف', 'الصف الدراسي', 'المرحله والصف', 'grade'],
-  section: ['الشعبه', 'الفصل', 'رقم الفصل', 'section'],
+  section: ['الشعبة', 'الفصل', 'رقم الفصل', 'section'],
+  branch: ['الفرع', 'المدرسة', 'اسم الفرع'],
 };
+const HEADER_INDEX = new Map<string, Col>();
+(Object.entries(HEADERS) as [Col, string[]][]).forEach(([k, names]) => names.forEach((n) => { if (!HEADER_INDEX.has(normAr(n))) HEADER_INDEX.set(normAr(n), k); }));
 
 function cellText(v: ExcelJS.CellValue): string {
   if (v == null) return '';
+  if (v instanceof Date) return v.toISOString().slice(0, 10); // تاريخ إكسل → YYYY-MM-DD
   if (typeof v === 'object') {
     if ('richText' in v) return v.richText.map((t) => t.text).join('');
     if ('text' in v && typeof v.text === 'string') return v.text;
@@ -125,24 +138,36 @@ async function buildPreview(supabase: SupabaseClient, profile: Profile, base64: 
   for (let r = 1; r <= Math.min(10, ws.rowCount); r++) {
     const m: Record<string, number> = {};
     ws.getRow(r).eachCell((c, col) => {
-      const t = normAr(cellText(c.value));
-      for (const [k, names] of Object.entries(HEADERS)) if (!m[k] && names.some((n) => normAr(n) === t)) m[k] = col;
+      const k = HEADER_INDEX.get(normAr(cellText(c.value)));
+      if (k && !m[k]) m[k] = col;
     });
     if (m.full_name && Object.keys(m).length >= 2) { headerRow = r; colMap = m; break; }
   }
-  if (!colMap.full_name) throw new ActionError('لم أجد عمود "اسم الطالب" في أول 10 صفوف من الملف');
-  if (!colMap.grade) throw new ActionError('لم أجد عمود "الصف" في الملف');
+  if (!colMap.full_name) throw new ActionError('لم أجد عمود «اسم الطالب» في أول 10 صفوف من الملف');
+  if (!colMap.grade) throw new ActionError('لم أجد عمود «الصف الدراسي» في الملف');
 
-  const [branches, grades, sections, existing] = await Promise.all([
+  // الأرقام الأكاديمية في الملف — للتحقق من الموجود مسبقاً على دفعات
+  const fileNumbers: string[] = [];
+  if (colMap.student_number) for (let r = headerRow + 1; r <= ws.rowCount; r++) {
+    const n = normalizeDigits(cellText(ws.getRow(r).getCell(colMap.student_number).value)).trim();
+    if (n) fileNumbers.push(n);
+  }
+  // بصلاحية الخادم: لنعرف الرقم حتى لو كان مسجّلاً في فرع لا تراه المشرفة
+  const existingNumbers = new Map<string, string>(); // الرقم → الفرع
+  const admin = createAdminClient();
+  for (let i = 0; i < fileNumbers.length; i += 300) {
+    const { data } = await admin.from('students').select('student_number, branch_id').in('student_number', fileNumbers.slice(i, i + 300));
+    (data ?? []).forEach((d) => existingNumbers.set(d.student_number as string, d.branch_id as string));
+  }
+
+  const [branches, grades, sections] = await Promise.all([
     supabase.from('branches').select('id, name, code'),
     supabase.from('grades').select('id, name'),
-    supabase.from('sections').select('id, branch_id, grade_id, name'),
-    supabase.from('students').select('national_id').not('national_id', 'is', null),
+    supabase.from('sections').select('id, branch_id, grade_id, name').limit(5000),
   ]);
   const bList = (branches.data ?? []) as { id: string; name: string; code: string | null }[];
   const gList = (grades.data ?? []) as { id: string; name: string }[];
   const sList = (sections.data ?? []) as { id: string; branch_id: string; grade_id: string; name: string }[];
-  const existingIds = new Set((existing.data ?? []).map((e) => e.national_id as string));
   const bFind = (t: string) => { const k = normAr(t); return bList.find((b) => normAr(b.name) === k || normAr(b.name).replace(/^فرع /, '') === k.replace(/^فرع /, '') || (b.code && normAr(b.code) === k)); };
   const gIndex = new Map(gList.map((g) => [gradeKey(g.name), g]));
 
@@ -154,18 +179,22 @@ async function buildPreview(supabase: SupabaseClient, profile: Profile, base64: 
     const get = (k: string) => (colMap[k] ? cellText(row.getCell(colMap[k]).value).trim() : '');
     const name = get('full_name').replace(/\s+/g, ' ');
     if (!name) continue;
-    const nid = normalizeDigits(get('national_id')).replace(/\D/g, '') || null;
+    const nid = normalizeDigits(get('national_id')).replace(/\s+/g, '') || null;
+    const num = normalizeDigits(get('student_number')).trim() || null;
     const g = normAr(get('gender'));
     const item: ImportRow = {
-      row: r, full_name: name, national_id: nid, student_number: get('student_number') || null,
+      row: r, full_name: name, national_id: nid, student_number: num,
+      name_en: get('name_en').replace(/\s+/g, ' ') || null, birth_date: get('birth_date') || null,
+      nationality: get('nationality') || null, id_type: get('id_type') || null,
       gender: /ذكر|ولد|طالب$|male|^m$/.test(g) ? 'male' : /انث|بنت|طالبه|female|^f$/.test(g) ? 'female' : null,
       branch: get('branch'), grade: get('grade'), section: get('section'),
     };
     const errs: string[] = [];
     if (name.split(' ').length < 2) errs.push('الاسم ناقص');
-    if (nid && !/^\d{10}$/.test(nid)) errs.push('رقم الهوية ليس 10 أرقام');
-    if (nid && seenIds.has(nid)) errs.push('رقم الهوية مكرر في الملف');
-    if (nid) seenIds.add(nid);
+    if (nid && nid.length > 20) errs.push('رقم الهوية طويل جداً');
+    if (num && num.length > 30) errs.push('الرقم الأكاديمي طويل جداً');
+    if (num && seenIds.has(num)) errs.push('الرقم الأكاديمي مكرر في الملف');
+    if (num) seenIds.add(num);
 
     const b = item.branch ? bFind(item.branch) : bList.find((x) => x.id === defaultBranch);
     if (!b) errs.push(item.branch ? `الفرع "${item.branch}" غير موجود` : 'حددي الفرع');
@@ -181,7 +210,11 @@ async function buildPreview(supabase: SupabaseClient, profile: Profile, base64: 
         else { item.newSection = true; newSections.add(`${b.name} · ${gr.name} · ${item.section}`); }
       } else item.section_id = null;
     }
-    if (nid && existingIds.has(nid)) item.existing = true;
+    if (num && existingNumbers.has(num)) {
+      item.existing = true;
+      const other = existingNumbers.get(num);
+      if (profile.role === 'supervisor' && other !== profile.branch_id) errs.push('الرقم الأكاديمي مسجّل لطالب في فرع آخر');
+    }
     if (errs.length) item.error = errs.join('، ');
     rows.push(item);
   }
@@ -192,9 +225,10 @@ async function buildPreview(supabase: SupabaseClient, profile: Profile, base64: 
     valid: rows.filter((r) => !r.error).length,
     errors: rows.filter((r) => r.error).length,
     updates: rows.filter((r) => !r.error && r.existing).length,
+    noNumber: rows.filter((r) => !r.error && !r.student_number).length,
     newSections: [...newSections],
     rows,
-    headers: Object.fromEntries(Object.keys(HEADERS).map((k) => [k, colMap[k] ? cellText(ws.getRow(headerRow).getCell(colMap[k]).value) : null])),
+    headers: Object.fromEntries((Object.keys(HEADERS) as Col[]).map((k) => [k, colMap[k] ? cellText(ws.getRow(headerRow).getCell(colMap[k]).value) : null])),
   };
 }
 
@@ -227,24 +261,26 @@ export async function commitImport(base64: string, defaultBranch: string | null,
       });
     }
 
-    const source = 'import' as const;
-    const toRow = (r: ImportRow) => ({
-      full_name: r.full_name, national_id: r.national_id, student_number: r.student_number, gender: r.gender,
-      branch_id: r.branch_id!, grade_id: r.grade_id!, section_id: r.section_id ?? null, is_active: true,
+    const base = (r: ImportRow) => ({
+      full_name: r.full_name, student_number: r.student_number, national_id: r.national_id, gender: r.gender,
+      name_en: r.name_en, birth_date: r.birth_date, nationality: r.nationality, id_type: r.id_type,
+      branch_id: r.branch_id!, grade_id: r.grade_id!, is_active: true,
     });
-    const withId = valid.filter((r) => r.national_id);
-    const withoutId = valid.filter((r) => !r.national_id);
     let done = 0;
-    for (let i = 0; i < withId.length; i += 500) {
-      const chunk = withId.slice(i, i + 500).map((r) => ({ ...toRow(r), source, created_by: profile.id }));
-      const res = await supabase.from('students').upsert(chunk, { onConflict: 'national_id' }).select('id');
-      done += must(res)?.length ?? 0;
-    }
-    for (let i = 0; i < withoutId.length; i += 500) {
-      const chunk = withoutId.slice(i, i + 500).map((r) => ({ ...toRow(r), source, created_by: profile.id }));
-      const res = await supabase.from('students').insert(chunk).select('id');
-      done += must(res)?.length ?? 0;
-    }
+    const put = async (rows: Record<string, unknown>[], mode: 'insert' | 'upsert') => {
+      for (let i = 0; i < rows.length; i += 500) {
+        const chunk = rows.slice(i, i + 500);
+        const res = mode === 'insert'
+          ? await supabase.from('students').insert(chunk).select('id')
+          : await supabase.from('students').upsert(chunk, { onConflict: 'student_number' }).select('id');
+        done += must(res)?.length ?? 0;
+      }
+    };
+    // طلاب جدد
+    await put(valid.filter((r) => !r.existing).map((r) => ({ ...base(r), section_id: r.section_id ?? null, source: 'import', created_by: profile.id })), 'insert');
+    // موجودون: تحديث بياناتهم — والشعبة لا تتغير إلا إذا كانت محددة في الملف
+    await put(valid.filter((r) => r.existing && r.section_id).map((r) => ({ ...base(r), section_id: r.section_id })), 'upsert');
+    await put(valid.filter((r) => r.existing && !r.section_id).map((r) => base(r)), 'upsert');
     return { imported: done, skipped: p.errors, sections: p.newSections.length };
   }, { revalidate: ['/students', '/settings'], log: (d) => d });
 }

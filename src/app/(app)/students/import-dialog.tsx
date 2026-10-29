@@ -42,7 +42,7 @@ export function ImportDialog({ open, onClose, isAdmin, branches, defaultBranch }
     const r = await exec(() => commitImport(file.b64, branch || null, createSections), {
       confirm: {
         title: 'تأكيد الاستيراد',
-        message: <>سيتم حفظ <b>{preview.valid}</b> طالب{preview.updates ? `، منهم ${preview.updates} موجودون مسبقاً وستُحدّث بياناتهم` : ''}{preview.errors ? `، وتجاهل ${preview.errors} صف به أخطاء` : ''}.</>,
+        message: <>سيتم حفظ <b>{preview.valid}</b> طالب{preview.updates ? `، منهم ${preview.updates} موجودون مسبقاً بنفس الرقم الأكاديمي وستُحدّث بياناتهم (مع الإبقاء على شعبتهم)` : ''}{preview.errors ? `، وتجاهل ${preview.errors} صف به أخطاء` : ''}.</>,
         confirmText: 'استيراد',
       },
       success: (d) => `تم استيراد ${d?.imported ?? 0} طالب`,
@@ -52,7 +52,7 @@ export function ImportDialog({ open, onClose, isAdmin, branches, defaultBranch }
 
   return (
     <Dialog open={open} onClose={close} size="xl" title="استيراد الطلاب من إكسل"
-      description="المطلوب: اسم الطالب والصف. الشعبة اختيارية — الطلاب بدون شعبة تختارهم المعلمات من شاشة الرصد."
+      description="المطلوب: اسم الطالب والصف الدراسي. الرقم الأكاديمي يمنع تكرار الطالب. الشعبة اختيارية — المعلمات يخترن طلاب شعباتهن."
       footer={preview ? <>
         <Button loading={busy} disabled={!preview.valid} onClick={commit}>استيراد {preview.valid} طالب</Button>
         <Button variant="secondary" onClick={reset}><RefreshCcw className="h-4 w-4" />ملف آخر</Button>
@@ -98,11 +98,17 @@ export function ImportDialog({ open, onClose, isAdmin, branches, defaultBranch }
           <div className="flex flex-wrap gap-1.5 text-[12px]">
             {Object.entries(preview.headers).map(([k, v]) => (
               <span key={k} className={cn('rounded-full px-2.5 py-1', v ? 'bg-mint-soft text-mint' : 'bg-surface text-ink-faint')}>
-                {({ full_name: 'الاسم', national_id: 'الهوية', student_number: 'رقم الطالب', gender: 'الجنس', branch: 'الفرع', grade: 'الصف', section: 'الشعبة' } as Record<string, string>)[k]}
+                {({ student_number: 'الرقم الأكاديمي', full_name: 'الاسم (عربي)', name_en: 'الاسم (إنجليزي)', grade: 'الصف', birth_date: 'الميلاد', nationality: 'الجنسية', id_type: 'نوع الهوية', national_id: 'رقم الهوية', gender: 'الجنس', section: 'الشعبة', branch: 'الفرع' } as Record<string, string>)[k]}
                 {v ? ` ← ${v}` : ' (غير موجود)'}
               </span>
             ))}
           </div>
+          {preview.noNumber > 0 && (
+            <p className="flex items-start gap-2 rounded-2xl bg-amber-soft p-3.5 text-[13px] leading-6 text-amber">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span><b className="num">{preview.noNumber}</b> طالب بدون رقم أكاديمي: سيُضافون كطلاب جدد، ولو أعدتِ رفع الملف سيتكررون. يُفضّل إكمال أرقامهم.</span>
+            </p>
+          )}
           {preview.newSections.length > 0 && (
             <div className="rounded-2xl bg-amber-soft p-4">
               <div className="flex items-center justify-between gap-3">
@@ -115,14 +121,14 @@ export function ImportDialog({ open, onClose, isAdmin, branches, defaultBranch }
           <div className="max-h-[38vh] overflow-auto rounded-2xl ring-1 ring-line scrollbar-thin">
             <table className="w-full text-[12.5px]">
               <thead className="sticky top-0 bg-surface text-ink-muted">
-                <tr>{['الصف في الملف', 'الاسم', 'الهوية', 'الصف', 'الشعبة', 'الحالة'].map((h) => <th key={h} className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{h}</th>)}</tr>
+                <tr>{['السطر', 'الرقم الأكاديمي', 'الاسم', 'الصف', 'الشعبة', 'الحالة'].map((h) => <th key={h} className="whitespace-nowrap px-3 py-2.5 text-right font-medium">{h}</th>)}</tr>
               </thead>
               <tbody className="divide-y divide-line">
                 {preview.rows.map((r) => (
                   <tr key={r.row} className={r.error ? 'bg-rose-soft/50' : ''}>
                     <td className="num px-3 py-2 text-ink-muted">{r.row}</td>
+                    <td className="num px-3 py-2" dir="ltr">{r.student_number ?? <span className="text-amber">—</span>}</td>
                     <td className="whitespace-nowrap px-3 py-2">{r.full_name}</td>
-                    <td className="num px-3 py-2" dir="ltr">{r.national_id ?? '—'}</td>
                     <td className="whitespace-nowrap px-3 py-2">{r.grade || '—'}</td>
                     <td className="px-3 py-2">{r.section || '—'}</td>
                     <td className="px-3 py-2">

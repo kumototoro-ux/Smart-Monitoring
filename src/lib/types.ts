@@ -38,6 +38,7 @@ export interface VerbalLevel { id: string; grade_id: string; label: string; sort
 export interface Student {
   id: string; branch_id: string; grade_id: string; section_id: string | null;
   full_name: string; national_id: string | null; student_number: string | null;
+  name_en: string | null; birth_date: string | null; nationality: string | null; id_type: string | null;
   gender: Gender | null; source: 'import' | 'admin' | 'supervisor' | 'teacher';
   needs_review: boolean; is_active: boolean; created_at: string;
 }

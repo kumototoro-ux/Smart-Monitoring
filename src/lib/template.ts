@@ -16,55 +16,58 @@ export async function buildStudentTemplate(supabase: SupabaseClient, branchId: s
 
   const wb = newBook();
   const ws = wb.addWorksheet('الطلاب', { views: [{ rightToLeft: true, state: 'frozen', ySplit: 1 }] });
+  // نفس ترتيب بيانات المدرسة — يمكن النسخ واللصق مباشرة. الأعمدة الثلاثة الأخيرة اختيارية
   const cols = [
-    { h: 'اسم الطالب', w: 36, note: 'مطلوب — الاسم ثلاثياً على الأقل' },
-    { h: 'رقم الهوية', w: 16, note: 'اختياري — 10 أرقام' },
-    { h: 'رقم الطالب', w: 14, note: 'اختياري' },
-    { h: 'الجنس', w: 10, note: 'اختاري من القائمة' },
-    { h: 'الفرع', w: 22, note: 'اختاري من القائمة' },
-    { h: 'الصف', w: 22, note: 'مطلوب — اختاري من القائمة' },
-    { h: 'الشعبة', w: 10, note: 'اختياري — اتركيه فارغاً إذا لا تعرفين' },
+    { h: 'الرقم الأكاديمي', w: 16, note: 'مهم جداً — يمنع تكرار الطالب عند إعادة الرفع', key: true, text: true },
+    { h: 'اسم الطالب الرباعي (عربي)', w: 36, note: 'مطلوب', key: true },
+    { h: 'اسم الطالب (إنجليزي)', w: 30, note: 'اختياري' },
+    { h: 'الصف الدراسي', w: 22, note: 'مطلوب — اختاري من القائمة', key: true },
+    { h: 'تاريخ الميلاد', w: 14, note: 'اختياري — هجري أو ميلادي', text: true },
+    { h: 'الجنسية', w: 14, note: 'اختياري' },
+    { h: 'نوع الهوية', w: 14, note: 'اختياري' },
+    { h: 'رقم الهوية', w: 16, note: 'اختياري — يمكن أن يتكرر للإخوة', text: true },
+    { h: 'الجنس', w: 10, note: 'اختياري — طالب / طالبة', extra: true },
+    { h: 'الشعبة', w: 10, note: 'اختياري — اتركيه فارغاً إذا لا تعرفين', extra: true },
+    { h: 'الفرع', w: 20, note: 'اختياري — أو اختاري الفرع الافتراضي عند الرفع', extra: true },
   ];
   ws.columns = cols.map((c) => ({ width: c.w }));
   const head = ws.getRow(1);
   head.values = cols.map((c) => c.h);
-  head.height = 30;
+  head.height = 32;
   head.eachCell((c, i) => {
-    c.font = { name: 'Arial', bold: true, size: 12, color: { argb: XL.headText } };
-    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: [1, 6].includes(i) ? XL.head : 'FF3A3A48' } };
-    c.alignment = { horizontal: 'center', vertical: 'middle' };
+    const col = cols[i - 1];
+    c.font = { name: 'Arial', bold: true, size: 11.5, color: { argb: col.extra ? XL.ink : XL.headText } };
+    c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: col.key ? XL.head : col.extra ? XL.peri : 'FF3A3A48' } };
+    c.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
     c.border = box;
-    c.note = cols[i - 1].note;
+    c.note = col.note;
   });
-  // تنسيق النص لرقم الهوية حتى لا يحذف الإكسل الأصفار
-  ws.getColumn(2).numFmt = '@';
-  ws.getColumn(3).numFmt = '@';
+  // نص حتى لا يحذف الإكسل الأصفار أو يحوّل الأرقام الطويلة
+  cols.forEach((c, i) => { if (c.text) ws.getColumn(i + 1).numFmt = '@'; });
 
   // القوائم في ورقة مخفية
   const lists = wb.addWorksheet('lists', { state: 'hidden' });
   bNames.forEach((n, i) => (lists.getCell(i + 1, 1).value = n));
   gNames.forEach((n, i) => (lists.getCell(i + 1, 2).value = n));
-  lists.getCell(1, 3).value = 'طالب';
-  lists.getCell(2, 3).value = 'طالبة';
+  ['طالب', 'طالبة'].forEach((n, i) => (lists.getCell(i + 1, 3).value = n));
+  ['هوية وطنية', 'إقامة', 'جواز سفر', 'هوية زائر', 'بدون'].forEach((n, i) => (lists.getCell(i + 1, 4).value = n));
 
   const ROWS = 5000;
   // متاحة في exceljs لكن غير معرّفة في أنواعه
   const dv = (ws as unknown as { dataValidations: { add: (range: string, v: Record<string, unknown>) => void } }).dataValidations;
-  const list = (range: string, formula: string, title: string) =>
+  const list = (range: string, formula: string, title: string, strict = true) =>
     dv.add(range, {
       type: 'list', allowBlank: true, formulae: [formula],
-      showErrorMessage: true, errorStyle: 'stop', errorTitle: title, error: 'اختاري قيمة من القائمة المنسدلة',
+      showErrorMessage: true, errorStyle: strict ? 'stop' : 'warning', errorTitle: title,
+      error: strict ? 'اختاري قيمة من القائمة المنسدلة' : 'القيمة غير موجودة في القائمة — يمكنك المتابعة',
     });
-  list(`D2:D${ROWS}`, 'lists!$C$1:$C$2', 'الجنس');
-  if (bNames.length) list(`E2:E${ROWS}`, `lists!$A$1:$A$${bNames.length}`, 'الفرع');
-  if (gNames.length) list(`F2:F${ROWS}`, `lists!$B$1:$B$${gNames.length}`, 'الصف');
-  dv.add(`B2:B${ROWS}`, {
-    type: 'textLength', operator: 'equal', allowBlank: true, formulae: [10],
-    showErrorMessage: true, errorTitle: 'رقم الهوية', error: 'رقم الهوية يجب أن يكون 10 أرقام',
-  });
+  if (gNames.length) list(`D2:D${ROWS}`, `lists!$B$1:$B$${gNames.length}`, 'الصف الدراسي');
+  list(`G2:G${ROWS}`, 'lists!$D$1:$D$5', 'نوع الهوية', false);
+  list(`I2:I${ROWS}`, 'lists!$C$1:$C$2', 'الجنس');
+  if (bNames.length) list(`K2:K${ROWS}`, `lists!$A$1:$A$${bNames.length}`, 'الفرع');
   // تعبئة الفرع تلقائياً للمشرفة
   if (branchId && bNames.length === 1) {
-    for (let r = 2; r <= 1000; r++) ws.getCell(r, 5).value = bNames[0];
+    for (let r = 2; r <= 1000; r++) ws.getCell(r, 11).value = bNames[0];
   }
 
   // التعليمات
@@ -73,21 +76,21 @@ export async function buildStudentTemplate(supabase: SupabaseClient, branchId: s
   const lines: [string, 'title' | 'h' | 'p'][] = [
     [`${settings?.school_name ?? ''} — نموذج استيراد الطلاب`, 'title'],
     ['طريقة الاستخدام', 'h'],
-    ['1. انسخي بيانات الطلاب والصقيها في ورقة «الطلاب» بدءاً من الصف الثاني (لا تغيّري صف العناوين).', 'p'],
-    ['2. عمودا «اسم الطالب» و«الصف» مطلوبان، وباقي الأعمدة اختيارية.', 'p'],
-    ['3. الفرع والصف والجنس: اختاري من القائمة المنسدلة، أو الصقي الاسم مطابقاً لما في القائمة.', 'p'],
-    ['4. إذا لا تعرفين شعبة الطالب اتركي «الشعبة» فارغاً — المعلمات يخترن طلاب شعباتهن من النظام.', 'p'],
-    ['5. احفظي الملف بصيغة xlsx ثم ارفعيه من: الطلاب ← استيراد إكسل. ستظهر معاينة قبل الحفظ.', 'p'],
+    ['1. الأعمدة الثمانية الأولى بنفس ترتيب بيانات المدرسة: انسخيها كما هي والصقيها في ورقة «الطلاب» بدءاً من الصف الثاني.', 'p'],
+    ['2. المطلوب فقط: اسم الطالب الرباعي (عربي) والصف الدراسي. ويُنصح بشدة بالرقم الأكاديمي.', 'p'],
+    ['3. الأعمدة البنفسجية (الجنس، الشعبة، الفرع) اختيارية — اتركيها فارغة إذا لا تعرفينها.', 'p'],
+    ['4. احفظي الملف بصيغة xlsx ثم ارفعيه من: الطلاب ← استيراد إكسل. ستظهر معاينة قبل الحفظ.', 'p'],
+    ['الرقم الأكاديمي', 'h'],
+    ['• هو المعرّف الأساسي للطالب: إذا رفعتِ الملف مرة ثانية، الطالب الموجود بنفس الرقم تُحدّث بياناته ولا يتكرر.', 'p'],
+    ['• عند التحديث تبقى شعبة الطالب كما هي، إلا إذا كتبتِ شعبة جديدة في الملف.', 'p'],
+    ['• رقم الهوية لا يُستخدم للتمييز، ويُسمح بتكراره (مثل الإخوة المسجّلين بهوية الأب) أو تركه فارغاً.', 'p'],
     ['كيف يعرف النظام الفرع؟', 'h'],
-    ['• من عمود «الفرع» في الملف (بالاسم أو بالرمز).', 'p'],
-    ['• أو تختارين «الفرع الافتراضي» في نافذة الاستيراد، فيُستخدم لكل صف عمود الفرع فيه فارغ.', 'p'],
-    ['• الأسهل: ملف لكل فرع مع اختيار الفرع الافتراضي، بدون عمود فرع.', 'p'],
-    ['ملاحظات', 'h'],
-    ['• رقم الهوية يمنع التكرار: إذا كان الطالب موجوداً مسبقاً تُحدّث بياناته بدل إضافته مرة ثانية.', 'p'],
-    ['• الصف يُقبل بأكثر من صيغة: «الأول الابتدائي» أو «أول ابتدائي» أو «1 ابتدائي».', 'p'],
-    ['• الشعبة تُقبل: أ، ب، ج أو 1، 2، 3 أو «شعبة أ».', 'p'],
-    ['الفروع المتاحة: ' + (bNames.join('، ') || '—'), 'p'],
+    ['• من عمود «الفرع» إن وُجد، وإلا من «الفرع الافتراضي» الذي تختارينه في نافذة الاستيراد.', 'p'],
+    ['• الأسهل: ملف لكل فرع، مع اختيار فرعه عند الرفع.', 'p'],
+    ['الطلاب بدون شعبة', 'h'],
+    ['• كل معلمة تختار طلاب شعبتها من شاشة الرصد، أو توزّعهم المشرفة من صفحة الطلاب.', 'p'],
     ['الصفوف المتاحة: ' + (gNames.join('، ') || '—'), 'p'],
+    ['الفروع المتاحة: ' + (bNames.join('، ') || '—'), 'p'],
   ];
   lines.forEach(([t, kind], i) => {
     const c = help.getCell(i + 2, 2);

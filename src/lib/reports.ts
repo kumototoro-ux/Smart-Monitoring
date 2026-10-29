@@ -8,7 +8,7 @@ export interface SectionReport {
   school: string; year: string; term: 1 | 2;
   branch: string; grade: string; section: string; mode: AssessmentMode;
   subjects: { id: string; name: string; comps: { id: string; name: string; max: number | null }[]; teacher: string | null }[];
-  students: { id: string; name: string; national_id: string | null }[];
+  students: { id: string; name: string; number: string | null }[];
   results: Map<string, { score: number | null; level: string | null; absent: boolean }>;
 }
 
@@ -27,7 +27,7 @@ export async function loadSectionReport(supabase: SupabaseClient, sectionId: str
   const [{ data: gs }, { data: excl }, { data: studs }, { data: levels }, { data: assigns }] = await Promise.all([
     gsQ,
     supabase.from('branch_subject_exclusions').select('grade_subject_id').eq('branch_id', s.branch_id),
-    supabase.from('students').select('id, full_name, national_id').eq('section_id', sectionId).eq('is_active', true).order('full_name'),
+    supabase.from('students').select('id, full_name, student_number').eq('section_id', sectionId).eq('is_active', true).order('full_name'),
     supabase.from('verbal_levels').select('id, label').eq('grade_id', s.grade_id),
     supabase.from('teacher_assignments').select('grade_subject_id, teacher:profiles(full_name)').eq('section_id', sectionId),
   ]);
@@ -41,7 +41,7 @@ export async function loadSectionReport(supabase: SupabaseClient, sectionId: str
     }));
 
   const levelName = new Map((levels ?? []).map((l) => [l.id, l.label as string]));
-  const students = (studs ?? []).map((x) => ({ id: x.id, name: x.full_name, national_id: x.national_id }));
+  const students = (studs ?? []).map((x) => ({ id: x.id, name: x.full_name, number: x.student_number }));
   const results = new Map<string, { score: number | null; level: string | null; absent: boolean }>();
   const compIds = subjects.flatMap((x) => x.comps.map((c) => c.id));
   for (let i = 0; i < students.length && compIds.length; i += 120) {
@@ -73,7 +73,7 @@ export function writeSectionSheet(wb: ExcelJS.Workbook, r: SectionReport, opts: 
       : detailed ? [...s.comps.map((c) => ({ label: `${c.name}\n(${c.max ?? '-'})`, comp: c.id })), { label: `المجموع\n(${s.comps.reduce((a, c) => a + (c.max ?? 0), 0)})`, comp: null }]
       : [{ label: `${s.comps.reduce((a, c) => a + (c.max ?? 0), 0)}`, comp: null }],
   }));
-  const fixed = 3; // م، الاسم، الهوية
+  const fixed = 3; // م، الاسم، الرقم الأكاديمي
   const totalCols = fixed + groups.reduce((a, g) => a + g.cols.length, 0) + (numeric ? 2 : 0);
 
   const ws = newSheet(wb, opts.sheetName ?? `${r.grade} ${r.section}`, true);
@@ -85,7 +85,7 @@ export function writeSectionSheet(wb: ExcelJS.Workbook, r: SectionReport, opts: 
 
   // صفا العناوين
   const h1 = ws.getRow(start); const h2 = ws.getRow(start + 1);
-  const heads: [number, string][] = [[1, 'م'], [2, 'اسم الطالب'], [3, 'رقم الهوية']];
+  const heads: [number, string][] = [[1, 'م'], [2, 'اسم الطالب'], [3, 'الرقم الأكاديمي']];
   heads.forEach(([c, t]) => { ws.mergeCells(start, c, start + 1, c); h1.getCell(c).value = t; });
   let col = fixed + 1;
   for (const g of groups) {
@@ -121,7 +121,7 @@ export function writeSectionSheet(wb: ExcelJS.Workbook, r: SectionReport, opts: 
     const row = ws.getRow(start + 2 + i);
     row.getCell(1).value = i + 1;
     row.getCell(2).value = st.name;
-    row.getCell(3).value = st.national_id ?? '';
+    row.getCell(3).value = st.number ?? '';
     let c = fixed + 1; let grand = 0; let missing = false;
     for (const g of groups) {
       let subTotal = 0; let subMissing = false;
