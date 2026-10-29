@@ -222,7 +222,7 @@ create table public.students (
   created_at     timestamptz not null default now(),
   updated_at     timestamptz not null default now()
 );
-create unique index students_national_id_uq on public.students(national_id) where national_id is not null;
+create unique index students_national_id_uq on public.students(national_id); -- NULL مسموح لأكثر من طالب
 create index students_section_idx on public.students(section_id) where is_active;
 create index students_branch_idx  on public.students(branch_id);
 create trigger students_touch before update on public.students
