@@ -4,6 +4,16 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
+// قفل التمرير بعدّاد: يدعم فتح أكثر من نافذة فوق بعض بدون أن يبقى الموقع مقفلاً
+let locks = 0;
+function lockScroll() {
+  if (locks++ === 0) document.documentElement.style.overflow = 'hidden';
+}
+function unlockScroll() {
+  locks = Math.max(0, locks - 1);
+  if (locks === 0) document.documentElement.style.overflow = '';
+}
+
 /** نافذة منبثقة: من الأسفل في الجوال، ووسط الشاشة في الكمبيوتر */
 export function Dialog({ open, onClose, title, description, children, footer, size = 'md', dismissible = true }: {
   open: boolean;
@@ -16,20 +26,25 @@ export function Dialog({ open, onClose, title, description, children, footer, si
   dismissible?: boolean;
 }) {
   const panel = useRef<HTMLDivElement>(null);
+  // نحفظ آخر onClose في ref حتى لا يُعاد تشغيل الإعداد مع كل ضغطة زر
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+  const dismissRef = useRef(dismissible);
+  dismissRef.current = dismissible;
 
   useEffect(() => {
     if (!open) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && dismissible && onClose();
+    lockScroll();
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && dismissRef.current && closeRef.current();
     window.addEventListener('keydown', onKey);
-    const t = setTimeout(() => panel.current?.querySelector<HTMLElement>('[data-autofocus], input, select, textarea, button')?.focus(), 60);
+    // التركيز مرة واحدة فقط عند الفتح
+    const t = setTimeout(() => panel.current?.querySelector<HTMLElement>('[data-autofocus], input, select, textarea, button')?.focus(), 80);
     return () => {
-      document.body.style.overflow = prev;
+      unlockScroll();
       window.removeEventListener('keydown', onKey);
       clearTimeout(t);
     };
-  }, [open, dismissible, onClose]);
+  }, [open]);
 
   const widths = { sm: 'sm:max-w-sm', md: 'sm:max-w-md', lg: 'sm:max-w-2xl', xl: 'sm:max-w-4xl' };
 

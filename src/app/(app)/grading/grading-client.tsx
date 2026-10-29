@@ -11,7 +11,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/ui/page-header';
 import { useToast } from '@/components/ui/toast';
-import { cn } from '@/lib/utils';
+import { cn, scrollAppTop } from '@/lib/utils';
 
 export function GradingClient({ sheets, gradingOpen, preset }: { sheets: TeacherSheet[]; gradingOpen: boolean; preset: { section?: string; subject?: string } }) {
   const router = useRouter();
@@ -41,7 +41,7 @@ export function GradingClient({ sheets, gradingOpen, preset }: { sheets: Teacher
     setLoading(false);
     if (r.ok && r.data) {
       setData({ d: r.data, scope: scope === 'all' ? 'all' : [scope] });
-      window.scrollTo({ top: 0 });
+      scrollAppTop(false);
     } else toast.error(r.message ?? 'تعذّر فتح الكشف');
   };
 

@@ -36,3 +36,18 @@ export function generatePassword(len = 8) {
   crypto.getRandomValues(arr);
   return Array.from(arr, (n) => chars[n % chars.length]).join('');
 }
+
+/** التمرير لأعلى منطقة المحتوى (تعمل في الجوال والكمبيوتر) */
+export function scrollAppTop(smooth = true) {
+  const behavior: ScrollBehavior = smooth ? 'smooth' : 'auto';
+  document.getElementById('app-scroll')?.scrollTo({ top: 0, behavior });
+  window.scrollTo({ top: 0, behavior });
+}
+
+/** الاسم الأول مع مراعاة الأسماء المركبة: عبد الله، أبو بكر، نور الهدى */
+export function firstName(full: string) {
+  const w = full.trim().split(/\s+/);
+  if (w.length > 1 && /^(عبد|أبو|ابو|أم|ام)$/.test(w[0])) return `${w[0]} ${w[1]}`;
+  if (w.length > 1 && /^(الدين|الله|الرحمن|الهدى)$/.test(w[1])) return `${w[0]} ${w[1]}`;
+  return w[0] ?? '';
+}

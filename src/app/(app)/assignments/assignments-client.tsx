@@ -1,4 +1,5 @@
 'use client';
+import { startNavProgress } from '@/components/shell/nav-progress';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, Plus, X, Users, AlertTriangle, ArrowLeftRight, Link2 } from 'lucide-react';
@@ -79,7 +80,7 @@ export function AssignmentsClient(p: Props) {
     <>
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         {p.isAdmin && (
-          <Select value={p.branchId} onChange={(e) => router.push(`/assignments?branch=${e.target.value}`)} className="sm:w-56">
+          <Select value={p.branchId} onChange={(e) => { startNavProgress(); router.push(`/assignments?branch=${e.target.value}`); }} className="sm:w-56">
             {p.branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </Select>
         )}

@@ -1,7 +1,6 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { Plus, Search, KeyRound, Pencil, UserX, UserCheck, Trash2, Users, Copy, Download, AtSign, ListPlus, MoreVertical, Check } from 'lucide-react';
-import { AnimatePresence, motion } from 'framer-motion';
 import {
   createAccount, bulkCreateTeachers, resetPassword, changeUsername, updateAccount,
   setAccountActive, deleteAccount, exportCredentials, type Credential,
@@ -15,6 +14,7 @@ import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
 import { useToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/shell/shell';
+import { FloatingMenu, MenuItem } from '@/components/ui/menu';
 import { ROLE_LABEL, type Branch, type Profile, type Role } from '@/lib/types';
 import { cn, fmtDateTime } from '@/lib/utils';
 
@@ -35,9 +35,10 @@ export function AccountsClient({ me, accounts, branches, assignCount }: {
   const [creds, setCreds] = useState<{ list: Credential[]; failed?: { line: string; reason: string }[] } | null>(null);
   const [userFor, setUserFor] = useState<Profile | null>(null);
   const [newUser, setNewUser] = useState('');
-  const [menu, setMenu] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ id: string; el: HTMLElement } | null>(null);
   const { exec, busy } = useAction();
   const toast = useToast();
+  const menuAcc = menu ? accounts.find((x) => x.id === menu.id) ?? null : null;
   const branchName = useMemo(() => new Map(branches.map((b) => [b.id, b.name])), [branches]);
 
   const list = useMemo(() => {
@@ -145,47 +146,45 @@ export function AccountsClient({ me, accounts, branches, assignCount }: {
                   {a.last_login_at ? fmtDateTime(a.last_login_at) : <span className="text-amber">لم يسجّل دخول</span>}
                 </div>
                 {!a.is_active && <Badge tone="danger">موقوف</Badge>}
-                <div className="relative">
-                  <button onClick={() => setMenu(menu === a.id ? null : a.id)} className="rounded-full p-2 text-ink-muted hover:bg-surface hover:text-ink" aria-label="خيارات">
-                    <MoreVertical className="h-[18px] w-[18px]" />
-                  </button>
-                  <AnimatePresence>
-                    {menu === a.id && (
-                      <>
-                        <div className="fixed inset-0 z-20" onClick={() => setMenu(null)} />
-                        <motion.div initial={{ opacity: 0, scale: 0.96, y: -4 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.96 }}
-                          className="absolute left-0 top-10 z-30 w-56 overflow-hidden rounded-2xl bg-white p-1.5 shadow-pop ring-1 ring-line">
-                          <MenuItem icon={<KeyRound />} onClick={() => doReset(a)}>إعادة تعيين كلمة المرور</MenuItem>
-                          <MenuItem icon={<AtSign />} onClick={() => { setMenu(null); setUserFor(a); setNewUser(a.username); }}>تغيير اسم المستخدم</MenuItem>
-                          <MenuItem icon={<Pencil />} onClick={() => { setMenu(null); setEdit({ id: a.id, full_name: a.full_name, phone: a.phone ?? '', role: a.role, branch_id: a.branch_id }); }}>تعديل البيانات</MenuItem>
-                          {a.id !== me.id && (
-                            <MenuItem icon={a.is_active ? <UserX /> : <UserCheck />} tone={a.is_active ? 'danger' : undefined}
-                              onClick={() => { setMenu(null); void exec(() => setAccountActive(a.id, !a.is_active), {
-                                success: a.is_active ? 'تم إيقاف الحساب' : 'تم تفعيل الحساب',
-                                confirm: { title: a.is_active ? 'إيقاف الحساب' : 'تفعيل الحساب', tone: a.is_active ? 'danger' : 'success',
-                                  message: a.is_active ? `لن تستطيع ${a.full_name} الدخول حتى يُعاد تفعيل الحساب.` : `ستستطيع ${a.full_name} الدخول مرة أخرى.`,
-                                  confirmText: a.is_active ? 'إيقاف' : 'تفعيل' },
-                              }); }}>
-                              {a.is_active ? 'إيقاف الحساب' : 'تفعيل الحساب'}
-                            </MenuItem>
-                          )}
-                          {isAdmin && a.id !== me.id && (
-                            <MenuItem icon={<Trash2 />} tone="danger" onClick={() => { setMenu(null); void exec(() => deleteAccount(a.id), {
-                              success: 'تم حذف الحساب',
-                              confirm: { title: 'حذف الحساب نهائياً', tone: 'danger', confirmText: 'حذف نهائي',
-                                message: `سيتم حذف حساب ${a.full_name} وإسناداته. الدرجات المرصودة تبقى محفوظة. يُفضّل "إيقاف الحساب" بدلاً من الحذف.` },
-                            }); }}>حذف نهائي</MenuItem>
-                          )}
-                        </motion.div>
-                      </>
-                    )}
-                  </AnimatePresence>
-                </div>
+                <button onClick={(e) => { const el = e.currentTarget; setMenu((m) => (m?.id === a.id ? null : { id: a.id, el })); }}
+                  className={cn('rounded-full p-2 text-ink-muted transition hover:bg-surface hover:text-ink', menu?.id === a.id && 'bg-surface text-ink')}
+                  aria-label="خيارات" aria-haspopup="menu" aria-expanded={menu?.id === a.id}>
+                  <MoreVertical className="h-[18px] w-[18px]" />
+                </button>
               </li>
             ))}
           </ul>
         )}
       </div>
+
+
+      <FloatingMenu anchor={menu?.el ?? null} onClose={() => setMenu(null)}>
+        {menuAcc && (() => { const a = menuAcc; return (
+          <>
+            <MenuItem icon={<KeyRound />} onClick={() => doReset(a)}>إعادة تعيين كلمة المرور</MenuItem>
+            <MenuItem icon={<AtSign />} onClick={() => { setMenu(null); setUserFor(a); setNewUser(a.username); }}>تغيير اسم المستخدم</MenuItem>
+            <MenuItem icon={<Pencil />} onClick={() => { setMenu(null); setEdit({ id: a.id, full_name: a.full_name, phone: a.phone ?? '', role: a.role, branch_id: a.branch_id }); }}>تعديل البيانات</MenuItem>
+            {a.id !== me.id && (
+              <MenuItem icon={a.is_active ? <UserX /> : <UserCheck />} tone={a.is_active ? 'danger' : undefined}
+                onClick={() => { setMenu(null); void exec(() => setAccountActive(a.id, !a.is_active), {
+                  success: a.is_active ? 'تم إيقاف الحساب' : 'تم تفعيل الحساب',
+                  confirm: { title: a.is_active ? 'إيقاف الحساب' : 'تفعيل الحساب', tone: a.is_active ? 'danger' : 'success',
+                    message: a.is_active ? `لن تستطيع ${a.full_name} الدخول حتى يُعاد تفعيل الحساب.` : `ستستطيع ${a.full_name} الدخول مرة أخرى.`,
+                    confirmText: a.is_active ? 'إيقاف' : 'تفعيل' },
+                }); }}>
+                {a.is_active ? 'إيقاف الحساب' : 'تفعيل الحساب'}
+              </MenuItem>
+            )}
+            {isAdmin && a.id !== me.id && (
+              <MenuItem icon={<Trash2 />} tone="danger" onClick={() => { setMenu(null); void exec(() => deleteAccount(a.id), {
+                success: 'تم حذف الحساب',
+                confirm: { title: 'حذف الحساب نهائياً', tone: 'danger', confirmText: 'حذف نهائي',
+                  message: `سيتم حذف حساب ${a.full_name} وإسناداته. الدرجات المرصودة تبقى محفوظة. يُفضّل «إيقاف الحساب» بدلاً من الحذف.` },
+              }); }}>حذف نهائي</MenuItem>
+            )}
+          </>
+        ); })()}
+      </FloatingMenu>
 
       {/* إنشاء / تعديل */}
       <Dialog open={!!edit} onClose={() => setEdit(null)} title={edit?.id ? 'تعديل الحساب' : 'حساب جديد'}
@@ -307,11 +306,3 @@ export function AccountsClient({ me, accounts, branches, assignCount }: {
   );
 }
 
-function MenuItem({ icon, children, onClick, tone }: { icon: React.ReactElement<{ className?: string }>; children: React.ReactNode; onClick: () => void; tone?: 'danger' }) {
-  return (
-    <button onClick={onClick} className={cn('flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-right text-[13.5px] hover:bg-surface', tone === 'danger' ? 'text-rose' : 'text-ink')}>
-      <span className="[&>svg]:h-4 [&>svg]:w-4">{icon}</span>
-      {children}
-    </button>
-  );
-}

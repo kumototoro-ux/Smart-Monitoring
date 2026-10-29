@@ -1,4 +1,5 @@
 'use client';
+import { startNavProgress } from '@/components/shell/nav-progress';
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileSpreadsheet, Download, Eye, CheckCircle2, Circle, Users, Loader2, BarChart3, Building2 } from 'lucide-react';
@@ -10,7 +11,7 @@ import { Select } from '@/components/ui/field';
 import { EmptyState } from '@/components/ui/empty';
 import { Ring } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/toast';
-import { cn, fmtDateTime } from '@/lib/utils';
+import { cn, fmtDateTime, scrollAppTop } from '@/lib/utils';
 import type { Branch, Grade, Section } from '@/lib/types';
 
 export interface SubjectStatus { id: string; name: string; teachers: string[]; comps: { id: string; name: string; at: string | null; by: string | null }[] }
@@ -31,14 +32,14 @@ export function ResultsClient({ role, branches, grades, sections, filters, statu
     if (patch.branch) { f.grade = ''; f.section = ''; }
     if (patch.grade) f.section = '';
     const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v).map(([k, v]) => [k, String(v)]));
-    start(() => router.push(`/results?${qs}`));
+    startNavProgress(); start(() => router.push(`/results?${qs}`));
   };
 
   const open = async (gsId: string) => {
     setOpening(gsId);
     const r = await loadSheet(filters.section, gsId, filters.term);
     setOpening(null);
-    if (r.ok && r.data) { setSheet(r.data); window.scrollTo({ top: 0 }); }
+    if (r.ok && r.data) { setSheet(r.data); scrollAppTop(false); }
     else toast.error(r.message ?? 'تعذّر فتح الكشف');
   };
 

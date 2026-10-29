@@ -1,4 +1,5 @@
 'use client';
+import { startNavProgress } from '@/components/shell/nav-progress';
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Search, Plus, Upload, Pencil, GraduationCap, ChevronRight, ChevronLeft, CheckCheck, ArrowRightLeft, UserX, UserCheck, Trash2, Loader2 } from 'lucide-react';
@@ -41,7 +42,7 @@ export function StudentsClient(p: Props) {
     if (patch.grade !== undefined && patch.section === undefined) f.section = '';
     const qs = new URLSearchParams(Object.entries(f).filter(([, v]) => v !== '' && v !== 1 || false).map(([k, v]) => [k, String(v)]));
     setSel([]);
-    start(() => router.push(`${path}?${qs}`));
+    startNavProgress(); start(() => router.push(`${path}?${qs}`));
   };
 
   // بحث بعد التوقف عن الكتابة
@@ -111,7 +112,7 @@ export function StudentsClient(p: Props) {
       </div>
 
       {sel.length > 0 && (
-        <div className="sticky top-16 z-20 mb-3 flex flex-wrap items-center gap-2 rounded-card bg-black p-3 text-white shadow-pop lg:top-3">
+        <div className="sticky top-[72px] z-20 mb-3 flex flex-wrap items-center gap-2 rounded-card bg-black p-3 text-white shadow-pop lg:top-[92px]">
           <span className="num px-2 text-[13.5px]">تم تحديد {sel.length}</span>
           {sameGroup && <Button size="sm" variant="secondary" onClick={() => setMoveTo('')}><ArrowRightLeft className="h-4 w-4" />نقل لشعبة</Button>}
           {p.filters.flag === 'review' && <Button size="sm" variant="secondary" onClick={() => exec(() => approveStudents(sel), { success: (n) => `تم اعتماد ${n} طالب` }).then(() => setSel([]))}><CheckCheck className="h-4 w-4" />اعتماد البيانات</Button>}

@@ -1,4 +1,5 @@
 'use client';
+import { startNavProgress } from '@/components/shell/nav-progress';
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ShieldAlert, Bug, KeyRound, Search, ChevronRight, ChevronLeft, ChevronDown, ScrollText, Loader2 } from 'lucide-react';
@@ -45,7 +46,7 @@ export function LogsClient({ isAdmin, rows, total, page, pageSize, filters, summ
   const [q, setQ] = useState(filters.q);
   const nav = (patch: Partial<typeof filters> & { page?: number }) => {
     const f = { ...filters, page: '', ...patch } as Record<string, string | number>;
-    start(() => router.push(`/logs?${new URLSearchParams(Object.entries(f).filter(([, v]) => v !== '' && v !== 1).map(([k, v]) => [k, String(v)]))}`));
+    startNavProgress(); start(() => router.push(`/logs?${new URLSearchParams(Object.entries(f).filter(([, v]) => v !== '' && v !== 1).map(([k, v]) => [k, String(v)]))}`));
   };
   useEffect(() => {
     if (q === filters.q) return;

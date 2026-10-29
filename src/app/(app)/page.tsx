@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { ClipboardCheck, GraduationCap, Inbox, Users, ArrowLeft, Lock, CheckCircle2, Clock } from 'lucide-react';
 import { requireRole } from '@/lib/auth';
+import { firstName } from '@/lib/utils';
 import { getSettings, getStats } from '@/lib/data';
 import { getTeacherSheets, isEditable } from '@/lib/teacher';
 import { StatTile } from '@/components/ui/tile';
@@ -19,7 +20,7 @@ export default async function Dashboard() {
     const sheets = await getTeacherSheets(s.supabase, s.profile.id, settings.current_term, settings.academic_year);
     return (
       <div className="space-y-5">
-        <h1 className="text-[22px] font-semibold lg:hidden">أهلاً، {s.profile.full_name.split(' ')[0]}</h1>
+        <h1 className="text-[22px] font-semibold lg:hidden">أهلاً، {firstName(s.profile.full_name)}</h1>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <StatTile tone="rose" icon={<ClipboardCheck className="h-5 w-5" />} label="الكشوفات المرصودة" value={`${done}/${total}`} unit="كشف" />
           <StatTile tone="lilac" icon={<GraduationCap className="h-5 w-5" />} label="طلابي" value={stats?.students ?? 0} unit="طالب" />
@@ -72,7 +73,7 @@ export default async function Dashboard() {
 
   return (
     <div className="space-y-5">
-      <h1 className="text-[22px] font-semibold lg:hidden">أهلاً، {s.profile.full_name.split(' ')[0]}</h1>
+      <h1 className="text-[22px] font-semibold lg:hidden">أهلاً، {firstName(s.profile.full_name)}</h1>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatTile tone="rose" icon={<ClipboardCheck className="h-5 w-5" />} label="إنجاز الرصد" value={`${pct}%`} unit={`${done} من ${total} كشف`} />
         <StatTile tone="lilac" icon={<Users className="h-5 w-5" />} label="المعلمات" value={stats?.teachers ?? 0} unit="معلمة" />

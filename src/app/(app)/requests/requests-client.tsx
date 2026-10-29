@@ -1,4 +1,5 @@
 'use client';
+import { startNavProgress } from '@/components/shell/nav-progress';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Inbox, Unlock, UserPlus, UserMinus, MessageSquare, Check, X, Ban } from 'lucide-react';
@@ -46,7 +47,7 @@ export function RequestsClient({ role, status, rows }: { role: Role; status: str
     <>
       <div className="mb-4 inline-flex flex-wrap rounded-full bg-white p-1 shadow-soft">
         {[['pending', 'قيد المراجعة'], ['approved', 'المقبولة'], ['rejected', 'المرفوضة'], ['all', 'الكل']].map(([k, l]) => (
-          <button key={k} onClick={() => router.push(`/requests?status=${k}`)}
+          <button key={k} onClick={() => { startNavProgress(); router.push(`/requests?status=${k}`); }}
             className={cn('rounded-full px-4 py-2 text-[13.5px] transition', status === k ? 'bg-black text-white' : 'text-ink-soft')}>{l}</button>
         ))}
       </div>

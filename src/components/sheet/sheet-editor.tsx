@@ -16,7 +16,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/field';
 import { Badge } from '@/components/ui/badge';
 import { Bar } from '@/components/ui/progress';
-import { cn, normalizeDigits, timeLeft } from '@/lib/utils';
+import { cn, normalizeDigits, timeLeft, scrollAppTop } from '@/lib/utils';
 
 type Cell = { raw: string; absent: boolean; level: string | null };
 type Values = Record<string, Cell>;
@@ -164,7 +164,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
       message: <>تم رصد جميع الطلاب (<b>{data.students.length}</b>) في {editableComps.map((c) => c.name).join('، ')}.<br />الخطوة التالية: مراجعة الكشف قبل الحفظ.</>,
       confirmText: 'مراجعة الكشف',
     });
-    if (ok) { setPhase('review'); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+    if (ok) { setPhase('review'); scrollAppTop(); }
   };
 
   const doSave = async () => {
@@ -188,7 +188,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
     if (r?.ok && r.data) {
       try { localStorage.removeItem(draftKey); } catch { /* */ }
       setSaved(r.data); setPhase('done');
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      scrollAppTop();
       const fresh = await loadSheet(data.meta.section_id, data.meta.grade_subject_id, data.meta.term);
       if (fresh.ok && fresh.data) setData(fresh.data);
     } else if (r && !r.ok) {
