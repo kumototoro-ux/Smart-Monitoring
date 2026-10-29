@@ -53,3 +53,10 @@ export function must<T>(res: { data: T; error: unknown }): T {
   if (res.error) throw res.error;
   return res.data;
 }
+
+/** تحقق zod مع رسالة عربية واضحة */
+export function parseOr<T>(schema: { safeParse: (v: unknown) => { success: true; data: T } | { success: false; error: { issues: { message: string }[] } } }, v: unknown): T {
+  const r = schema.safeParse(v);
+  if (!r.success) throw new ActionError(r.error.issues[0]?.message ?? 'بيانات غير صحيحة');
+  return r.data;
+}
