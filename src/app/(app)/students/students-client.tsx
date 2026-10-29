@@ -111,6 +111,16 @@ export function StudentsClient(p: Props) {
         </div>
       </div>
 
+      {p.filters.flag === 'nosection' && (
+        <div className="mb-4 flex items-start gap-3 rounded-card bg-peri-soft p-4 text-[13.5px] leading-6 text-peri-deep">
+          <ArrowRightLeft className="mt-0.5 h-4 w-4 shrink-0" />
+          <p>
+            <b>توزيع الطلاب على الشعب:</b> {p.isAdmin && !p.filters.branch ? 'اختاري الفرع ثم ' : ''}{!p.filters.grade ? 'اختاري الصف، ثم ' : ''}حدّدي الطلاب واضغطي «نقل لشعبة».
+            المعلمات أيضاً يستطعن اختيار طلاب شعباتهن من هذه القائمة داخل شاشة الرصد.
+          </p>
+        </div>
+      )}
+
       {sel.length > 0 && (
         <div className="sticky top-[72px] z-20 mb-3 flex flex-wrap items-center gap-2 rounded-card bg-black p-3 text-white shadow-pop lg:top-[92px]">
           <span className="num px-2 text-[13.5px]">تم تحديد {sel.length}</span>

@@ -3,6 +3,7 @@ import { getSession } from '@/lib/auth';
 import { audit } from '@/lib/audit';
 import { newBook } from '@/lib/excel';
 import { loadSectionReport, writeSectionSheet, writeProgressSheet } from '@/lib/reports';
+import { buildStudentTemplate } from '@/lib/template';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -72,6 +73,18 @@ export async function GET(req: NextRequest) {
       if (!wb.worksheets.length) return fail(404, 'لا يوجد طلاب');
       const { data: b } = await s.supabase.from('branches').select('name').eq('id', branch).single();
       filename = `كشوفات-${b?.name ?? 'الفرع'}`;
+    } else if (type === 'template') {
+      if (role === 'teacher') return fail(403, 'غير مصرّح');
+      const t = await buildStudentTemplate(s.supabase, role === 'supervisor' ? s.profile.branch_id : null);
+      const buf = await t.xlsx.writeBuffer();
+      await audit({ action: 'export.template', actor: s.profile });
+      return new NextResponse(buf as ArrayBuffer, {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="template.xlsx"; filename*=UTF-8''${encodeURIComponent('نموذج-استيراد-الطلاب.xlsx')}`,
+          'Cache-Control': 'no-store',
+        },
+      });
     } else if (type === 'progress') {
       if (role === 'teacher') return fail(403, 'غير مصرّح');
       const branch = role === 'supervisor' ? s.profile.branch_id! : (p.get('branch') && UUID.test(p.get('branch')!) ? p.get('branch')! : null);

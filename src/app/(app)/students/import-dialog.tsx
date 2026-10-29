@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState } from 'react';
-import { FileSpreadsheet, UploadCloud, AlertCircle, CheckCircle2, RefreshCcw, Layers } from 'lucide-react';
+import { FileSpreadsheet, UploadCloud, AlertCircle, CheckCircle2, RefreshCcw, Layers, Download } from 'lucide-react';
 import { previewImport, commitImport, type ImportPreview } from '@/app/actions/students';
 import { useAction } from '@/lib/use-action';
 import { Button } from '@/components/ui/button';
@@ -52,15 +52,24 @@ export function ImportDialog({ open, onClose, isAdmin, branches, defaultBranch }
 
   return (
     <Dialog open={open} onClose={close} size="xl" title="استيراد الطلاب من إكسل"
-      description="الأعمدة المطلوبة: اسم الطالب، الصف. والاختيارية: رقم الهوية، رقم الطالب، الجنس، الفرع، الشعبة"
+      description="المطلوب: اسم الطالب والصف. الشعبة اختيارية — الطلاب بدون شعبة تختارهم المعلمات من شاشة الرصد."
       footer={preview ? <>
         <Button loading={busy} disabled={!preview.valid} onClick={commit}>استيراد {preview.valid} طالب</Button>
         <Button variant="secondary" onClick={reset}><RefreshCcw className="h-4 w-4" />ملف آخر</Button>
       </> : undefined}>
       {!preview ? (
         <div className="space-y-4 pb-4">
+          <div className="flex flex-col gap-3 rounded-2xl bg-peri-soft p-4 sm:flex-row sm:items-center">
+            <div className="flex-1 text-[13px] leading-6 text-peri-deep">
+              <p className="font-medium">ابدئي بتحميل النموذج</p>
+              <p>فيه قوائم منسدلة بأسماء الفروع والصفوف الموجودة في النظام. الصقي بياناتك فيه ثم ارفعيه هنا.</p>
+            </div>
+            <a href="/api/export?type=template" download className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-full bg-black px-4 text-[13.5px] text-white">
+              <Download className="h-4 w-4" />تحميل النموذج
+            </a>
+          </div>
           {isAdmin && (
-            <Field label="الفرع الافتراضي" hint="يُستخدم للصفوف التي لا يوجد بها عمود الفرع">
+            <Field label="الفرع الافتراضي" hint="النظام يقرأ الفرع من عمود «الفرع» في الملف (بالاسم أو الرمز). وإذا كان العمود فارغاً أو غير موجود يُستخدم هذا الفرع. الأسهل: ملف لكل فرع مع اختيار فرعه هنا.">
               <Select value={branch} onChange={(e) => setBranch(e.target.value)}>
                 <option value="">من عمود الفرع في الملف</option>
                 {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}

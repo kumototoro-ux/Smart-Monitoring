@@ -116,7 +116,8 @@ async function buildPreview(supabase: SupabaseClient, profile: Profile, base64: 
   } catch {
     throw new ActionError('تعذّرت قراءة الملف. تأكدي أنه بصيغة xlsx');
   }
-  const ws = wb.worksheets.find((w) => w.rowCount > 1);
+  const ws = wb.worksheets.find((w) => w.name === 'الطلاب' && w.rowCount > 1)
+    ?? wb.worksheets.find((w) => w.state === 'visible' && w.name !== 'التعليمات' && w.rowCount > 1);
   if (!ws) throw new ActionError('الملف فارغ');
 
   // اكتشاف صف العناوين في أول 10 صفوف

@@ -17,6 +17,7 @@ export interface SheetData {
   excluded: { id: string; full_name: string; reason: string | null }[];
   results: Record<string, { score: number | null; verbal_level_id: string | null; is_absent: boolean }>; // key: studentId:componentId
   pendingUnlock: boolean;
+  poolCount: number; // طلاب الصف بدون شعبة
 }
 
 export async function loadSheet(sectionId: string, gradeSubjectId: string, term?: 1 | 2) {
@@ -38,7 +39,7 @@ export async function loadSheet(sectionId: string, gradeSubjectId: string, term?
     if (stErr) throw stErr;
     const st = status as { components: { component_id: string; editable: boolean; submitted_at: string | null; edit_until: string | null; unlocked_until: string | null; version: number | null }[] };
 
-    const [comps, levels, studs, excl, pend] = await Promise.all([
+    const [comps, levels, studs, excl, pend, pool] = await Promise.all([
       supabase.from('assessment_components').select('id, name, max_score, sort_order').eq('grade_subject_id', gs).order('sort_order'),
       supabase.from('verbal_levels').select('id, label, sort_order').eq('grade_id', section.grade_id).order('sort_order'),
       supabase.from('students').select('id, full_name, gender, needs_review').eq('section_id', sec).eq('is_active', true).order('full_name'),
@@ -46,6 +47,7 @@ export async function loadSheet(sectionId: string, gradeSubjectId: string, term?
       profile.role === 'teacher'
         ? supabase.from('requests').select('id', { count: 'exact', head: true }).eq('requested_by', profile.id).eq('status', 'pending').eq('type', 'unlock_sheet').eq('section_id', sec).eq('grade_subject_id', gs)
         : Promise.resolve({ count: 0 }),
+      supabase.rpc('section_pool', { p_section: sec }),
     ]);
 
     const exclMap = new Map((excl.data ?? []).map((e) => [e.student_id as string, e.reason as string | null]));
@@ -81,6 +83,7 @@ export async function loadSheet(sectionId: string, gradeSubjectId: string, term?
       levels: ((levels.data ?? []) as { id: string; label: string }[]).map((l) => ({ id: l.id, label: l.label })),
       students, excluded, results,
       pendingUnlock: ((pend as { count: number | null }).count ?? 0) > 0,
+      poolCount: Array.isArray(pool.data) ? pool.data.length : 0,
     } satisfies SheetData;
   });
 }
@@ -166,4 +169,33 @@ export async function reviewRequest(id: string, approve: boolean, note?: string)
     const { error } = await supabase.rpc('review_request', { p_request: parseOr(uuid, id), p_approve: approve, p_note: note?.slice(0, 1000) || null });
     if (error) throw error;
   }, { revalidate: ['/requests', '/'] });
+}
+
+// ===================================================================== طلاب الصف بدون شعبة
+export interface PoolStudent { id: string; full_name: string; national_id: string | null; student_number: string | null; gender: 'male' | 'female' | null }
+
+export async function loadPool(sectionId: string) {
+  return run('pool.load', ['teacher', 'admin', 'supervisor'], async ({ supabase }) => {
+    const { data, error } = await supabase.rpc('section_pool', { p_section: parseOr(uuid, sectionId) });
+    if (error) throw error;
+    return (data ?? []) as PoolStudent[];
+  });
+}
+
+export async function claimStudents(sectionId: string, studentIds: string[]) {
+  return run('pool.claim', ['teacher', 'admin', 'supervisor'], async ({ supabase }) => {
+    const ids = parseOr(z.array(uuid).min(1, 'اختاري طالباً واحداً على الأقل').max(200), studentIds);
+    const { data, error } = await supabase.rpc('claim_students', { p_section: parseOr(uuid, sectionId), p_students: ids });
+    if (error) throw error;
+    return data as { claimed: number; skipped: number };
+  }, { revalidate: ['/students'] });
+}
+
+export async function releaseStudents(sectionId: string, studentIds: string[]) {
+  return run('pool.release', ['teacher', 'admin', 'supervisor'], async ({ supabase }) => {
+    const ids = parseOr(z.array(uuid).min(1).max(200), studentIds);
+    const { data, error } = await supabase.rpc('release_students', { p_section: parseOr(uuid, sectionId), p_students: ids });
+    if (error) throw error;
+    return data as number;
+  }, { revalidate: ['/students'] });
 }

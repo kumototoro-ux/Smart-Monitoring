@@ -7,7 +7,8 @@ import {
   ClipboardCheck, PencilLine, Save, Send, RotateCcw, ChevronDown, History, Download,
 } from 'lucide-react';
 import type { SheetData } from '@/app/actions/grading';
-import { saveSheet, teacherAddStudent, excludeStudent, restoreStudent, createRequest, loadSheet } from '@/app/actions/grading';
+import { saveSheet, teacherAddStudent, excludeStudent, restoreStudent, createRequest, loadSheet, releaseStudents } from '@/app/actions/grading';
+import { PoolPicker } from './pool-picker';
 import { useAction } from '@/lib/use-action';
 import { useConfirm } from '@/components/ui/confirm';
 import { useToast } from '@/components/ui/toast';
@@ -19,6 +20,7 @@ import { Bar } from '@/components/ui/progress';
 import { cn, normalizeDigits, timeLeft, scrollAppTop } from '@/lib/utils';
 
 type Cell = { raw: string; absent: boolean; level: string | null };
+const RELEASE = 'ليس من شعبتي — إرجاعه لقائمة طلاب الصف';
 type Values = Record<string, Cell>;
 const k = (s: string, c: string) => `${s}:${c}`;
 const ABSENT = /^\s*(غ|غائب|غائبة|غياب|a|abs)\s*$/i;
@@ -64,9 +66,10 @@ export function SheetEditor({ initial, scope, role, onBack }: {
   const [draftRestored, setDraftRestored] = useState(false);
   const [missingOpen, setMissingOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  const [poolOpen, setPoolOpen] = useState(false);
   const [newStudent, setNewStudent] = useState({ full_name: '', gender: '', national_id: '', student_number: '' });
   const [excludeFor, setExcludeFor] = useState<SheetData['students'][number] | null>(null);
-  const [excludeReason, setExcludeReason] = useState('منقول لشعبة أو مدرسة أخرى');
+  const [excludeReason, setExcludeReason] = useState(RELEASE);
   const [unlockOpen, setUnlockOpen] = useState(false);
   const [unlockNote, setUnlockNote] = useState('');
   const [showExcluded, setShowExcluded] = useState(false);
@@ -221,6 +224,15 @@ export function SheetEditor({ initial, scope, role, onBack }: {
 
   const doExclude = async () => {
     if (!excludeFor) return;
+    if (excludeReason === RELEASE) {
+      const rr = await exec(() => releaseStudents(data.meta.section_id, [excludeFor.id]), {
+        confirm: { title: 'إرجاع الطالب لقائمة الصف', tone: 'danger', confirmText: 'إرجاع',
+          message: <><b>{excludeFor.full_name}</b> سيخرج من شعبة {data.meta.section_name} في كل المواد، ويعود لقائمة طلاب {data.meta.grade_name} لتختاره معلمة شعبته.</> },
+        success: 'تم إرجاع الطالب لقائمة الصف', refresh: false,
+      });
+      if (rr?.ok) { setExcludeFor(null); await reload(); }
+      return;
+    }
     const r = await exec(() => excludeStudent(excludeFor.id, data.meta.grade_subject_id, excludeReason), {
       confirm: { title: 'استبعاد الطالب من الكشف', tone: 'danger', confirmText: 'استبعاد',
         message: <><b>{excludeFor.full_name}</b> لن يظهر في كشف {data.meta.subject_name}. سيظهر الاستبعاد للإدارة، ويمكنك إعادته لاحقاً.</> },
@@ -323,6 +335,12 @@ export function SheetEditor({ initial, scope, role, onBack }: {
         {phase === 'entry' && role === 'supervisor' && (
           <Banner tone="neutral" icon={<Info className="h-4 w-4" />}>عرض فقط — المشرفة لا تعدّل الدرجات.</Banner>
         )}
+        {phase === 'entry' && role !== 'supervisor' && data.poolCount > 0 && data.students.length > 0 && (
+          <Banner tone="info" icon={<UserPlus className="h-4 w-4" />}
+            action={<Button size="sm" onClick={() => setPoolOpen(true)}>اختيار طلاب شعبتي</Button>}>
+            يوجد <b className="num">{data.poolCount}</b> طالب في {data.meta.grade_name} بدون شعبة. اختاري منهم طلاب شعبتك.
+          </Banner>
+        )}
         {phase === 'entry' && draftRestored && (
           <Banner tone="info" icon={<RotateCcw className="h-4 w-4" />}
             action={<Button size="sm" variant="ghost" onClick={discardDraft}>تجاهل المسودة</Button>}>
@@ -352,7 +370,21 @@ export function SheetEditor({ initial, scope, role, onBack }: {
       {/* الجدول */}
       <div ref={tableRef} className="card overflow-hidden">
         {data.students.length === 0 ? (
-          <div className="p-10 text-center text-[14px] text-ink-muted">لا يوجد طلاب في هذه الشعبة.</div>
+          <div className="flex flex-col items-center px-6 py-12 text-center">
+            <span className="mb-4 grid h-14 w-14 place-items-center rounded-2xl bg-peri-soft text-peri-deep"><UserPlus className="h-6 w-6" /></span>
+            <p className="text-[15px] font-medium">لا يوجد طلاب في هذه الشعبة بعد</p>
+            {data.poolCount > 0 && role !== 'supervisor' ? (
+              <>
+                <p className="mt-1 max-w-sm text-[13px] leading-6 text-ink-muted">يوجد <b className="num text-ink">{data.poolCount}</b> طالب في {data.meta.grade_name} لم تُحدد شعبتهم. اختاري طلاب شعبتك لتبدئي الرصد.</p>
+                <Button className="mt-5" onClick={() => setPoolOpen(true)}><UserPlus className="h-4 w-4" />اختيار طلاب شعبتي</Button>
+              </>
+            ) : <p className="mt-1 text-[13px] text-ink-muted">تواصلي مع المشرفة لإضافة الطلاب، أو أضيفي طالباً جديداً.</p>}
+            {editableComps.length > 0 && (
+              <Button variant="ghost" className="mt-2" onClick={() => { setNewStudent({ full_name: '', gender: '', national_id: '', student_number: '' }); setAddOpen(true); }}>
+                إضافة طالب جديد غير مسجّل
+              </Button>
+            )}
+          </div>
         ) : (
           <div className="scrollbar-thin overflow-x-auto">
             <table className="w-full border-separate border-spacing-0 text-[14px]">
@@ -480,7 +512,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
       )}
 
       {/* شريط الإجراءات */}
-      {editableComps.length > 0 && (
+      {editableComps.length > 0 && data.students.length > 0 && (
         <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-20 mt-4 lg:bottom-4">
           <div className="flex flex-wrap items-center gap-2 rounded-card bg-white/95 p-3 shadow-pop ring-1 ring-line backdrop-blur">
             {phase === 'entry' ? (
@@ -501,6 +533,9 @@ export function SheetEditor({ initial, scope, role, onBack }: {
         </div>
       )}
 
+      <PoolPicker open={poolOpen} onClose={() => setPoolOpen(false)} sectionId={data.meta.section_id}
+        sectionName={data.meta.section_name} gradeName={data.meta.grade_name} onClaimed={reload} />
+
       {/* لم يكتمل */}
       <Dialog open={missingOpen} onClose={() => setMissingOpen(false)} size="sm" title="لم يكتمل الرصد"
         description={<span className="num">يوجد <b className="text-ink">{stats.empty}</b> خانة فارغة لـ <b className="text-ink">{stats.rowsMissing}</b> طالب (مظللة بالأصفر).</span>}
@@ -512,7 +547,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
           <p className="rounded-xl bg-surface p-3">لا يُحفظ الكشف إلا بعد رصد كل الطلاب.</p>
           {!verbal && <p>• إذا كان الطالب يستحق <b className="text-ink">صفراً</b> اكتبي <b className="text-ink">0</b> صراحةً.</p>}
           <p>• إذا كان الطالب <b className="text-ink">غائباً</b> {verbal ? 'اختاري «غائب»' : <>اكتبي <b className="text-ink">غ</b></>}.</p>
-          <p>• إذا كان الطالب <b className="text-ink">ليس في صفك</b> استبعديه بزر الاستبعاد بجانب اسمه.</p>
+          <p>• إذا كان الطالب <b className="text-ink">ليس من شعبتك</b> أرجعيه لقائمة الصف بزر الاستبعاد بجانب اسمه.</p>
         </div>
       </Dialog>
 
@@ -524,6 +559,16 @@ export function SheetEditor({ initial, scope, role, onBack }: {
           <Button variant="secondary" loading={busy} onClick={() => addStudent('request')}><Send className="h-4 w-4" />طلب من المشرفة</Button>
         </>}>
         <div className="space-y-4">
+          {data.poolCount > 0 && (
+            <button onClick={() => { setAddOpen(false); setPoolOpen(true); }}
+              className="flex w-full items-center gap-3 rounded-2xl bg-peri-soft p-4 text-right transition hover:bg-peri-tile">
+              <UserPlus className="h-5 w-5 shrink-0 text-peri-deep" />
+              <span className="flex-1 text-[13.5px] leading-6 text-peri-deep">
+                <b>الطالب مسجّل في الصف بدون شعبة؟</b><br />اختاريه من قائمة طلاب {data.meta.grade_name} (<span className="num">{data.poolCount}</span> طالب)
+              </span>
+            </button>
+          )}
+          <p className="text-[12.5px] text-ink-muted">أو أضيفي طالباً جديداً غير مسجّل في النظام:</p>
           <Field label="اسم الطالب"><Input value={newStudent.full_name} onChange={(e) => setNewStudent({ ...newStudent, full_name: e.target.value })} placeholder="الاسم ثلاثياً على الأقل" /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label="الجنس">
@@ -543,12 +588,15 @@ export function SheetEditor({ initial, scope, role, onBack }: {
           <Button variant="secondary" onClick={() => setExcludeFor(null)}>إلغاء</Button>
         </>}>
         <div className="space-y-2 pb-2">
-          {['منقول لشعبة أو مدرسة أخرى', 'ليس في هذه الشعبة', 'معفى من المادة', 'منقطع عن الدراسة'].map((r) => (
+          {[RELEASE, 'منقول لمدرسة أخرى', 'معفى من المادة', 'منقطع عن الدراسة'].map((r) => (
             <label key={r} className={cn('flex cursor-pointer items-center gap-3 rounded-2xl border p-3.5 text-[14px] transition', excludeReason === r ? 'border-black' : 'border-line')}>
               <input type="radio" name="reason" checked={excludeReason === r} onChange={() => setExcludeReason(r)} className="accent-black" />{r}
             </label>
           ))}
           <Input placeholder="سبب آخر" onChange={(e) => setExcludeReason(e.target.value)} onFocus={(e) => setExcludeReason(e.target.value)} />
+          <p className="pt-1 text-[12px] leading-5 text-ink-muted">
+            {excludeReason === RELEASE ? 'يخرج الطالب من شعبتك في كل المواد ويعود لقائمة طلاب الصف.' : `يُستبعد الطالب من كشف ${data.meta.subject_name} فقط ويبقى في الشعبة.`}
+          </p>
         </div>
       </Dialog>
 
