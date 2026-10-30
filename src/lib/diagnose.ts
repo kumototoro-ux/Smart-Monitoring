@@ -47,6 +47,7 @@ const OP: Record<string, string> = {
   'assignment.add': 'إسناد مواد', 'assignment.remove': 'إزالة إسناد', 'assignment.transfer': 'نقل إسنادات',
   'student.save': 'حفظ بيانات طالب', 'student.import': 'استيراد الطلاب', 'student.import_preview': 'معاينة ملف الطلاب', 'student.move': 'نقل طلاب لشعبة',
   'student.set_active': 'إيقاف/تفعيل طلاب', 'student.approve': 'اعتماد بيانات طلاب', 'student.delete': 'حذف طلاب',
+  'review.resolve': 'قرار مراجعة طالب', 'review.approve_all': 'اعتماد كل الطلاب المضافين',
   'settings.update': 'تعديل الإعدادات', 'branch.save': 'حفظ فرع', 'branch.delete': 'حذف فرع', 'branch.grades': 'تحديد صفوف الفرع',
   'grade.save': 'حفظ صف', 'grade.delete': 'حذف صف', 'section.add': 'إضافة شعب', 'section.delete': 'حذف شعبة', 'section.rename': 'تعديل اسم شعبة',
   'section.general': 'إنشاء شعب «عام»', 'verbal.save': 'حفظ مستويات الرصد اللفظي', 'subject.save': 'حفظ مادة', 'subject.delete': 'حذف مادة',
@@ -71,6 +72,8 @@ const DONE: Record<string, string> = {
   'account.create': 'إنشاء حساب', 'account.reset_password': 'إعادة تعيين كلمة مرور', 'account.change_username': 'تغيير اسم مستخدم',
   'account.update': 'تعديل حساب', 'account.activate': 'تفعيل حساب', 'account.deactivate': 'إيقاف حساب', 'account.delete': 'حذف حساب',
   'settings.update': 'تعديل الإعدادات العامة', 'student.import': 'استيراد الطلاب', 'export.template': 'تحميل نموذج الاستيراد',
+  'review.approve': 'اعتماد/موافقة في مراجعة الطلاب', 'review.move': 'نقل طالب مُرجَع لشعبته', 'review.keep': 'إبقاء طالب بدون شعبة',
+  'review.restore': 'إعادة طالب مستبعد للكشف', 'review.deactivate': 'إيقاف طالب من المراجعة',
   'export.section': 'تصدير كشف شعبة', 'export.subject': 'تصدير كشف مادة', 'export.branch': 'تصدير كشوفات فرع', 'export.progress': 'تصدير تقرير متابعة الرصد',
 };
 

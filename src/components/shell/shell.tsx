@@ -20,6 +20,7 @@ export interface ShellProps {
   year: string;
   gradingOpen: boolean;
   pendingRequests: number;
+  pendingReviews?: number;
   children: React.ReactNode;
 }
 
@@ -33,6 +34,7 @@ export function Shell(p: ShellProps) {
   const [moreOpen, setMoreOpen] = useState(false);
   const confirm = useConfirm();
   const groups = NAV[p.profile.role];
+  const bell = p.pendingRequests + (p.pendingReviews ?? 0);
   const { main, more } = bottomItems(p.profile.role);
 
   const doLogout = async () => {
@@ -72,7 +74,7 @@ export function Shell(p: ShellProps) {
               <div key={gi} className={cn(gi > 0 && 'mt-3 border-t border-line pt-3')}>
                 {g.title && !collapsed && <p className="mb-1.5 px-3 text-[12px] text-ink-faint">{g.title}</p>}
                 {g.items.map((it) => (
-                  <SideLink key={it.href} item={it} active={isActive(path, it.href)} collapsed={collapsed} badge={it.badge ? p.pendingRequests : 0} onNavigate={() => setClicked(it.href)} />
+                  <SideLink key={it.href} item={it} active={isActive(path, it.href)} collapsed={collapsed} badge={it.badge === 'reviews' ? (p.pendingReviews ?? 0) : it.badge ? p.pendingRequests : 0} onNavigate={() => setClicked(it.href)} />
                 ))}
               </div>
             ))}
@@ -112,11 +114,11 @@ export function Shell(p: ShellProps) {
                 <span className={cn('h-1.5 w-1.5 rounded-full', p.gradingOpen ? 'bg-mint' : 'bg-rose')} />
                 {p.gradingOpen ? 'الرصد مفتوح' : 'الرصد مغلق'}
               </span>
-              <Link href="/requests" className="relative rounded-full p-2 text-ink-soft hover:bg-white" aria-label="الطلبات">
+              <Link href={p.pendingRequests === 0 && (p.pendingReviews ?? 0) > 0 ? '/reviews' : '/requests'} className="relative rounded-full p-2 text-ink-soft hover:bg-white" aria-label="التنبيهات">
                 <Bell className="h-5 w-5" />
-                {p.pendingRequests > 0 && (
+                {bell > 0 && (
                   <span className="absolute -top-0.5 right-0 grid h-[18px] min-w-[18px] place-items-center rounded-full bg-rose px-1 text-[10.5px] font-semibold text-white">
-                    {p.pendingRequests > 99 ? '99+' : p.pendingRequests}
+                    {bell > 99 ? '99+' : bell}
                   </span>
                 )}
               </Link>
@@ -131,7 +133,7 @@ export function Shell(p: ShellProps) {
       <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white pb-safe lg:hidden" aria-label="التنقل" style={{ transform: 'translateZ(0)' }}>
         <div className="mx-auto flex max-w-lg items-stretch justify-around px-2 pt-2">
           {main.map((it) => (
-            <BottomLink key={it.href} item={it} active={isActive(path, it.href)} badge={it.badge ? p.pendingRequests : 0} onNavigate={() => setClicked(it.href)} />
+            <BottomLink key={it.href} item={it} active={isActive(path, it.href)} badge={it.badge === 'reviews' ? (p.pendingReviews ?? 0) : it.badge ? p.pendingRequests : 0} onNavigate={() => setClicked(it.href)} />
           ))}
           {more.length > 0 && (
             <button onClick={() => setMoreOpen(true)} className={cn('relative flex flex-1 flex-col items-center gap-1 rounded-2xl py-1.5 text-[11px]',

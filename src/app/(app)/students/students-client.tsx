@@ -62,7 +62,7 @@ export function StudentsClient(p: Props) {
   return (
     <>
       {p.reviewCount > 0 && p.filters.flag !== 'review' && (
-        <button onClick={() => nav({ flag: 'review' })} className="mb-4 flex w-full items-center gap-3 rounded-card bg-amber-soft p-4 text-right text-[13.5px] text-amber">
+        <button onClick={() => { startNavProgress(); router.push('/reviews?kind=added'); }} className="mb-4 flex w-full items-center gap-3 rounded-card bg-amber-soft p-4 text-right text-[13.5px] text-amber">
           <span className="num grid h-8 min-w-8 place-items-center rounded-full bg-white px-2 font-semibold">{p.reviewCount}</span>
           طالب أضافته المعلمات يحتاج مراجعة بياناته
           <ChevronLeft className="mr-auto h-4 w-4" />

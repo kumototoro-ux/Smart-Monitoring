@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ClipboardPen, History, Inbox, Users, GraduationCap, Link2,
-  FileSpreadsheet, ScrollText, Settings, Building2, Layers, BookOpen, UserRound,
+  FileSpreadsheet, ScrollText, Settings, Building2, Layers, BookOpen, UserRound, UserCheck,
 } from 'lucide-react';
 import type { Role } from '@/lib/types';
 
@@ -9,12 +9,13 @@ export interface NavItem {
   label: string;
   short?: string; // للبار السفلي
   icon: typeof LayoutDashboard;
-  badge?: 'requests';
+  badge?: 'requests' | 'reviews';
 }
 export interface NavGroup { title?: string; items: NavItem[] }
 
 const home: NavItem = { href: '/', label: 'الرئيسية', icon: LayoutDashboard };
 const account: NavItem = { href: '/account', label: 'حسابي', icon: UserRound };
+const reviews: NavItem = { href: '/reviews', label: 'مراجعة الطلاب', short: 'المراجعة', icon: UserCheck, badge: 'reviews' };
 
 export const NAV: Record<Role, NavGroup[]> = {
   teacher: [
@@ -31,9 +32,10 @@ export const NAV: Record<Role, NavGroup[]> = {
       home,
       { href: '/results', label: 'نتائج الرصد', short: 'النتائج', icon: FileSpreadsheet },
       { href: '/requests', label: 'الطلبات', icon: Inbox, badge: 'requests' },
-      { href: '/accounts', label: 'المعلمات', icon: Users },
+      reviews,
     ] },
     { items: [
+      { href: '/accounts', label: 'المعلمات', icon: Users },
       { href: '/assignments', label: 'الإسناد', icon: Link2 },
       { href: '/students', label: 'الطلاب', icon: GraduationCap },
       { href: '/logs', label: 'سجل التتبع', icon: ScrollText },
@@ -45,6 +47,7 @@ export const NAV: Record<Role, NavGroup[]> = {
       home,
       { href: '/results', label: 'نتائج الرصد', short: 'النتائج', icon: FileSpreadsheet },
       { href: '/requests', label: 'الطلبات', icon: Inbox, badge: 'requests' },
+      reviews,
       { href: '/accounts', label: 'الحسابات', icon: Users },
       { href: '/assignments', label: 'الإسناد', icon: Link2 },
       { href: '/students', label: 'الطلاب', icon: GraduationCap },

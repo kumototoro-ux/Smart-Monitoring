@@ -19,6 +19,7 @@
    4. `supabase/migrations/0004_academic_number.sql`: الرقم الأكاديمي معرّف الطالب، وحقول الاسم الإنجليزي والميلاد والجنسية ونوع الهوية.
    5. `supabase/migrations/0005_claim_same_section.sql`: تحسين رسالة الضم عندما تضيف معلمتان من نفس الشعبة نفس الطلاب.
    6. `supabase/migrations/0006_section_links.sql`: ربط الشعب بالصفوف والفروع، وهو ضروري لصفحات المعلمة والكشوف والطلبات.
+   7. `supabase/migrations/0007_student_reviews.sql`: «مراجعة الطلاب» — ما تضيفه المعلمات أو تستبعده أو تُرجعه يصل للمشرفة.
 3. من **Authentication → Sign In / Providers**:
    - أوقف **Allow new users to sign up**، لأن الحسابات تُنشأ من داخل النظام فقط.
    - أوقف **Confirm email**.

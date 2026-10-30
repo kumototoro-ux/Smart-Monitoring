@@ -209,7 +209,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
     const payload = { full_name: newStudent.full_name, gender: (newStudent.gender || null) as 'male' | 'female' | null, national_id: newStudent.national_id, student_number: newStudent.student_number };
     if (mode === 'now') {
       const r = await exec(() => teacherAddStudent(data.meta.section_id, payload), {
-        confirm: { title: 'إضافة الطالب للكشف', message: <>سيُضاف <b>{payload.full_name || '—'}</b> ل{secLabel(data.meta.section_name)} مباشرة، وستراجع الإدارة بياناته.</>, confirmText: 'إضافة' },
+        confirm: { title: 'إضافة الطالب للكشف', message: <>سيُضاف <b>{payload.full_name || '—'}</b> لـ{secLabel(data.meta.section_name)} مباشرة ويظهر في كشوف كل مواد الشعبة. يصل للمشرفة لتراجع بياناته وتكملها.</>, confirmText: 'إضافة' },
         success: 'تمت إضافة الطالب', refresh: false,
       });
       if (r?.ok) { setAddOpen(false); await reload(); }
@@ -227,7 +227,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
     if (excludeReason === RELEASE) {
       const rr = await exec(() => releaseStudents(data.meta.section_id, [excludeFor.id]), {
         confirm: { title: 'إرجاع الطالب لقائمة الصف', tone: 'danger', confirmText: 'إرجاع',
-          message: <><b>{excludeFor.full_name}</b> سيخرج من {secLabel(data.meta.section_name)} في كل المواد، ويعود لقائمة طلاب {data.meta.grade_name} لتختاره معلمة شعبته.</> },
+          message: <><b>{excludeFor.full_name}</b> سيخرج من {secLabel(data.meta.section_name)} في كل المواد، ويعود لقائمة طلاب {data.meta.grade_name}. يصل للمشرفة لتنقله لشعبته الصحيحة.</> },
         success: 'تم إرجاع الطالب لقائمة الصف', refresh: false,
       });
       if (rr?.ok) { setExcludeFor(null); await reload(); }
@@ -235,7 +235,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
     }
     const r = await exec(() => excludeStudent(excludeFor.id, data.meta.grade_subject_id, excludeReason), {
       confirm: { title: 'استبعاد الطالب من الكشف', tone: 'danger', confirmText: 'استبعاد',
-        message: <><b>{excludeFor.full_name}</b> لن يظهر في كشف {data.meta.subject_name}. سيظهر الاستبعاد للإدارة، ويمكنك إعادته لاحقاً.</> },
+        message: <><b>{excludeFor.full_name}</b> لن يظهر في كشف {data.meta.subject_name}. يصل الاستبعاد للمشرفة لتراجعه، ويمكنك إعادته لاحقاً.</> },
       success: 'تم استبعاد الطالب', refresh: false,
     });
     if (r?.ok) { setExcludeFor(null); await reload(); }

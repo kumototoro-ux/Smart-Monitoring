@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ClipboardCheck, GraduationCap, Inbox, Users, ArrowLeft, Lock, CheckCircle2, Clock, Wrench } from 'lucide-react';
+import { ClipboardCheck, GraduationCap, Inbox, Users, ArrowLeft, Lock, CheckCircle2, Clock, Wrench, UserCheck } from 'lucide-react';
 import { diagnose } from '@/lib/diagnose';
 import { requireRole } from '@/lib/auth';
 import { firstName, secLabel } from '@/lib/utils';
@@ -85,8 +85,24 @@ export default async function Dashboard() {
   });
   const urgentList = [...urgent.values()].sort((a, b) => b.count - a.count);
 
+  const reviewCounts = await Promise.all((['added', 'released', 'excluded'] as const).map((k) =>
+    s.supabase.from('student_reviews').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('kind', k).then((r) => r.count ?? 0)));
+  const reviewTotal = reviewCounts.reduce((a, b) => a + b, 0);
+
   return (
     <div className="space-y-5">
+      {reviewTotal > 0 && (
+        <Link href="/reviews" className="flex items-start gap-3 rounded-card bg-amber-soft p-4 text-amber transition hover:bg-[#F7E7C6]">
+          <UserCheck className="mt-0.5 h-5 w-5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-semibold">{reviewTotal} طالب بانتظار مراجعتك</p>
+            <p className="mt-0.5 text-[13px] text-amber/80">
+              {[reviewCounts[0] && `${reviewCounts[0]} أضافتهم المعلمات`, reviewCounts[1] && `${reviewCounts[1]} أُرجعوا لقائمة الصف`, reviewCounts[2] && `${reviewCounts[2]} استُبعدوا من مواد`].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+          <span className="shrink-0 self-center text-[13px] font-medium">مراجعة ←</span>
+        </Link>
+      )}
       {urgentList.length > 0 && (
         <Link href="/logs" className="flex items-start gap-3 rounded-card bg-rose-soft p-4 text-rose transition hover:bg-rose-tile">
           <Wrench className="mt-0.5 h-5 w-5 shrink-0" />

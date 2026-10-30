@@ -14,6 +14,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     branchName = data?.name ?? null;
   }
 
+  // طلاب ينتظرون مراجعة المشرفة/الأدمن (RLS تحصرها بفرع المشرفة)
+  let pendingReviews = 0;
+  if (s.profile.role !== 'teacher') {
+    const { count } = await s.supabase.from('student_reviews').select('id', { count: 'exact', head: true }).eq('status', 'pending');
+    pendingReviews = count ?? 0;
+  }
+
   return (
     <Shell
       profile={s.profile}
@@ -22,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       year={settings.academic_year}
       gradingOpen={settings.grading_open}
       pendingRequests={stats?.pending_requests ?? 0}
+      pendingReviews={pendingReviews}
     >
       {children}
     </Shell>
