@@ -11,7 +11,7 @@ import { Select } from '@/components/ui/field';
 import { EmptyState } from '@/components/ui/empty';
 import { Ring } from '@/components/ui/progress';
 import { useToast } from '@/components/ui/toast';
-import { cn, fmtDateTime, scrollAppTop } from '@/lib/utils';
+import { cn, fmtDateTime, scrollAppTop, secLabel } from '@/lib/utils';
 import type { Branch, Grade, Section } from '@/lib/types';
 
 export interface SubjectStatus { id: string; name: string; teachers: string[]; comps: { id: string; name: string; at: string | null; by: string | null }[] }
@@ -98,7 +98,7 @@ export function ResultsClient({ role, branches, grades, sections, filters, statu
             {secs.map((s) => (
               <button key={s.id} onClick={() => nav({ section: s.id })}
                 className={cn('rounded-full border px-4 py-2 text-[13.5px] transition', filters.section === s.id ? 'border-black bg-black text-white' : 'border-line bg-white text-ink-soft')}>
-                شعبة {s.name}
+                {secLabel(s.name)}
               </button>
             ))}
           </div>

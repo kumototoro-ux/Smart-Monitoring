@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/field';
 import { Skeleton } from '@/components/ui/skeleton';
 import { EmptyState } from '@/components/ui/empty';
 import { normAr } from '@/lib/arabic';
-import { cn } from '@/lib/utils';
+import { cn, secLabel } from '@/lib/utils';
 
 /** اختيار طلاب الشعبة من طلاب الصف الذين ليس لهم شعبة */
 export function PoolPicker({ open, onClose, sectionId, sectionName, gradeName, onClaimed }: {
@@ -50,7 +50,7 @@ export function PoolPicker({ open, onClose, sectionId, sectionName, gradeName, o
     const r = await exec(() => claimStudents(sectionId, ids), {
       confirm: {
         title: 'ضم الطلاب لشعبتك',
-        message: <>سيُنقل <b>{ids.length}</b> طالب إلى {gradeName} شعبة {sectionName}، ويظهرون تلقائياً في كشوف <b>كل معلمات الشعبة</b> لكل المواد، ويختفون من قائمة الشعب الأخرى. يمكنك إرجاع أي طالب لاحقاً.</>,
+        message: <>سيُنقل <b>{ids.length}</b> طالب إلى {gradeName} {secLabel(sectionName)}، ويظهرون تلقائياً في كشوف <b>كل معلمات الشعبة</b> لكل المواد، ويختفون من قائمة الشعب الأخرى. يمكنك إرجاع أي طالب لاحقاً.</>,
         confirmText: 'ضم الطلاب',
       },
       refresh: false,
@@ -69,7 +69,7 @@ export function PoolPicker({ open, onClose, sectionId, sectionName, gradeName, o
 
   return (
     <Dialog open={open} onClose={onClose} size="lg" title="اختيار طلاب شعبتي"
-      description={<>طلاب {gradeName} في فرعك الذين لم تُحدد شعبتهم بعد. حدّدي طلاب شعبة {sectionName} فقط.</>}
+      description={<>طلاب {gradeName} في فرعك الذين لم تُحدد شعبتهم بعد. حدّدي طلاب {secLabel(sectionName)} فقط.</>}
       footer={<>
         <Button loading={busy} disabled={!sel.size} onClick={claim}><Users className="h-4 w-4" />ضم {sel.size || ''} طالب لشعبتي</Button>
         <Button variant="secondary" onClick={onClose}>إغلاق</Button>

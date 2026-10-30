@@ -208,7 +208,12 @@ async function buildPreview(supabase: SupabaseClient, profile: Profile, base64: 
         const s = sList.find((x) => x.branch_id === b.id && x.grade_id === gr.id && sectionKey(x.name) === sectionKey(item.section));
         if (s) item.section_id = s.id;
         else { item.newSection = true; newSections.add(`${b.name} · ${gr.name} · ${item.section}`); }
-      } else item.section_id = null;
+      } else {
+        // صف له شعبة واحدة فقط (مثل «عام») → يُضم إليها تلقائياً
+        const only = sList.filter((x) => x.branch_id === b.id && x.grade_id === gr.id);
+        item.section_id = only.length === 1 ? only[0].id : null;
+        if (only.length === 1) item.section = only[0].name;
+      }
     }
     if (num && existingNumbers.has(num)) {
       item.existing = true;

@@ -1,14 +1,14 @@
 'use client';
 import { useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, MessageSquareText, Hash, X, ArrowUp, ArrowDown } from 'lucide-react';
-import { saveGrade, deleteGrade, saveVerbalLevels, addSections, renameSection, deleteSection } from '@/app/actions/admin';
+import { saveGrade, deleteGrade, saveVerbalLevels, addSections, renameSection, deleteSection, createGeneralSections } from '@/app/actions/admin';
 import { useAction } from '@/lib/use-action';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/field';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
-import { cn } from '@/lib/utils';
+import { cn, secLabel, GENERAL_SECTION } from '@/lib/utils';
 import type { Branch, Grade, Section, Stage, VerbalLevel, AssessmentMode } from '@/lib/types';
 
 interface Props {
@@ -171,17 +171,32 @@ function SectionsTab({ grades, branches, branchGrades, sections, studentCount }:
     return grades.filter((g) => ids.has(g.id));
   }, [branchGrades, branchId, grades]);
 
+  const noSections = branchGradeList.filter((g) => !sections.some((s) => s.branch_id === branchId && s.grade_id === g.id)).length;
+
   if (!branches.length) return <div className="card"><EmptyState title="أضيفي فرعاً أولاً" hint="من صفحة الفروع" /></div>;
 
   return (
     <>
-      <div className="card mb-4 p-4">
-        <Field label="الفرع">
+      <div className="card mb-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
+        <Field label="الفرع" className="flex-1">
           <Select value={branchId} onChange={(e) => setBranchId(e.target.value)} className="sm:max-w-xs">
             {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
           </Select>
         </Field>
+        {noSections > 0 && (
+          <Button variant="soft" loading={busy} onClick={() => exec(() => createGeneralSections(branchId), {
+            confirm: { title: 'صفوف بدون شعب', confirmText: 'إنشاء',
+              message: <>سيُنشأ لكل صف من الصفوف الـ <b className="num">{noSections}</b> التي ليس لها شعب شعبة واحدة باسم «عام»، ويُضم إليها طلاب الصف تلقائياً.</> },
+            success: (d) => `تم إنشاء ${d?.sections ?? 0} شعبة «عام»${d?.moved ? ` وضم ${d.moved} طالب` : ''}`,
+          })}>
+            <Plus className="h-4 w-4" />«عام» لـ {noSections} صف بلا شعب
+          </Button>
+        )}
       </div>
+      <p className="mb-4 flex items-start gap-2 rounded-card bg-peri-soft px-4 py-3 text-[13px] leading-6 text-peri-deep">
+        الصف الواحد الذي يضم كل الطلاب والطالبات تكفيه شعبة «عام»، وتُنشأ تلقائياً عند إضافة الصف للفرع، ويُضم إليها كل طلابه بدون أي خطوة من المعلمات.
+        وإذا كان الصف مقسّماً أضيفي شعبه (أ، ب …) فتُستبدل «عام» تلقائياً.
+      </p>
       {branchGradeList.length === 0 ? (
         <div className="card"><EmptyState title="لا توجد صفوف لهذا الفرع" hint="حددي صفوف الفرع من صفحة الفروع ← الصفوف" /></div>
       ) : (
@@ -198,13 +213,13 @@ function SectionsTab({ grades, branches, branchGrades, sections, studentCount }:
                   <div className="flex flex-wrap gap-2">
                     {list.map((s) => (
                       <span key={s.id} className="group inline-flex items-center gap-1.5 rounded-full border border-line bg-surface py-1.5 pl-1.5 pr-3 text-[13px]">
-                        شعبة {s.name}
+                        {secLabel(s.name)}
                         <span className="num text-[11.5px] text-ink-muted">({studentCount[s.id] ?? 0})</span>
                         <button onClick={() => setRename(s)} className="rounded-full p-1 text-ink-muted hover:bg-white" aria-label="تعديل"><Pencil className="h-3.5 w-3.5" /></button>
                         <button aria-label="حذف" className="rounded-full p-1 text-ink-muted hover:bg-white hover:text-rose"
                           onClick={() => exec(() => deleteSection(s.id), {
                             success: 'تم حذف الشعبة',
-                            confirm: { title: `حذف شعبة ${s.name}`, message: `${g.name} — سيتم حذف إسنادات المعلمات لهذه الشعبة.`, tone: 'danger', confirmText: 'حذف' },
+                            confirm: { title: `حذف ${secLabel(s.name)}`, message: `${g.name} — سيتم حذف إسنادات المعلمات لهذه الشعبة.`, tone: 'danger', confirmText: 'حذف' },
                           })}><X className="h-3.5 w-3.5" /></button>
                       </span>
                     ))}
@@ -220,14 +235,21 @@ function SectionsTab({ grades, branches, branchGrades, sections, studentCount }:
         description="اكتبي أسماء الشعب مفصولة بفاصلة، مثل: أ، ب، ج"
         footer={<>
           <Button loading={busy} onClick={async () => {
-            const r = await exec(() => addSections(branchId, adding!.id, names.split(/[,،\n]/)), { success: (n) => `تمت إضافة ${n} شعبة` });
+            const hasGeneral = sections.some((x) => x.branch_id === branchId && x.grade_id === adding!.id && x.name === GENERAL_SECTION);
+            const r = await exec(() => addSections(branchId, adding!.id, names.split(/[,،\n]/)), {
+              confirm: hasGeneral && names.trim() !== GENERAL_SECTION ? {
+                title: 'تقسيم الصف إلى شعب', confirmText: 'تقسيم',
+                message: 'هذا الصف حالياً «عام». ستُحذف «عام» ويعود طلابها لقائمة طلاب الصف، لتختار كل معلمة طلاب شعبتها أو توزّعيهم من صفحة الطلاب.',
+              } : undefined,
+              success: (d) => `تمت إضافة ${d?.added ?? 0} شعبة${d?.released ? ` — ${d.released} طالب عادوا لقائمة الصف` : ''}${d?.moved ? ` — ضُم ${d.moved} طالب` : ''}`,
+            });
             if (r?.ok) setAdding(null);
           }}>إضافة</Button>
           <Button variant="secondary" onClick={() => setAdding(null)}>إلغاء</Button>
         </>}>
         <Input value={names} onChange={(e) => setNames(e.target.value)} placeholder="أ، ب، ج" />
         <div className="mt-3 flex flex-wrap gap-2">
-          {['أ', 'أ، ب', 'أ، ب، ج', 'أ، ب، ج، د'].map((x) => (
+          {[GENERAL_SECTION, 'أ، ب', 'أ، ب، ج', 'أ، ب، ج، د'].map((x) => (
             <button key={x} onClick={() => setNames(x)} className="rounded-full bg-surface px-3 py-1.5 text-[12.5px] text-ink-soft hover:bg-peri-soft">{x}</button>
           ))}
         </div>

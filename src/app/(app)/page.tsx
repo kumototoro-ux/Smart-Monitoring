@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { ClipboardCheck, GraduationCap, Inbox, Users, ArrowLeft, Lock, CheckCircle2, Clock } from 'lucide-react';
 import { requireRole } from '@/lib/auth';
-import { firstName } from '@/lib/utils';
+import { firstName, secLabel } from '@/lib/utils';
 import { getSettings, getStats } from '@/lib/data';
 import { getTeacherSheets, isEditable } from '@/lib/teacher';
 import { StatTile } from '@/components/ui/tile';
@@ -46,7 +46,7 @@ export default async function Dashboard() {
                       <Ring value={pct} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-[14.5px] font-medium">{sh.subject_name}</p>
-                        <p className="truncate text-[12.5px] text-ink-muted">{sh.grade_name} · شعبة {sh.section_name}</p>
+                        <p className="truncate text-[12.5px] text-ink-muted">{sh.grade_name} · {secLabel(sh.section_name)}</p>
                       </div>
                       {pct === 100 ? <Badge tone="success" icon={<CheckCircle2 className="h-3.5 w-3.5" />}>مكتمل</Badge>
                         : pct > 0 ? <Badge tone="info" icon={<Clock className="h-3.5 w-3.5" />}>{sub} من {sh.components.length}</Badge>

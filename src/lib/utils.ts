@@ -51,3 +51,8 @@ export function firstName(full: string) {
   if (w.length > 1 && /^(الدين|الله|الرحمن|الهدى)$/.test(w[1])) return `${w[0]} ${w[1]}`;
   return w[0] ?? '';
 }
+
+/** الصف الذي ليس له شعب يُنشأ له شعبة واحدة باسم «عام» */
+export const GENERAL_SECTION = 'عام';
+/** «شعبة أ» — أو «عام» للصف الواحد */
+export const secLabel = (name?: string | null) => (!name ? '' : name === GENERAL_SECTION ? GENERAL_SECTION : `شعبة ${name}`);

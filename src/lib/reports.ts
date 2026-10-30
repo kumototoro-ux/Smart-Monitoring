@@ -1,4 +1,5 @@
 import 'server-only';
+import { secLabel } from './utils';
 import type ExcelJS from 'exceljs';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { XL, box, newSheet, styleBodyRow, titleBlock } from './excel';
@@ -80,7 +81,7 @@ export function writeSectionSheet(wb: ExcelJS.Workbook, r: SectionReport, opts: 
   const start = titleBlock(ws, totalCols, [
     { text: r.school, size: 15, bold: true },
     { text: `كشف ${numeric ? 'درجات' : 'تقييم'} ${r.term === 1 ? 'الترم الأول' : 'الترم الثاني'} — العام الدراسي ${r.year}`, size: 12, bold: true },
-    { text: `${r.branch}  ·  ${r.grade}  ·  شعبة ${r.section}  ·  عدد الطلاب ${r.students.length}`, size: 11, color: XL.muted },
+    { text: `${r.branch}  ·  ${r.grade}  ·  ${secLabel(r.section)}  ·  عدد الطلاب ${r.students.length}`, size: 11, color: XL.muted },
   ]);
 
   // صفا العناوين

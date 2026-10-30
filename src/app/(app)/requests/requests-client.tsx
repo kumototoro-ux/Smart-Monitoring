@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
-import { cn, fmtDateTime } from '@/lib/utils';
+import { cn, fmtDateTime, secLabel } from '@/lib/utils';
 import type { Role } from '@/lib/types';
 
 export interface RequestRow {
@@ -58,7 +58,7 @@ export function RequestsClient({ role, status, rows }: { role: Role; status: str
         <div className="space-y-3">
           {rows.map((r) => {
             const T = TYPE[r.type];
-            const sheet = [r.grade_subject?.subject?.name, r.section ? `${r.section.grade?.name ?? ''} شعبة ${r.section.name}` : null].filter(Boolean).join(' · ');
+            const sheet = [r.grade_subject?.subject?.name, r.section ? `${r.section.grade?.name ?? ''} ${secLabel(r.section.name)}` : null].filter(Boolean).join(' · ');
             return (
               <div key={r.id} className="card p-4 sm:p-5">
                 <div className="flex flex-wrap items-start gap-3">

@@ -1,6 +1,8 @@
 'use server';
 import { z } from 'zod';
 import { run, must, ActionError } from '@/lib/action';
+import { GENERAL_SECTION } from '@/lib/utils';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import type { AssessmentMode } from '@/lib/types';
 
 const name = z.string().trim().min(1, 'الاسم مطلوب').max(120);
@@ -67,8 +69,44 @@ export async function setBranchGrades(branchId: string, gradeIds: string[]) {
       if (count) throw new ActionError('لا يمكن إزالة صف يحتوي على شعب. احذفي الشعب أولاً.');
       must(await supabase.from('branch_grades').delete().eq('branch_id', b).in('grade_id', toRemove));
     }
-    if (toAdd.length) must(await supabase.from('branch_grades').insert(toAdd.map((g) => ({ branch_id: b, grade_id: g }))));
+    if (toAdd.length) {
+      must(await supabase.from('branch_grades').insert(toAdd.map((g) => ({ branch_id: b, grade_id: g }))));
+      // كل صف جديد يبدأ بشعبة «عام» — وإذا كان مقسّماً تضيفين شعبه لاحقاً فتُستبدل تلقائياً
+      must(await supabase.from('sections').insert(toAdd.map((g) => ({ branch_id: b, grade_id: g, name: GENERAL_SECTION, sort_order: 1 }))));
+      await assignToSingleSection(supabase, b, toAdd);
+    }
   }, { revalidate: ['/settings'], log: () => ({ branchId, gradeIds }) });
+}
+
+/**
+ * إذا كان للصف في الفرع شعبة واحدة فقط، يُضم إليها تلقائياً كل طلاب الصف الذين بلا شعبة.
+ * يغني عن خطوة «اختيار طلاب شعبتي» في الصفوف العامة.
+ */
+async function assignToSingleSection(supabase: SupabaseClient, branchId: string, gradeIds: string[]) {
+  let moved = 0;
+  for (const g of gradeIds) {
+    const secs = must(await supabase.from('sections').select('id').eq('branch_id', branchId).eq('grade_id', g)) as { id: string }[];
+    if (secs.length !== 1) continue;
+    const res = await supabase.from('students').update({ section_id: secs[0].id })
+      .eq('branch_id', branchId).eq('grade_id', g).is('section_id', null).eq('is_active', true).select('id');
+    moved += must(res)?.length ?? 0;
+  }
+  return moved;
+}
+
+/** إنشاء شعبة «عام» لكل صف في الفرع ليس له شعب */
+export async function createGeneralSections(branchId: string) {
+  return run('section.general', ['admin'], async ({ supabase }) => {
+    const b = parse(uuid, branchId);
+    const bg = must(await supabase.from('branch_grades').select('grade_id').eq('branch_id', b)) as { grade_id: string }[];
+    const secs = must(await supabase.from('sections').select('grade_id').eq('branch_id', b)) as { grade_id: string }[];
+    const has = new Set(secs.map((x) => x.grade_id));
+    const need = bg.map((x) => x.grade_id).filter((g) => !has.has(g));
+    if (!need.length) throw new ActionError('كل صفوف هذا الفرع لها شعب');
+    must(await supabase.from('sections').insert(need.map((g) => ({ branch_id: b, grade_id: g, name: GENERAL_SECTION, sort_order: 1 }))));
+    const moved = await assignToSingleSection(supabase, b, need);
+    return { sections: need.length, moved };
+  }, { revalidate: ['/settings', '/students'], log: (d) => ({ branchId, ...d }) });
 }
 
 // ------------------------------------------------------------------ الصفوف
@@ -133,14 +171,28 @@ export async function deleteGrade(id: string) {
 // ------------------------------------------------------------------ الشعب
 export async function addSections(branchId: string, gradeId: string, names: string[]) {
   return run('section.add', ['admin'], async ({ supabase }) => {
+    const b = parse(uuid, branchId); const g = parse(uuid, gradeId);
     const list = [...new Set(names.map((n) => n.trim()).filter(Boolean))];
     if (!list.length) throw new ActionError('اكتبي اسم شعبة واحدة على الأقل');
-    const { data: existing } = await supabase.from('sections').select('sort_order').eq('branch_id', branchId).eq('grade_id', gradeId);
-    const start = (existing?.length ?? 0) + 1;
-    must(await supabase.from('sections').insert(
-      list.map((n, i) => ({ branch_id: parse(uuid, branchId), grade_id: parse(uuid, gradeId), name: n.slice(0, 40), sort_order: start + i }))));
-    return list.length;
-  }, { revalidate: ['/settings'], log: (n) => ({ branchId, gradeId, count: n }) });
+    let existing = must(await supabase.from('sections').select('id, name').eq('branch_id', b).eq('grade_id', g)) as { id: string; name: string }[];
+    let released = 0;
+
+    // الصف كان «عام» وأصبح مقسّماً: نحذف «عام» ونعيد طلابه لقائمة الصف لتختارهم المعلمات
+    const general = existing.find((x) => x.name === GENERAL_SECTION);
+    if (general && !list.includes(GENERAL_SECTION)) {
+      const { count } = await supabase.from('submissions').select('id', { count: 'exact', head: true }).eq('section_id', general.id);
+      if (count) throw new ActionError('تم الرصد في شعبة «عام» لهذا الصف، فلا يمكن تقسيمه الآن. أعيدي تسمية «عام» إلى أول شعبة بدلاً من ذلك.');
+      const res = await supabase.from('students').update({ section_id: null }).eq('section_id', general.id).select('id');
+      released = must(res)?.length ?? 0;
+      must(await supabase.from('sections').delete().eq('id', general.id));
+      existing = existing.filter((x) => x.id !== general.id);
+    }
+
+    const start = existing.length + 1;
+    must(await supabase.from('sections').insert(list.map((n, i) => ({ branch_id: b, grade_id: g, name: n.slice(0, 40), sort_order: start + i }))));
+    const moved = await assignToSingleSection(supabase, b, [g]);
+    return { added: list.length, released, moved };
+  }, { revalidate: ['/settings', '/students'], log: (d) => ({ branchId, gradeId, ...d }) });
 }
 
 export async function renameSection(id: string, newName: string) {

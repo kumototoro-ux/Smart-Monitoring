@@ -11,7 +11,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { PageHeader } from '@/components/ui/page-header';
 import { useToast } from '@/components/ui/toast';
-import { cn, scrollAppTop } from '@/lib/utils';
+import { cn, scrollAppTop, secLabel } from '@/lib/utils';
 
 export function GradingClient({ sheets, gradingOpen, preset }: { sheets: TeacherSheet[]; gradingOpen: boolean; preset: { section?: string; subject?: string } }) {
   const router = useRouter();
@@ -79,7 +79,7 @@ export function GradingClient({ sheets, gradingOpen, preset }: { sheets: Teacher
         <AnimatePresence>
           {gradeId && sections.length > 1 && (
             <Step key="sec" icon={<Users />} title="الشعبة" done={!!sectionId}>
-              <Chips items={sections.map((s) => ({ id: s.id, label: `شعبة ${s.name}` }))} value={sectionId} onChange={(v) => { setSectionId(v); setSubjectId(''); }} />
+              <Chips items={sections.map((s) => ({ id: s.id, label: `${secLabel(s.name)}` }))} value={sectionId} onChange={(v) => { setSectionId(v); setSubjectId(''); }} />
             </Step>
           )}
           {sectionId && subjects.length > 1 && (
@@ -100,7 +100,7 @@ export function GradingClient({ sheets, gradingOpen, preset }: { sheets: Teacher
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="card flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
             <div className="flex-1">
               <p className="text-[16px] font-semibold">{sheet.subject_name}</p>
-              <p className="text-[13px] text-ink-muted">{sheet.grade_name} · شعبة {sheet.section_name} · {scope === 'all' ? 'كل التقييمات' : sheet.components.find((c) => c.id === scope)?.name}</p>
+              <p className="text-[13px] text-ink-muted">{sheet.grade_name} · {secLabel(sheet.section_name)} · {scope === 'all' ? 'كل التقييمات' : sheet.components.find((c) => c.id === scope)?.name}</p>
             </div>
             <Button size="lg" onClick={open} loading={loading}>عرض الكشف <ArrowLeft className="h-4 w-4" /></Button>
           </motion.div>

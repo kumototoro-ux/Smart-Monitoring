@@ -11,7 +11,7 @@ import { Field, Input, Select } from '@/components/ui/field';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
 import { ImportDialog } from './import-dialog';
-import { cn } from '@/lib/utils';
+import { cn, secLabel } from '@/lib/utils';
 import type { Branch, Grade, Section, Student } from '@/lib/types';
 
 interface Props {
@@ -91,7 +91,7 @@ export function StudentsClient(p: Props) {
               <Select value={p.filters.section} onChange={(e) => nav({ section: e.target.value })} className="sm:w-32">
                 <option value="">كل الشعب</option>
                 {p.sections.filter((s) => s.grade_id === p.filters.grade && (!p.filters.branch || s.branch_id === p.filters.branch)).map((s) => (
-                  <option key={s.id} value={s.id}>{p.filters.branch ? `شعبة ${s.name}` : `${bName.get(s.branch_id)} · ${s.name}`}</option>
+                  <option key={s.id} value={s.id}>{p.filters.branch ? `${secLabel(s.name)}` : `${bName.get(s.branch_id)} · ${s.name}`}</option>
                 ))}
               </Select>
             )}
@@ -157,7 +157,7 @@ export function StudentsClient(p: Props) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-[14px] font-medium">{s.full_name}</p>
                     <p className="truncate text-[12.5px] text-ink-muted">
-                      {gName.get(s.grade_id)}{s.section_id ? ` · شعبة ${sName.get(s.section_id) ?? ''}` : ''}{p.isAdmin && !p.filters.branch ? ` · ${bName.get(s.branch_id)}` : ''}
+                      {gName.get(s.grade_id)}{s.section_id ? ` · ${secLabel(sName.get(s.section_id) ?? '')}` : ''}{p.isAdmin && !p.filters.branch ? ` · ${bName.get(s.branch_id)}` : ''}
                     </p>
                   </div>
                   <span className="num hidden w-28 text-[12.5px] text-ink-muted md:block" dir="ltr" title="الرقم الأكاديمي">{s.student_number ?? '—'}</span>
@@ -232,7 +232,7 @@ export function StudentsClient(p: Props) {
               <Field label="الشعبة">
                 <Select value={edit.section_id ?? ''} onChange={(e) => setEdit({ ...edit, section_id: e.target.value || null })}>
                   <option value="">بدون شعبة</option>
-                  {sectionsFor(edit.branch_id, edit.grade_id).map((s) => <option key={s.id} value={s.id}>شعبة {s.name}</option>)}
+                  {sectionsFor(edit.branch_id, edit.grade_id).map((s) => <option key={s.id} value={s.id}>{secLabel(s.name)}</option>)}
                 </Select>
               </Field>
             </div>
@@ -250,7 +250,7 @@ export function StudentsClient(p: Props) {
         </>}>
         <Select value={moveTo ?? ''} onChange={(e) => setMoveTo(e.target.value)}>
           <option value="">اختاري الشعبة</option>
-          {selStudents[0] && sectionsFor(selStudents[0].branch_id, selStudents[0].grade_id).map((s) => <option key={s.id} value={s.id}>شعبة {s.name}</option>)}
+          {selStudents[0] && sectionsFor(selStudents[0].branch_id, selStudents[0].grade_id).map((s) => <option key={s.id} value={s.id}>{secLabel(s.name)}</option>)}
         </Select>
       </Dialog>
 

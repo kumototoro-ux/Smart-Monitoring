@@ -12,7 +12,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { Badge } from '@/components/ui/badge';
 import { Avatar } from '@/components/shell/shell';
 import { ChipPicker } from '../settings/subjects/subjects-client';
-import { cn } from '@/lib/utils';
+import { cn, secLabel } from '@/lib/utils';
 import type { Branch, Grade, Section } from '@/lib/types';
 
 interface A { id: string; teacher_id: string; section_id: string; grade_subject_id: string }
@@ -100,7 +100,7 @@ export function AssignmentsClient(p: Props) {
                 <li key={i} className="flex items-center gap-3 px-5 py-3 text-[14px]">
                   <AlertTriangle className="h-4 w-4 shrink-0 text-amber" />
                   <span className="flex-1">{g.subject}</span>
-                  <span className="text-[13px] text-ink-muted">{g.grade} · شعبة {g.section.name}</span>
+                  <span className="text-[13px] text-ink-muted">{g.grade} · {secLabel(g.section.name)}</span>
                 </li>
               ))}
             </ul>
@@ -140,7 +140,7 @@ export function AssignmentsClient(p: Props) {
                     <p className="text-[12.5px] text-ink-muted" dir="ltr" style={{ textAlign: 'right' }}>{teacher.username}</p>
                   </div>
                   {mine.length > 0 && <Button variant="secondary" size="sm" onClick={() => setTransferTo('')}><ArrowLeftRight className="h-4 w-4" />نقل لمعلمة أخرى</Button>}
-                  <Button size="sm" onClick={() => { setAdding(true); setGradeId(p.grades[0]?.id ?? ''); setSecs([]); setSubs([]); }}><Plus className="h-4 w-4" />إسناد جديد</Button>
+                  <Button size="sm" onClick={() => { const g = p.grades[0]?.id ?? ''; setAdding(true); setGradeId(g); const one = p.sections.filter((x) => x.grade_id === g); setSecs(one.length === 1 ? [one[0].id] : []); setSubs([]); }}><Plus className="h-4 w-4" />إسناد جديد</Button>
                 </div>
                 {grouped.length === 0 ? (
                   <EmptyState title="لا توجد إسنادات" hint="أضيفي الصفوف والمواد التي ترصدها هذه المعلمة." />
@@ -157,13 +157,13 @@ export function AssignmentsClient(p: Props) {
                                 const dup = others(a.section_id, gsId);
                                 return (
                                   <span key={a.id} className="inline-flex items-center gap-1 rounded-full bg-white py-1 pl-1 pr-3 text-[12.5px] ring-1 ring-line" title={dup.length ? `مسندة أيضاً لـ ${dup.join('، ')}` : undefined}>
-                                    شعبة {secMap.get(a.section_id)?.name}
+                                    {secLabel(secMap.get(a.section_id)?.name)}
                                     {dup.length > 0 && <AlertTriangle className="h-3.5 w-3.5 text-amber" />}
                                     <button aria-label="إزالة" className="rounded-full p-1 text-ink-faint hover:bg-rose-soft hover:text-rose"
                                       onClick={() => exec(() => removeAssignment(a.id), {
                                         success: 'تمت إزالة الإسناد',
                                         confirm: { title: 'إزالة الإسناد', tone: 'danger', confirmText: 'إزالة',
-                                          message: `${gsMap.get(gsId)?.name} — ${gradeMap.get(gid)?.name} شعبة ${secMap.get(a.section_id)?.name}. الدرجات المرصودة تبقى محفوظة.` },
+                                          message: `${gsMap.get(gsId)?.name} — ${gradeMap.get(gid)?.name} ${secLabel(secMap.get(a.section_id)?.name)}. الدرجات المرصودة تبقى محفوظة.` },
                                       })}><X className="h-3.5 w-3.5" /></button>
                                   </span>
                                 );
@@ -191,7 +191,7 @@ export function AssignmentsClient(p: Props) {
         </>}>
         <div className="space-y-5">
           <Field label="الصف">
-            <Select value={gradeId} onChange={(e) => { setGradeId(e.target.value); setSecs([]); setSubs([]); }}>
+            <Select value={gradeId} onChange={(e) => { const g = e.target.value; setGradeId(g); const one = p.sections.filter((x) => x.grade_id === g); setSecs(one.length === 1 ? [one[0].id] : []); setSubs([]); }}>
               {p.grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
             </Select>
           </Field>
@@ -199,7 +199,7 @@ export function AssignmentsClient(p: Props) {
             <p className="label">الشعب</p>
             {p.sections.filter((s) => s.grade_id === gradeId).length === 0
               ? <p className="text-[13px] text-rose">لا توجد شعب لهذا الصف — أضيفيها من الإعدادات</p>
-              : <ChipPicker items={p.sections.filter((s) => s.grade_id === gradeId).map((s) => ({ id: s.id, label: `شعبة ${s.name}` }))} value={secs} onChange={setSecs} />}
+              : <ChipPicker items={p.sections.filter((s) => s.grade_id === gradeId).map((s) => ({ id: s.id, label: `${secLabel(s.name)}` }))} value={secs} onChange={setSecs} />}
           </div>
           <div>
             <p className="label">المواد</p>
@@ -208,7 +208,7 @@ export function AssignmentsClient(p: Props) {
               : <ChipPicker items={p.gradeSubjects.filter((g) => g.grade_id === gradeId).map((g) => ({ id: g.id, label: g.name }))} value={subs} onChange={setSubs} />}
           </div>
           {secs.length > 0 && subs.length > 0 && (() => {
-            const taken = secs.flatMap((s) => subs.map((g) => others(s, g).length ? `${gsMap.get(g)?.name} (شعبة ${secMap.get(s)?.name})` : null)).filter(Boolean);
+            const taken = secs.flatMap((s) => subs.map((g) => others(s, g).length ? `${gsMap.get(g)?.name} (${secLabel(secMap.get(s)?.name)})` : null)).filter(Boolean);
             return taken.length ? <p className="rounded-xl bg-amber-soft p-3 text-[13px] leading-6 text-amber">مسندة مسبقاً لمعلمة أخرى: {taken.join('، ')}</p> : null;
           })()}
         </div>

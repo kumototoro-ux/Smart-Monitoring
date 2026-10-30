@@ -6,7 +6,7 @@ import { getTeacherSheets, isEditable, editDeadline } from '@/lib/teacher';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
-import { fmtDateTime, timeLeft } from '@/lib/utils';
+import { fmtDateTime, timeLeft, secLabel } from '@/lib/utils';
 import { UnlockButton } from './unlock-button';
 
 export const metadata = { title: 'سجلات الرصد' };
@@ -41,7 +41,7 @@ export default async function RecordsPage() {
                 <div className="mb-3 flex items-start justify-between gap-3">
                   <div>
                     <p className="text-[15.5px] font-semibold">{s.subject_name}</p>
-                    <p className="text-[12.5px] text-ink-muted">{s.grade_name} · شعبة {s.section_name}</p>
+                    <p className="text-[12.5px] text-ink-muted">{s.grade_name} · {secLabel(s.section_name)}</p>
                   </div>
                   {complete ? <Badge tone="success" icon={<CheckCircle2 className="h-3.5 w-3.5" />}>مكتمل</Badge> : <Badge tone="warning">{subs.length} من {s.components.length}</Badge>}
                 </div>

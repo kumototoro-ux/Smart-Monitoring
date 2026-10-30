@@ -17,7 +17,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/field';
 import { Badge } from '@/components/ui/badge';
 import { Bar } from '@/components/ui/progress';
-import { cn, normalizeDigits, timeLeft, scrollAppTop } from '@/lib/utils';
+import { cn, normalizeDigits, timeLeft, scrollAppTop, secLabel } from '@/lib/utils';
 
 type Cell = { raw: string; absent: boolean; level: string | null };
 const RELEASE = 'ليس من شعبتي — إرجاعه لقائمة طلاب الصف';
@@ -209,13 +209,13 @@ export function SheetEditor({ initial, scope, role, onBack }: {
     const payload = { full_name: newStudent.full_name, gender: (newStudent.gender || null) as 'male' | 'female' | null, national_id: newStudent.national_id, student_number: newStudent.student_number };
     if (mode === 'now') {
       const r = await exec(() => teacherAddStudent(data.meta.section_id, payload), {
-        confirm: { title: 'إضافة الطالب للكشف', message: <>سيُضاف <b>{payload.full_name || '—'}</b> لشعبة {data.meta.section_name} مباشرة، وستراجع الإدارة بياناته.</>, confirmText: 'إضافة' },
+        confirm: { title: 'إضافة الطالب للكشف', message: <>سيُضاف <b>{payload.full_name || '—'}</b> ل{secLabel(data.meta.section_name)} مباشرة، وستراجع الإدارة بياناته.</>, confirmText: 'إضافة' },
         success: 'تمت إضافة الطالب', refresh: false,
       });
       if (r?.ok) { setAddOpen(false); await reload(); }
     } else {
       const r = await exec(() => createRequest({ type: 'add_student', section_id: data.meta.section_id, grade_subject_id: data.meta.grade_subject_id, payload }), {
-        confirm: { title: 'إرسال طلب للمشرفة', message: `طلب إضافة ${payload.full_name || 'طالب'} لشعبة ${data.meta.section_name}.`, confirmText: 'إرسال الطلب' },
+        confirm: { title: 'إرسال طلب للمشرفة', message: `طلب إضافة ${payload.full_name || 'طالب'} ل${secLabel(data.meta.section_name)}.`, confirmText: 'إرسال الطلب' },
         success: 'تم إرسال الطلب للمشرفة', refresh: false,
       });
       if (r?.ok) setAddOpen(false);
@@ -227,7 +227,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
     if (excludeReason === RELEASE) {
       const rr = await exec(() => releaseStudents(data.meta.section_id, [excludeFor.id]), {
         confirm: { title: 'إرجاع الطالب لقائمة الصف', tone: 'danger', confirmText: 'إرجاع',
-          message: <><b>{excludeFor.full_name}</b> سيخرج من شعبة {data.meta.section_name} في كل المواد، ويعود لقائمة طلاب {data.meta.grade_name} لتختاره معلمة شعبته.</> },
+          message: <><b>{excludeFor.full_name}</b> سيخرج من {secLabel(data.meta.section_name)} في كل المواد، ويعود لقائمة طلاب {data.meta.grade_name} لتختاره معلمة شعبته.</> },
         success: 'تم إرجاع الطالب لقائمة الصف', refresh: false,
       });
       if (rr?.ok) { setExcludeFor(null); await reload(); }
@@ -266,7 +266,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
         <div className="min-w-0 flex-1">
           <h1 className="text-[19px] font-semibold leading-tight sm:text-[21px]">{data.meta.subject_name}</h1>
           <p className="mt-1 text-[13px] text-ink-muted">
-            {data.meta.grade_name} · شعبة {data.meta.section_name} · الترم {data.meta.term === 1 ? 'الأول' : 'الثاني'}
+            {data.meta.grade_name} · {secLabel(data.meta.section_name)} · الترم {data.meta.term === 1 ? 'الأول' : 'الثاني'}
             {role !== 'teacher' && ` · ${data.meta.branch_name}`}
           </p>
         </div>
@@ -602,7 +602,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
 
       {/* طلب فتح */}
       <Dialog open={unlockOpen} onClose={() => setUnlockOpen(false)} title="طلب فتح الكشف للتعديل"
-        description={`${data.meta.subject_name} · ${data.meta.grade_name} شعبة ${data.meta.section_name}`}
+        description={`${data.meta.subject_name} · ${data.meta.grade_name} ${secLabel(data.meta.section_name)}`}
         footer={<>
           <Button loading={busy} onClick={requestUnlock}><Send className="h-4 w-4" />إرسال الطلب</Button>
           <Button variant="secondary" onClick={() => setUnlockOpen(false)}>إلغاء</Button>
