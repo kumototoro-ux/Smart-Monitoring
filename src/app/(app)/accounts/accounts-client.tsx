@@ -15,6 +15,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { useToast } from '@/components/ui/toast';
 import { Avatar } from '@/components/shell/shell';
 import { FloatingMenu, MenuItem } from '@/components/ui/menu';
+import { PasswordChoice, type PasswordMode } from '@/components/ui/password-choice';
 import { ROLE_LABEL, type Branch, type Profile, type Role } from '@/lib/types';
 import { cn, fmtDateTime } from '@/lib/utils';
 
@@ -36,6 +37,9 @@ export function AccountsClient({ me, accounts, branches, assignCount }: {
   const [userFor, setUserFor] = useState<Profile | null>(null);
   const [newUser, setNewUser] = useState('');
   const [menu, setMenu] = useState<{ id: string; el: HTMLElement } | null>(null);
+  const [pwMode, setPwMode] = useState<PasswordMode>('auto');
+  const [pw, setPw] = useState('');
+  const [resetFor, setResetFor] = useState<Profile | null>(null);
   const { exec, busy } = useAction();
   const toast = useToast();
   const menuAcc = menu ? accounts.find((x) => x.id === menu.id) ?? null : null;
@@ -55,18 +59,18 @@ export function AccountsClient({ me, accounts, branches, assignCount }: {
       const r = await exec(() => updateAccount(edit.id!, edit), { success: 'تم حفظ التعديلات' });
       if (r?.ok) setEdit(null);
     } else {
-      const r = await exec(() => createAccount({ ...edit, username: edit.username || undefined }), { success: 'تم إنشاء الحساب' });
+      if (pwMode === 'manual' && pw.length < 6) { toast.error('اكتبي كلمة مرور من 6 أحرف أو أرقام على الأقل'); return; }
+      const r = await exec(() => createAccount({ ...edit, username: edit.username || undefined, password: pwMode === 'manual' ? pw : undefined }), { success: 'تم إنشاء الحساب' });
       if (r?.ok && r.data) { setEdit(null); setCreds({ list: [r.data] }); }
     }
   };
 
-  const doReset = async (a: Profile) => {
-    setMenu(null);
-    const r = await exec(() => resetPassword(a.id), {
-      confirm: { title: 'إعادة تعيين كلمة المرور', message: `سيتم إنشاء كلمة مرور جديدة لـ ${a.full_name}، ولن تعمل القديمة.`, confirmText: 'إعادة التعيين' },
-      refresh: false,
-    });
-    if (r?.ok && r.data) setCreds({ list: [r.data] });
+  const doReset = (a: Profile) => { setMenu(null); setPwMode('auto'); setPw(''); setResetFor(a); };
+  const confirmReset = async () => {
+    if (!resetFor) return;
+    if (pwMode === 'manual' && pw.length < 6) { toast.error('اكتبي كلمة مرور من 6 أحرف أو أرقام على الأقل'); return; }
+    const r = await exec(() => resetPassword(resetFor.id, pwMode === 'manual' ? pw : undefined), { refresh: false });
+    if (r?.ok && r.data) { setResetFor(null); setCreds({ list: [r.data] }); }
   };
 
   const doExport = async () => {
@@ -112,7 +116,7 @@ export function AccountsClient({ me, accounts, branches, assignCount }: {
           </div>
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => { setBulk(true); setBulkText(''); }}><ListPlus className="h-4 w-4" />معلمات دفعة</Button>
-            <Button onClick={() => setEdit({ full_name: '', phone: '', role: 'teacher', branch_id: me.branch_id ?? branches[0]?.id ?? null })}>
+            <Button onClick={() => { setPwMode('auto'); setPw(''); setEdit({ full_name: '', phone: '', role: 'teacher', branch_id: me.branch_id ?? branches[0]?.id ?? null }); }}>
               <Plus className="h-4 w-4" />حساب جديد
             </Button>
           </div>
@@ -220,6 +224,9 @@ export function AccountsClient({ me, accounts, branches, assignCount }: {
                 <Input value={edit.username ?? ''} onChange={(e) => setEdit({ ...edit, username: e.target.value.toLowerCase() })} dir="ltr" className="text-right" autoCapitalize="none" />
               </Field>
             )}
+            {!edit.id && (
+              <PasswordChoice mode={pwMode} onMode={setPwMode} value={pw} onChange={setPw} />
+            )}
             {edit.id && edit.branch_id !== accounts.find((a) => a.id === edit.id)?.branch_id && (
               <p className="rounded-xl bg-amber-soft p-3 text-[13px] text-amber">نقل المعلمة لفرع آخر يحذف إسناداتها الحالية.</p>
             )}
@@ -254,6 +261,16 @@ export function AccountsClient({ me, accounts, branches, assignCount }: {
             className="field h-auto py-3 leading-7" />
           <p className="num text-[12.5px] text-ink-muted">{bulkText.split('\n').filter((l) => l.trim()).length} اسم</p>
         </div>
+      </Dialog>
+
+      {/* إعادة تعيين كلمة المرور */}
+      <Dialog open={!!resetFor} onClose={() => setResetFor(null)} title="إعادة تعيين كلمة المرور"
+        description={<>{resetFor?.full_name} · <span dir="ltr">{resetFor?.username}</span> — كلمة المرور القديمة لن تعمل بعد الحفظ.</>}
+        footer={<>
+          <Button loading={busy} onClick={confirmReset}><KeyRound className="h-4 w-4" />حفظ كلمة المرور</Button>
+          <Button variant="secondary" onClick={() => setResetFor(null)}>إلغاء</Button>
+        </>}>
+        <div className="pb-2"><PasswordChoice mode={pwMode} onMode={setPwMode} value={pw} onChange={setPw} /></div>
       </Dialog>
 
       {/* بيانات الدخول */}

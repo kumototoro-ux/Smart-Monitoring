@@ -45,12 +45,25 @@ async function branchPrefix(branchId: string | null, role: Role) {
   return r + code;
 }
 
+const WEAK = new Set(['123456', '1234567', '12345678', '123456789', '1234567890', '111111', '000000', '123123', 'password', 'qwerty', 'abc123', '654321', 'password1']);
+
+/** كلمة مرور يكتبها المستخدم: 6 أحرف على الأقل، بدون مسافات، وليست سهلة التخمين */
+function checkPassword(pw: string, username: string) {
+  if (pw.length < 6) throw new ActionError('كلمة المرور 6 أحرف أو أرقام على الأقل');
+  if (pw.length > 72) throw new ActionError('كلمة المرور طويلة جداً');
+  if (/\s/.test(pw)) throw new ActionError('كلمة المرور لا تحتوي مسافات');
+  if (WEAK.has(pw.toLowerCase()) || /^(.)\1+$/.test(pw)) throw new ActionError('كلمة المرور سهلة التخمين، اختاري غيرها');
+  if (pw.toLowerCase() === username.toLowerCase()) throw new ActionError('كلمة المرور لا تكون نفس اسم المستخدم');
+  return pw;
+}
+
 const createSchema = z.object({
   full_name: z.string().trim().min(5, 'اكتبي الاسم ثلاثياً').max(120),
   username: z.string().trim().toLowerCase().optional(),
   role: z.enum(['admin', 'supervisor', 'teacher']),
   branch_id: z.string().uuid().nullable().optional(),
   phone: z.string().trim().max(20).optional(),
+  password: z.string().optional(), // فارغة = تلقائية
 });
 
 async function createOne(actor: Profile, input: z.input<typeof createSchema>): Promise<Credential> {
@@ -72,7 +85,7 @@ async function createOne(actor: Profile, input: z.input<typeof createSchema>): P
     username = await uniqueUsername(await branchPrefix(v.branch_id ?? null, v.role));
   }
 
-  const password = generatePassword(8);
+  const password = v.password ? checkPassword(v.password, username) : generatePassword(8);
   const admin = createAdminClient();
   const { data: created, error } = await admin.auth.admin.createUser({
     email: usernameToEmail(username), password, email_confirm: true, user_metadata: { username },
@@ -87,7 +100,7 @@ async function createOne(actor: Profile, input: z.input<typeof createSchema>): P
     await admin.auth.admin.deleteUser(created.user.id);
     throw pErr;
   }
-  await audit({ action: 'account.create', actor, entity: 'profile', entityId: created.user.id, details: { username, role: v.role, name: v.full_name } });
+  await audit({ action: 'account.create', actor, entity: 'profile', entityId: created.user.id, details: { username, role: v.role, name: v.full_name, password: v.password ? 'manual' : 'auto' } });
   return { full_name: v.full_name, username, password, role: v.role };
 }
 
@@ -115,14 +128,14 @@ export async function bulkCreateTeachers(branchId: string | null, text: string) 
   }, { revalidate: ['/accounts'] });
 }
 
-export async function resetPassword(id: string) {
+export async function resetPassword(id: string, manual?: string) {
   return run('account.reset_password', ['admin', 'supervisor'], async ({ profile }) => {
     const t = await loadTarget(id);
     assertCanManage(profile, t);
-    const password = generatePassword(8);
+    const password = manual ? checkPassword(manual, t.username) : generatePassword(8);
     const { error } = await createAdminClient().auth.admin.updateUserById(t.id, { password });
     if (error) throw new ActionError('تعذّر إعادة التعيين');
-    await audit({ action: 'account.reset_password', severity: 'warning', actor: profile, entity: 'profile', entityId: t.id, details: { username: t.username } });
+    await audit({ action: 'account.reset_password', severity: 'warning', actor: profile, entity: 'profile', entityId: t.id, details: { username: t.username, password: manual ? 'manual' : 'auto' } });
     return { full_name: t.full_name, username: t.username, password, role: t.role } as Credential;
   });
 }

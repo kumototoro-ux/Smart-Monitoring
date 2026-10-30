@@ -38,7 +38,14 @@ export function Dialog({ open, onClose, title, description, children, footer, si
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && dismissRef.current && closeRef.current();
     window.addEventListener('keydown', onKey);
     // التركيز مرة واحدة فقط عند الفتح
-    const t = setTimeout(() => panel.current?.querySelector<HTMLElement>('[data-autofocus], input, select, textarea, button')?.focus(), 80);
+    const t = setTimeout(() => {
+      const root = panel.current;
+      // الأولوية: عنصر محدد ← أول حقل كتابة ← أول زر غير زر الإغلاق
+      const el = root?.querySelector<HTMLElement>('[data-autofocus]')
+        ?? root?.querySelector<HTMLElement>('input:not([type=hidden]):not([disabled]), textarea, select')
+        ?? root?.querySelector<HTMLElement>('button:not([aria-label="إغلاق"])');
+      el?.focus();
+    }, 80);
     return () => {
       unlockScroll();
       window.removeEventListener('keydown', onKey);
