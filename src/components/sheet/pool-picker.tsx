@@ -50,14 +50,19 @@ export function PoolPicker({ open, onClose, sectionId, sectionName, gradeName, o
     const r = await exec(() => claimStudents(sectionId, ids), {
       confirm: {
         title: 'ضم الطلاب لشعبتك',
-        message: <>سيُنقل <b>{ids.length}</b> طالب إلى {gradeName} شعبة {sectionName}، ويختفون من قائمة باقي الشعب. يمكنك إرجاع أي طالب لاحقاً.</>,
+        message: <>سيُنقل <b>{ids.length}</b> طالب إلى {gradeName} شعبة {sectionName}، ويظهرون تلقائياً في كشوف <b>كل معلمات الشعبة</b> لكل المواد، ويختفون من قائمة الشعب الأخرى. يمكنك إرجاع أي طالب لاحقاً.</>,
         confirmText: 'ضم الطلاب',
       },
       refresh: false,
     });
     if (r?.ok && r.data) {
-      if (r.data.skipped) toast.warning(`تم ضم ${r.data.claimed} طالب`, `${r.data.skipped} طالب سبقتك معلمة أخرى بضمهم لشعبتها.`);
-      else toast.success(`تم ضم ${r.data.claimed} طالب لشعبتك`);
+      const { claimed, already = 0, skipped } = r.data;
+      const notes = [
+        already ? `${already} طالب أضافته زميلة من نفس شعبتك قبل قليل` : '',
+        skipped ? `${skipped} طالب أُضيف لشعبة أخرى` : '',
+      ].filter(Boolean).join('، ');
+      if (skipped) toast.warning(`تم ضم ${claimed + already} طالب لشعبتك`, notes);
+      else toast.success(`تم ضم ${claimed + already} طالب لشعبتك`, notes || 'سيظهرون في كشوف كل مواد الشعبة');
       onClaimed(); onClose();
     }
   };

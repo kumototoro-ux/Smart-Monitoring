@@ -187,7 +187,7 @@ export async function claimStudents(sectionId: string, studentIds: string[]) {
     const ids = parseOr(z.array(uuid).min(1, 'اختاري طالباً واحداً على الأقل').max(200), studentIds);
     const { data, error } = await supabase.rpc('claim_students', { p_section: parseOr(uuid, sectionId), p_students: ids });
     if (error) throw error;
-    return data as { claimed: number; skipped: number };
+    return data as { claimed: number; already?: number; skipped: number };
   }, { revalidate: ['/students'] });
 }
 

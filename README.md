@@ -17,6 +17,7 @@
    2. `supabase/migrations/0002_seed.sql`: المراحل والصفوف والمواد وإعدادات البداية.
    3. `supabase/migrations/0003_section_pool.sql`: اختيار المعلمات لطلاب شعباتهن من طلاب الصف.
    4. `supabase/migrations/0004_academic_number.sql`: الرقم الأكاديمي معرّف الطالب، وحقول الاسم الإنجليزي والميلاد والجنسية ونوع الهوية.
+   5. `supabase/migrations/0005_claim_same_section.sql`: تحسين رسالة الضم عندما تضيف معلمتان من نفس الشعبة نفس الطلاب.
 3. من **Authentication → Sign In / Providers**:
    - أوقف **Allow new users to sign up**، لأن الحسابات تُنشأ من داخل النظام فقط.
    - أوقف **Confirm email**.
