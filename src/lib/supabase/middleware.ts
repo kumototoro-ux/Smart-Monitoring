@@ -22,7 +22,10 @@ export async function updateSession(request: NextRequest) {
     },
   );
 
-  const { data: { user } } = await supabase.auth.getUser();
+  // getClaims: يتحقق من توقيع الجلسة محلياً (بدون رحلة للخادم مع مفاتيح التوقيع الحديثة)،
+  // ويجدد الجلسة عند قرب انتهائها. أسرع بكثير من getUser في كل تنقل.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims?.sub ? { id: data.claims.sub } : null;
   const path = request.nextUrl.pathname;
   const isPublic = PUBLIC.some((p) => path.startsWith(p));
 

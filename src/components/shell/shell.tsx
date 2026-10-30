@@ -97,7 +97,7 @@ export function Shell(p: ShellProps) {
 
         {/* المحتوى */}
         <div id="app-scroll" className="scrollbar-thin flex min-w-0 flex-1 flex-col lg:overflow-y-auto">
-          <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line/70 bg-surface/85 px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8 lg:py-5">
+          <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-line/70 bg-surface/[.97] px-4 py-3 sm:px-6 lg:bg-surface/85 lg:px-8 lg:py-5 lg:backdrop-blur-md">
             <div className="lg:hidden"><Logo compact={false} /></div>
             <div className="hidden min-w-0 flex-1 lg:block">
               <p className="truncate text-[22px] font-semibold tracking-tight">أهلاً، {firstName(p.profile.full_name)}</p>
@@ -128,7 +128,7 @@ export function Shell(p: ShellProps) {
       </div>
 
       {/* البار السفلي — جوال وتابلت */}
-      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white/95 backdrop-blur-md pb-safe lg:hidden" aria-label="التنقل">
+      <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-white pb-safe lg:hidden" aria-label="التنقل" style={{ transform: 'translateZ(0)' }}>
         <div className="mx-auto flex max-w-lg items-stretch justify-around px-2 pt-2">
           {main.map((it) => (
             <BottomLink key={it.href} item={it} active={isActive(path, it.href)} badge={it.badge ? p.pendingRequests : 0} onNavigate={() => setClicked(it.href)} />

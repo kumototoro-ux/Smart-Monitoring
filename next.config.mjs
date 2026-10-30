@@ -11,7 +11,11 @@ const nextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   serverExternalPackages: ['exceljs'],
-  experimental: { serverActions: { bodySizeLimit: '8mb' } },
+  experimental: {
+    serverActions: { bodySizeLimit: '8mb' },
+    // الرجوع لصفحة زرتِها خلال 30 ثانية يظهر فوراً من الذاكرة (أي حفظ يحدّثها تلقائياً)
+    staleTimes: { dynamic: 30, static: 300 },
+  },
   async headers() {
     return [{ source: '/(.*)', headers: securityHeaders }];
   },

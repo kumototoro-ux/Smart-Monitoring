@@ -12,8 +12,11 @@ export const usernameToEmail = (u: string) => `${u.trim().toLowerCase()}@mirqat.
 /** المستخدم الحالي مع ملفه — مخزّن لكل طلب */
 export const getSession = cache(async () => {
   const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  // التحقق من توقيع الجلسة (محلياً غالباً) — وحالة الحساب تُفحص من جدول الحسابات أدناه
+  const { data: claimsData } = await supabase.auth.getClaims();
+  const sub = claimsData?.claims?.sub;
+  if (!sub) return null;
+  const user = { id: sub };
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, username, full_name, role, branch_id, phone, is_active, last_login_at, created_at')

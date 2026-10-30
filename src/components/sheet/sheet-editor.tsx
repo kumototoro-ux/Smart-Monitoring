@@ -514,7 +514,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
       {/* شريط الإجراءات */}
       {editableComps.length > 0 && data.students.length > 0 && (
         <div className="sticky bottom-[calc(env(safe-area-inset-bottom)+4.75rem)] z-20 mt-4 lg:bottom-4">
-          <div className="flex flex-wrap items-center gap-2 rounded-card bg-white/95 p-3 shadow-pop ring-1 ring-line backdrop-blur">
+          <div className="flex flex-wrap items-center gap-2 rounded-card bg-white p-3 shadow-pop ring-1 ring-line lg:bg-white/95 lg:backdrop-blur">
             {phase === 'entry' ? (
               <>
                 <Button onClick={finish} size="lg" className="flex-1 sm:flex-none"><ClipboardCheck className="h-4 w-4" />إنهاء الرصد</Button>

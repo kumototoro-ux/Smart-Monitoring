@@ -60,7 +60,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
       {open && (
         <div className="fixed inset-0 z-[60] flex items-end justify-center sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
           <motion.div
-            className="absolute inset-0 bg-[#1b1b2b]/35 backdrop-blur-[2px]"
+            className="absolute inset-0 bg-[#1b1b2b]/40 sm:backdrop-blur-[2px]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

@@ -1,12 +1,11 @@
 'use client';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Plus, Pencil, Trash2, MessageSquareText, Hash, X, ArrowUp, ArrowDown } from 'lucide-react';
 import { saveGrade, deleteGrade, saveVerbalLevels, addSections, renameSection, deleteSection, createGeneralSections } from '@/app/actions/admin';
 import { useAction } from '@/lib/use-action';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/field';
-import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
 import { cn, secLabel, GENERAL_SECTION } from '@/lib/utils';
 import type { Branch, Grade, Section, Stage, VerbalLevel, AssessmentMode } from '@/lib/types';
@@ -43,6 +42,32 @@ function GradesTab({ stages, grades, levels }: Props) {
     setVerbalFor(g);
     setDraft(levels.filter((l) => l.grade_id === g.id).map((l) => ({ id: l.id, label: l.label })));
   };
+  /** نسخ أسماء مستويات صف آخر (مع الإبقاء على معرّفات المستويات الحالية قدر الإمكان) */
+  const copyFrom = (gid: string) => {
+    const src = levels.filter((l) => l.grade_id === gid);
+    setDraft((cur) => src.map((l, i) => ({ id: cur[i]?.id, label: l.label })));
+  };
+  const switchMode = (g: Grade, mode: AssessmentMode) => {
+    if (g.assessment_mode === mode) return;
+    void exec(() => saveGrade({ id: g.id, stage_id: g.stage_id, name: g.name, sort_order: g.sort_order, assessment_mode: mode }), {
+      confirm: {
+        title: mode === 'verbal' ? `تحويل ${g.name} إلى رصد لفظي` : `تحويل ${g.name} إلى رصد بالدرجات`,
+        message: mode === 'verbal'
+          ? 'ستُستبدل أنواع التقييم في مواد هذا الصف بتقييم لفظي واحد، ثم تكتبين مستويات الرصد الخاصة بهذا الصف. (غير ممكن إذا بدأ الرصد للصف)'
+          : 'ستُستبدل أنواع التقييم بـ: أعمال السنة 20، القصيرة 20، النهائي 60 — ويمكنك تعديلها من «المواد والتقييم».',
+        confirmText: 'تحويل',
+      },
+      success: mode === 'verbal' ? 'تم التحويل — اكتبي الآن مستويات الرصد لهذا الصف' : 'تم التحويل إلى الدرجات',
+    }).then((r) => { if (r?.ok && mode === 'verbal') setOpenAfter(g.id); });
+  };
+  // بعد التحويل للفظي: نفتح نافذة المستويات عندما تصل المستويات الجديدة من الخادم
+  const [openAfter, setOpenAfter] = useState<string | null>(null);
+  useEffect(() => {
+    if (!openAfter) return;
+    const g = grades.find((x) => x.id === openAfter);
+    if (g?.assessment_mode === 'verbal' && levels.some((l) => l.grade_id === openAfter)) { openVerbal(g); setOpenAfter(null); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [levels, grades, openAfter]);
   const move = (i: number, d: -1 | 1) => setDraft((l) => {
     const n = [...l]; const j = i + d; if (j < 0 || j >= n.length) return l;
     [n[i], n[j]] = [n[j], n[i]]; return n;
@@ -50,7 +75,10 @@ function GradesTab({ stages, grades, levels }: Props) {
 
   return (
     <>
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+        <p className="flex-1 text-[13px] leading-6 text-ink-muted">
+          اختاري لكل صف: <b className="text-ink">درجات</b> أو <b className="text-ink">لفظي</b>. الرصد اللفظي لكل صف مستوياته الخاصة — مثلاً التمهيدي «متقن / غير متقن» والأول الابتدائي «يتقن المهارة / يحتاج تدريب».
+        </p>
         <Button onClick={() => setEdit({ assessment_mode: 'numeric', stage_id: stages[0]?.id, sort_order: grades.length + 1 })}>
           <Plus className="h-4 w-4" />صف جديد
         </Button>
@@ -65,22 +93,42 @@ function GradesTab({ stages, grades, levels }: Props) {
                 <ul className="divide-y divide-line">
                   {list.map((g) => {
                     const lv = levels.filter((l) => l.grade_id === g.id);
+                    const verbal = g.assessment_mode === 'verbal';
                     return (
-                      <li key={g.id} className="flex flex-wrap items-center gap-3 px-5 py-3.5">
-                        <span className="min-w-40 flex-1 text-[14.5px] font-medium">{g.name}</span>
-                        {g.assessment_mode === 'verbal'
-                          ? <Badge tone="info" icon={<MessageSquareText className="h-3.5 w-3.5" />}>لفظي · {lv.length} مستويات</Badge>
-                          : <Badge tone="neutral" icon={<Hash className="h-3.5 w-3.5" />}>درجات</Badge>}
-                        <div className="flex gap-1.5">
-                          {g.assessment_mode === 'verbal' && (
-                            <Button size="sm" variant="soft" onClick={() => openVerbal(g)}>مستويات الرصد</Button>
-                          )}
+                      <li key={g.id} className="px-5 py-3.5">
+                        <div className="flex items-center gap-2">
+                          <span className="min-w-0 flex-1 truncate text-[14.5px] font-medium">{g.name}</span>
+                          <div className="flex shrink-0 gap-1">
                           <Button size="sm" variant="secondary" onClick={() => setEdit(g)} aria-label="تعديل"><Pencil className="h-4 w-4" /></Button>
                           <Button size="sm" variant="ghost" className="text-rose" aria-label="حذف"
                             onClick={() => exec(() => deleteGrade(g.id), {
                               success: 'تم حذف الصف',
                               confirm: { title: `حذف ${g.name}`, message: 'لا يمكن الحذف إذا كان للصف طلاب أو شعب.', tone: 'danger', confirmText: 'حذف' },
                             })}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                        </div>
+                        <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                          <div className="inline-flex rounded-full bg-surface p-1" role="radiogroup" aria-label={`نوع رصد ${g.name}`}>
+                          {([['numeric', 'درجات', Hash], ['verbal', 'لفظي', MessageSquareText]] as const).map(([m, l, Icon]) => (
+                            <button key={m} role="radio" aria-checked={g.assessment_mode === m} disabled={busy} onClick={() => switchMode(g, m)}
+                              className={cn('inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12.5px] transition',
+                                g.assessment_mode === m ? 'bg-white font-medium text-ink shadow-soft' : 'text-ink-muted hover:text-ink')}>
+                              <Icon className="h-3.5 w-3.5" />{l}
+                            </button>
+                          ))}
+                        </div>
+                        {verbal && (
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            {lv.length ? lv.map((l, i) => (
+                              <span key={l.id} className="inline-flex items-center gap-1 rounded-full bg-peri-soft px-2.5 py-1 text-[12.5px] text-peri-deep">
+                                <span className="num text-[11px] opacity-60">{i + 1}</span>{l.label}
+                              </span>
+                            )) : <span className="text-[12.5px] text-rose">لا توجد مستويات — أضيفيها</span>}
+                            <button onClick={() => openVerbal(g)} className="inline-flex items-center gap-1 rounded-full border border-dashed border-peri px-2.5 py-1 text-[12.5px] text-peri-deep hover:bg-peri-soft">
+                              <Pencil className="h-3 w-3" />تعديل المستويات
+                            </button>
+                          </div>
+                        )}
                         </div>
                       </li>
                     );
@@ -133,7 +181,7 @@ function GradesTab({ stages, grades, levels }: Props) {
       </Dialog>
 
       <Dialog open={!!verbalFor} onClose={() => setVerbalFor(null)} title={`مستويات الرصد اللفظي · ${verbalFor?.name ?? ''}`}
-        description="اكتبي أسماء المستويات بالترتيب من الأعلى للأدنى"
+        description="مستويات خاصة بهذا الصف فقط. اكتبيها بالترتيب من الأعلى للأدنى — هي التي تظهر للمعلمة عند الرصد."
         footer={<>
           <Button loading={busy} onClick={async () => {
             const r = await exec(() => saveVerbalLevels(verbalFor!.id, draft), { success: 'تم حفظ المستويات' });
@@ -142,10 +190,20 @@ function GradesTab({ stages, grades, levels }: Props) {
           <Button variant="secondary" onClick={() => setVerbalFor(null)}>إلغاء</Button>
         </>}>
         <div className="space-y-2">
+          {grades.some((x) => x.id !== verbalFor?.id && x.assessment_mode === 'verbal' && levels.some((l) => l.grade_id === x.id)) && (
+            <div className="mb-3 flex items-center gap-2 rounded-2xl bg-surface p-3">
+              <span className="shrink-0 text-[12.5px] text-ink-muted">نسخ من صف:</span>
+              <Select value="" onChange={(e) => e.target.value && copyFrom(e.target.value)} className="h-9 text-[13px]">
+                <option value="">اختاري صفاً…</option>
+                {grades.filter((x) => x.id !== verbalFor?.id && x.assessment_mode === 'verbal' && levels.some((l) => l.grade_id === x.id))
+                  .map((x) => <option key={x.id} value={x.id}>{x.name} — {levels.filter((l) => l.grade_id === x.id).map((l) => l.label).join('، ')}</option>)}
+              </Select>
+            </div>
+          )}
           {draft.map((l, i) => (
             <div key={l.id ?? `n${i}`} className="flex items-center gap-2">
               <span className="num w-6 text-center text-[13px] text-ink-muted">{i + 1}</span>
-              <Input value={l.label} onChange={(e) => setDraft((d) => d.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
+              <Input value={l.label} placeholder={`المستوى ${i + 1}`} onChange={(e) => setDraft((d) => d.map((x, j) => j === i ? { ...x, label: e.target.value } : x))} />
               <button onClick={() => move(i, -1)} className="rounded-lg p-2 text-ink-muted hover:bg-surface" aria-label="أعلى"><ArrowUp className="h-4 w-4" /></button>
               <button onClick={() => move(i, 1)} className="rounded-lg p-2 text-ink-muted hover:bg-surface" aria-label="أسفل"><ArrowDown className="h-4 w-4" /></button>
               <button onClick={() => setDraft((d) => d.filter((_, j) => j !== i))} className="rounded-lg p-2 text-rose hover:bg-rose-soft" aria-label="حذف"><X className="h-4 w-4" /></button>
