@@ -64,7 +64,7 @@ export default async function LogsPage({ searchParams }: {
   if (sp.action) q = q.eq('action', sp.action);
   if (sp.hint) q = q.eq('details->>hint', sp.hint);
   if (sp.actor) q = q.eq('actor_id', sp.actor);
-  if (sp.q) { const t = sp.q.replace(/[%,()]/g, ' '); q = q.or(`actor_name.ilike.%${t}%,details->>username.ilike.%${t}%`); }
+  if (sp.q) { const t = sp.q.replace(/[%,()]/g, ' '); q = q.or(`actor_name.ilike.%${t}%,details->>username.ilike.%${t}%,details->>digest.eq.${t.trim()}`); }
   if (branch) q = q.eq('branch_id', branch);
 
   // ------------------------------------------------ مصدر ملخص المشاكل

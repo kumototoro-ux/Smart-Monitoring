@@ -95,7 +95,9 @@ create table public.sections (
   is_active  boolean not null default true,
   created_at timestamptz not null default now(),
   unique (branch_id, grade_id, name),
-  foreign key (branch_id, grade_id) references public.branch_grades(branch_id, grade_id) on delete cascade
+  foreign key (branch_id, grade_id) references public.branch_grades(branch_id, grade_id) on delete cascade,
+  constraint sections_grade_id_fkey  foreign key (grade_id)  references public.grades(id)   on delete cascade,
+  constraint sections_branch_id_fkey foreign key (branch_id) references public.branches(id) on delete cascade
 );
 create index sections_branch_idx on public.sections(branch_id);
 

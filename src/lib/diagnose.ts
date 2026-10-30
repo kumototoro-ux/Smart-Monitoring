@@ -53,6 +53,14 @@ const OP: Record<string, string> = {
   'subject.link': 'ربط مواد بصفوف', 'subject.unlink': 'فصل مادة عن صف', 'components.save': 'حفظ أنواع التقييم', 'subject.branch_toggle': 'تفعيل مادة لفرع',
 };
 
+/** أسماء الصفحات */
+const PAGES: Record<string, string> = {
+  '/': 'الرئيسية', '/grading': 'رصد الدرجات', '/records': 'سجلات الرصد', '/requests': 'الطلبات', '/account': 'حسابي',
+  '/results': 'نتائج الرصد', '/accounts': 'الحسابات', '/assignments': 'الإسناد', '/students': 'الطلاب', '/logs': 'سجل التتبع',
+  '/settings': 'الإعدادات العامة', '/settings/branches': 'الفروع', '/settings/structure': 'الصفوف والشعب', '/settings/subjects': 'المواد والتقييم',
+  '/api/export': 'تصدير إكسل',
+};
+
 /** العمليات الناجحة المسجّلة */
 const DONE: Record<string, string> = {
   'auth.login': 'تسجيل دخول', 'auth.logout': 'تسجيل خروج', 'auth.password_changed': 'تغيير كلمة المرور',
@@ -127,6 +135,23 @@ export function diagnose(l: LogLike, contextText?: string): Diagnosis {
     cause: msg ? `رسالة الخطأ: ${msg}` : 'خطأ غير متوقع في المتصفح.',
     fix: 'اطلبي من المستخدم تحديث الصفحة. إذا تكرر أرسلي هذا الحدث (رمز العملية والرسالة) للمطوّر.',
   };
+  if (a === 'server.error') {
+    const path = str(d.path);
+    const page = PAGES[path.split('?')[0]] ?? path;
+    const rel = /could not find a relationship|PGRST200|more than one relationship|PGRST201/i.test(msg + code);
+    const perm = /permission denied|42501/i.test(msg + code);
+    const col = /column .* does not exist|42703|function .* does not exist|42883|relation .* does not exist|42P01/i.test(msg + code);
+    return {
+      kind: 'system', key: `server:${rel ? 'rel' : perm ? 'perm' : col ? 'schema' : (str(d.route) || path)}`, needsAction: true,
+      title: `تعذّر فتح «${page}» — ${who}`, group: rel || col ? 'تعذّر فتح صفحة: قاعدة البيانات تحتاج تحديثاً' : `تعذّر فتح «${page}»`,
+      cause: rel ? 'خلل في الربط بين جداول قاعدة البيانات (رابط ناقص بين جدولين).'
+        : col ? 'قاعدة البيانات أقدم من نسخة الموقع: عمود أو دالة غير موجودة.'
+        : perm ? 'رفضت قاعدة البيانات القراءة لهذا المستخدم (صلاحيات).'
+        : msg ? `رسالة الخادم: ${msg}` : 'خطأ غير متوقع في الخادم.',
+      fix: rel || col ? 'غالباً لم يُشغَّل آخر ملف تحديث (migrations) في Supabase ← SQL Editor. شغّليه ثم أعيدي فتح الصفحة.'
+        : 'ليس خطأ المستخدم. أرسلي للمطوّر رمز العملية والرسالة من «التفاصيل التقنية».',
+    };
+  }
   if (a === 'export.failed') return {
     kind: 'system', key: 'export:failed', needsAction: true,
     title: `فشل تصدير ملف إكسل — ${who}`, group: 'فشل التصدير',

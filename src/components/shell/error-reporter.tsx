@@ -9,11 +9,12 @@ export function ErrorReporter() {
     let sent = 0;
     const report = (message: string, extra: Record<string, unknown>) => {
       if (sent++ > 20) return;
-      void supabase.rpc('log_client_event', {
+      // مهم: طلب Supabase لا يُرسل إلا عند استدعاء then
+      supabase.rpc('log_client_event', {
         p_action: 'ui.error',
         p_severity: 'error',
         p_details: { message: message.slice(0, 500), path: location.pathname, ...extra },
-      });
+      }).then(() => {}, () => {});
     };
     const onError = (e: ErrorEvent) => report(e.message, { source: e.filename, line: e.lineno });
     const onRejection = (e: PromiseRejectionEvent) => report(String(e.reason?.message ?? e.reason), { kind: 'promise' });
