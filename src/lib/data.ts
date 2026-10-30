@@ -37,3 +37,16 @@ export function dbMessage(e: { message?: string; hint?: string; code?: string } 
   if (e.message && /[؀-ۿ]/.test(e.message)) return e.message;
   return fallback;
 }
+
+/** صفوف فرع معيّن مرتبة — على خطوتين بدل الدمج، ويُظهر الخطأ بدل قائمة فارغة صامتة */
+export async function getBranchGrades(supabase: import('@supabase/supabase-js').SupabaseClient, branchId: string) {
+  if (!branchId) return [];
+  const { data: links, error: e1 } = await supabase.from('branch_grades').select('grade_id').eq('branch_id', branchId);
+  if (e1) throw e1;
+  const ids = (links ?? []).map((l) => l.grade_id as string);
+  if (!ids.length) return [];
+  const { data, error } = await supabase.from('grades')
+    .select('id, stage_id, name, sort_order, assessment_mode, is_active').in('id', ids).order('sort_order');
+  if (error) throw error;
+  return (data ?? []) as import('./types').Grade[];
+}

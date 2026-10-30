@@ -2,6 +2,7 @@
 import { startNavProgress } from '@/components/shell/nav-progress';
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { Search, Plus, X, Users, AlertTriangle, ArrowLeftRight, Link2 } from 'lucide-react';
 import { addAssignments, removeAssignment, transferAssignments } from '@/app/actions/assignments';
 import { useAction } from '@/lib/use-action';
@@ -24,6 +25,16 @@ interface Props {
   assignments: A[];
 }
 
+function SetupHint({ isAdmin, href, action, text }: { isAdmin: boolean; href: string; action: string; text: string }) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl bg-amber-soft p-4 text-[13.5px] leading-6 text-amber sm:flex-row sm:items-center">
+      <AlertTriangle className="h-5 w-5 shrink-0" />
+      <p className="flex-1">{text} {isAdmin ? <>يُضبط من: <b>{action}</b>.</> : 'اطلبي من الإدارة إكمال الإعداد.'}</p>
+      {isAdmin && <Link href={href} className="inline-flex h-9 shrink-0 items-center justify-center rounded-full bg-black px-4 text-[13px] text-white">اذهبي للإعداد</Link>}
+    </div>
+  );
+}
+
 export function AssignmentsClient(p: Props) {
   const router = useRouter();
   const [q, setQ] = useState('');
@@ -36,6 +47,7 @@ export function AssignmentsClient(p: Props) {
   const [transferTo, setTransferTo] = useState<string | null>(null);
   const { exec, busy } = useAction();
 
+  const branchName = p.branches.find((b) => b.id === p.branchId)?.name ?? null;
   const secMap = useMemo(() => new Map(p.sections.map((s) => [s.id, s])), [p.sections]);
   const gsMap = useMemo(() => new Map(p.gradeSubjects.map((g) => [g.id, g])), [p.gradeSubjects]);
   const gradeMap = useMemo(() => new Map(p.grades.map((g) => [g.id, g])), [p.grades]);
@@ -105,6 +117,11 @@ export function AssignmentsClient(p: Props) {
               ))}
             </ul>
           )}
+        </div>
+      ) : p.grades.length === 0 ? (
+        <div className="card p-6">
+          <SetupHint isAdmin={p.isAdmin} href="/settings/branches" action="الفروع ← الصفوف"
+            text={`لا يمكن الإسناد لأن ${branchName ?? 'هذا الفرع'} ليس له صفوف محددة بعد.`} />
         </div>
       ) : p.teachers.length === 0 ? (
         <div className="card"><EmptyState icon={<Users className="h-6 w-6" />} title="لا توجد معلمات في هذا الفرع" hint="أضيفي حسابات المعلمات أولاً من صفحة الحسابات." /></div>
@@ -190,6 +207,11 @@ export function AssignmentsClient(p: Props) {
           <Button variant="secondary" onClick={() => setAdding(false)}>إلغاء</Button>
         </>}>
         <div className="space-y-5">
+          {p.grades.length === 0 ? (
+            <SetupHint isAdmin={p.isAdmin} href="/settings/branches" action="الفروع ← الصفوف"
+              text={`لا توجد صفوف محددة لـ${branchName ? ` ${branchName}` : 'هذا الفرع'} بعد، لذلك قائمة الصف فارغة.`} />
+          ) : (
+          <>
           <Field label="الصف">
             <Select value={gradeId} onChange={(e) => { const g = e.target.value; setGradeId(g); const one = p.sections.filter((x) => x.grade_id === g); setSecs(one.length === 1 ? [one[0].id] : []); setSubs([]); }}>
               {p.grades.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -198,15 +220,17 @@ export function AssignmentsClient(p: Props) {
           <div>
             <p className="label">الشعب</p>
             {p.sections.filter((s) => s.grade_id === gradeId).length === 0
-              ? <p className="text-[13px] text-rose">لا توجد شعب لهذا الصف — أضيفيها من الإعدادات</p>
+              ? <SetupHint isAdmin={p.isAdmin} href="/settings/structure" action="الصفوف والشعب ← شعب الفروع" text="لا توجد شعب لهذا الصف في هذا الفرع." />
               : <ChipPicker items={p.sections.filter((s) => s.grade_id === gradeId).map((s) => ({ id: s.id, label: `${secLabel(s.name)}` }))} value={secs} onChange={setSecs} />}
           </div>
           <div>
             <p className="label">المواد</p>
             {p.gradeSubjects.filter((g) => g.grade_id === gradeId).length === 0
-              ? <p className="text-[13px] text-rose">لا توجد مواد مربوطة بهذا الصف</p>
+              ? <SetupHint isAdmin={p.isAdmin} href="/settings/subjects" action="المواد والتقييم ← ربط مواد بصفوف" text="لا توجد مواد مربوطة بهذا الصف." />
               : <ChipPicker items={p.gradeSubjects.filter((g) => g.grade_id === gradeId).map((g) => ({ id: g.id, label: g.name }))} value={subs} onChange={setSubs} />}
           </div>
+          </>
+          )}
           {secs.length > 0 && subs.length > 0 && (() => {
             const taken = secs.flatMap((s) => subs.map((g) => others(s, g).length ? `${gsMap.get(g)?.name} (${secLabel(secMap.get(s)?.name)})` : null)).filter(Boolean);
             return taken.length ? <p className="rounded-xl bg-amber-soft p-3 text-[13px] leading-6 text-amber">مسندة مسبقاً لمعلمة أخرى: {taken.join('، ')}</p> : null;

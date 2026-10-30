@@ -1,5 +1,5 @@
 import { requireRole } from '@/lib/auth';
-import { getSettings } from '@/lib/data';
+import { getSettings, getBranchGrades } from '@/lib/data';
 import { PageHeader } from '@/components/ui/page-header';
 import { ResultsClient, type SubjectStatus } from './results-client';
 import type { Branch, Grade, Section } from '@/lib/types';
@@ -15,7 +15,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Prom
   const term = (sp.term === '2' ? 2 : sp.term === '1' ? 1 : settings.current_term) as 1 | 2;
 
   const [{ data: grades }, { data: sections }] = await Promise.all([
-    supabase.from('grades').select('id, stage_id, name, sort_order, assessment_mode, is_active, branch_grades!inner(branch_id)').eq('branch_grades.branch_id', branchId).order('sort_order'),
+    getBranchGrades(supabase, branchId).then((data) => ({ data })),
     supabase.from('sections').select('id, branch_id, grade_id, name, sort_order, is_active').eq('branch_id', branchId).order('sort_order'),
   ]);
   const gradeId = sp.grade ?? grades?.[0]?.id ?? '';

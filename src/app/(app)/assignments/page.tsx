@@ -1,4 +1,5 @@
 import { requireRole } from '@/lib/auth';
+import { getBranchGrades } from '@/lib/data';
 import { PageHeader } from '@/components/ui/page-header';
 import { AssignmentsClient } from './assignments-client';
 import type { Branch, Grade, Section } from '@/lib/types';
@@ -13,7 +14,7 @@ export default async function AssignmentsPage({ searchParams }: { searchParams: 
 
   const [teachers, grades, sections, gs, excl, assigns] = await Promise.all([
     supabase.from('profiles').select('id, full_name, username').eq('role', 'teacher').eq('is_active', true).eq('branch_id', branchId).order('full_name'),
-    supabase.from('grades').select('id, stage_id, name, sort_order, assessment_mode, is_active, branch_grades!inner(branch_id)').eq('branch_grades.branch_id', branchId).order('sort_order'),
+    getBranchGrades(supabase, branchId).then((data) => ({ data })),
     supabase.from('sections').select('id, branch_id, grade_id, name, sort_order, is_active').eq('branch_id', branchId).order('sort_order'),
     supabase.from('grade_subjects').select('id, grade_id, subject:subjects(name, sort_order)').order('sort_order'),
     supabase.from('branch_subject_exclusions').select('grade_subject_id').eq('branch_id', branchId),
