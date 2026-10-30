@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ClipboardCheck, GraduationCap, Inbox, Users, ArrowLeft, Lock, CheckCircle2, Clock } from 'lucide-react';
+import { ClipboardCheck, GraduationCap, Inbox, Users, ArrowLeft, Lock, CheckCircle2, Clock, Wrench } from 'lucide-react';
+import { diagnose } from '@/lib/diagnose';
 import { requireRole } from '@/lib/auth';
 import { firstName, secLabel } from '@/lib/utils';
 import { getSettings, getStats } from '@/lib/data';
@@ -71,8 +72,31 @@ export default async function Dashboard() {
   }));
   const pct = total ? Math.round((done / total) * 100) : 0;
 
+  // مشاكل تحتاج تدخل خلال آخر 24 ساعة
+  const { data: recent } = await s.supabase.from('audit_logs')
+    .select('action, severity, actor_name, details').in('severity', ['warning', 'error', 'security'])
+    .gte('created_at', new Date(Date.now() - 86400_000).toISOString()).order('created_at', { ascending: false }).limit(500);
+  const urgent = new Map<string, { title: string; count: number }>();
+  (recent ?? []).forEach((r) => {
+    const dg = diagnose(r as { action: string; severity: string; actor_name: string | null; details: Record<string, unknown> });
+    if (!dg.needsAction) return;
+    const g = urgent.get(dg.key) ?? { title: dg.group, count: 0 };
+    g.count++; urgent.set(dg.key, g);
+  });
+  const urgentList = [...urgent.values()].sort((a, b) => b.count - a.count);
+
   return (
     <div className="space-y-5">
+      {urgentList.length > 0 && (
+        <Link href="/logs" className="flex items-start gap-3 rounded-card bg-rose-soft p-4 text-rose transition hover:bg-rose-tile">
+          <Wrench className="mt-0.5 h-5 w-5 shrink-0" />
+          <div className="min-w-0 flex-1">
+            <p className="text-[14px] font-semibold">{urgentList.length === 1 ? 'مشكلة تحتاج تدخلك' : `${urgentList.length} مشاكل تحتاج تدخلك`} — آخر 24 ساعة</p>
+            <p className="mt-0.5 truncate text-[13px] text-rose/80">{urgentList.slice(0, 3).map((u) => `${u.title} (${u.count})`).join(' · ')}</p>
+          </div>
+          <span className="shrink-0 self-center text-[13px] font-medium">عرض الحلول ←</span>
+        </Link>
+      )}
       <h1 className="text-[22px] font-semibold lg:hidden">أهلاً، {firstName(s.profile.full_name)}</h1>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <StatTile tone="rose" icon={<ClipboardCheck className="h-5 w-5" />} label="إنجاز الرصد" value={`${pct}%`} unit={`${done} من ${total} كشف`} />

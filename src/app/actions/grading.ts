@@ -85,7 +85,7 @@ export async function loadSheet(sectionId: string, gradeSubjectId: string, term?
       pendingUnlock: ((pend as { count: number | null }).count ?? 0) > 0,
       poolCount: Array.isArray(pool.data) ? pool.data.length : 0,
     } satisfies SheetData;
-  });
+  }, { context: { section_id: sectionId, grade_subject_id: gradeSubjectId } });
 }
 
 const entrySchema = z.array(z.object({
@@ -104,7 +104,7 @@ export async function saveSheet(sectionId: string, gradeSubjectId: string, term:
     });
     if (error) throw error;
     return data as { saved: number; students: number };
-  }, { revalidate: ['/'] });
+  }, { revalidate: ['/'], context: { section_id: sectionId, grade_subject_id: gradeSubjectId, term, cells: Array.isArray(entries) ? entries.length : 0 } });
 }
 
 const studentSchema = z.object({
@@ -123,7 +123,7 @@ export async function teacherAddStudent(sectionId: string, input: z.input<typeof
     });
     if (error) throw error;
     return data as string;
-  });
+  }, { context: { section_id: sectionId, name: input.full_name } });
 }
 
 export async function excludeStudent(studentId: string, gradeSubjectId: string, reason: string) {
@@ -154,7 +154,7 @@ export async function createRequest(input: {
     });
     if (error) throw error;
     return data as string;
-  }, { revalidate: ['/requests'] });
+  }, { revalidate: ['/requests'], context: { type: input.type, section_id: input.section_id, grade_subject_id: input.grade_subject_id } });
 }
 
 export async function cancelRequest(id: string) {
@@ -188,7 +188,7 @@ export async function claimStudents(sectionId: string, studentIds: string[]) {
     const { data, error } = await supabase.rpc('claim_students', { p_section: parseOr(uuid, sectionId), p_students: ids });
     if (error) throw error;
     return data as { claimed: number; already?: number; skipped: number };
-  }, { revalidate: ['/students'] });
+  }, { revalidate: ['/students'], context: { section_id: sectionId, count: studentIds.length } });
 }
 
 export async function releaseStudents(sectionId: string, studentIds: string[]) {

@@ -39,7 +39,14 @@ export async function login(_: ActionResult | null, form: FormData): Promise<Act
   const { data, error } = await supabase.auth.signInWithPassword({ email: usernameToEmail(username), password });
 
   if (error || !data.user) {
-    await audit({ action: 'auth.login_failed', severity: 'warning', details: { username, reason: error?.code ?? error?.message } });
+    const { data: known } = await admin.from('profiles').select('id, full_name, is_active, branch_id, role').eq('username', username).maybeSingle();
+    const reason = !known ? 'unknown_user' : error?.code === 'invalid_credentials' ? 'wrong_password' : (error?.code ?? error?.message);
+    await audit({
+      action: 'auth.login_failed', severity: 'warning',
+      // ربط المحاولة بصاحب الحساب إن وُجد، ليظهر في سجلها ولمشرفة فرعها
+      actor: known ? { id: known.id, role: known.role, full_name: known.full_name, branch_id: known.branch_id } : null,
+      details: { username, reason, attempt: (count ?? 0) + 1 },
+    });
     const left = MAX_FAILS - (count ?? 0) - 1;
     return { ok: false, message: left > 0 ? `اسم المستخدم أو كلمة المرور غير صحيحة. متبقي ${left} محاولات.` : 'اسم المستخدم أو كلمة المرور غير صحيحة.' };
   }
