@@ -36,7 +36,21 @@ export default async function ReviewsPage({ searchParams }: { searchParams: Prom
     supabase.from('branches').select('id, name, code, is_active').order('name'),
     countOf('added'), countOf('released'), countOf('excluded'),
   ]);
-  if (rows.error) throw rows.error;
+  if (rows.error) {
+    // الجدول غير موجود = لم يُشغَّل ملف 0007 بعد — رسالة واضحة بدل صفحة خطأ
+    if (/PGRST205|student_reviews/i.test(`${rows.error.code} ${rows.error.message}`)) {
+      return (
+        <div>
+          <PageHeader title="مراجعة الطلاب" />
+          <div className="card p-6 text-[14px] leading-7">
+            <p className="font-semibold text-rose">هذه الصفحة تحتاج تحديث قاعدة البيانات أولاً</p>
+            <p className="mt-1 text-ink-soft">في Supabase ← SQL Editor، شغّلي الملف <code dir="ltr" className="rounded bg-surface px-1.5 font-mono text-[13px]">supabase/migrations/0007_student_reviews.sql</code> من المستودع، ثم أعيدي فتح الصفحة.</p>
+          </div>
+        </div>
+      );
+    }
+    throw rows.error;
+  }
   const list = (rows.data ?? []) as unknown as ReviewRow[];
 
   // الشعب المتاحة لنقل الطلاب المُرجَعين (نفس الفرع والصف)

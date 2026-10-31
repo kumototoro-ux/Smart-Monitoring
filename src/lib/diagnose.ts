@@ -59,8 +59,38 @@ const PAGES: Record<string, string> = {
   '/': 'الرئيسية', '/grading': 'رصد الدرجات', '/records': 'سجلات الرصد', '/requests': 'الطلبات', '/account': 'حسابي',
   '/results': 'نتائج الرصد', '/accounts': 'الحسابات', '/assignments': 'الإسناد', '/students': 'الطلاب', '/logs': 'سجل التتبع',
   '/settings': 'الإعدادات العامة', '/settings/branches': 'الفروع', '/settings/structure': 'الصفوف والشعب', '/settings/subjects': 'المواد والتقييم',
-  '/api/export': 'تصدير إكسل',
+  '/api/export': 'تصدير إكسل', '/reviews': 'مراجعة الطلاب',
 };
+
+/** أي ملف تحديث (migration) يُنشئ هذا الجدول/الدالة/العمود — لنقول للمسؤول بالضبط ماذا يشغّل */
+const MIGRATION_OF: [RegExp, string][] = [
+  [/student_reviews|review_resolve|_close_reviews/i, '0007_student_reviews.sql'],
+  [/relationship between 'sections' and '(grades|branches)'|sections_(grade|branch)_id_fkey/i, '0006_section_links.sql'],
+  [/name_en|birth_date|nationality|id_type|student_number_uq/i, '0004_academic_number.sql'],
+  [/section_pool|claim_students|release_students/i, '0003_section_pool.sql'],
+];
+export function migrationFor(text: string) {
+  return MIGRATION_OF.find(([re]) => re.test(text))?.[1] ?? null;
+}
+/** أخطاء تعني أن قاعدة البيانات أقدم من نسخة الموقع */
+const SCHEMA_MISSING = /PGRST20[0-5]|could not find (the|a) (table|function|relationship|column)|column .* does not exist|42703|function .* does not exist|42883|relation .* does not exist|42P01|more than one relationship/i;
+/** رسائل الواجهة التي هي مجرد صدى لخطأ حدث في الخادم */
+const SERVER_ECHO = /error occurred in the Server Components render|Minified React error #(418|419|423)|digest/i;
+
+function schemaDiag(op: string, who: string, where: string, text: string, page?: string): Diagnosis {
+  const file = migrationFor(text);
+  return {
+    kind: 'config', key: `schema:${file ?? 'unknown'}`, needsAction: true,
+    title: `${page ? `تعذّر فتح «${page}»` : `تعذّر «${op}»`}: قاعدة البيانات تحتاج تحديثاً — ${who}${where}`,
+    group: file ? `قاعدة البيانات تحتاج تشغيل الملف ${file}` : 'قاعدة البيانات أقدم من نسخة الموقع',
+    cause: file
+      ? `الموقع تحدّث لكن ملف التحديث ${file} لم يُشغَّل بعد في Supabase، فالجدول أو الدالة المطلوبة غير موجودة.`
+      : 'الموقع تحدّث لكن أحد ملفات التحديث (migrations) لم يُشغَّل بعد في Supabase.',
+    fix: file
+      ? `Supabase ← SQL Editor ← الصقي محتوى supabase/migrations/${file} من المستودع ← Run. ثم أعيدي فتح الصفحة.`
+      : 'Supabase ← SQL Editor ← شغّلي ملفات supabase/migrations التي لم تُشغَّل بعد بالترتيب. الرئيسية تعرض للأدمن أي ملف ناقص.',
+  };
+}
 
 /** العمليات الناجحة المسجّلة */
 const DONE: Record<string, string> = {
@@ -132,6 +162,13 @@ export function diagnose(l: LogLike, contextText?: string): Diagnosis {
     cause: 'كتب الرابط يدوياً أو فتح رابطاً محفوظاً من صلاحية سابقة. النظام منعه وأعاده للرئيسية.',
     fix: 'غالباً غير مقصود. إذا تكرر كثيراً من نفس الشخص فراجعيه.',
   };
+  if ((a === 'client.ui.error' || a === 'client.page.error') && SERVER_ECHO.test(msg)) return {
+    kind: 'system', key: 'ui:server-echo', needsAction: false,
+    title: `ظهرت صفحة الخطأ${d.path ? ` (${PAGES[str(d.path).split('?')[0]] ?? str(d.path).split('?')[0]})` : ''} — ${who}`,
+    group: 'صفحة خطأ ظهرت للمستخدم (السبب في «تعذّر فتح…» بنفس الوقت)',
+    cause: 'هذا انعكاس في المتصفح لخطأ حدث في الخادم — السبب الحقيقي مسجّل كحدث «تعذّر فتح …» في نفس الدقيقة.',
+    fix: d.digest ? `ابحثي في السجل بالرمز ${str(d.digest)} لتجدي السبب والحل.` : 'راجعي حدث «تعذّر فتح …» في نفس الوقت لمعرفة السبب.',
+  };
   if (a === 'client.ui.error' || a === 'client.page.error') return {
     kind: 'system', key: `ui:${msg.slice(0, 60)}`, needsAction: true,
     title: `خطأ تقني في الواجهة${d.path ? ` (${str(d.path)})` : ''} — ${who}`, group: `خطأ تقني في الواجهة: ${msg.slice(0, 70) || 'غير معروف'}`,
@@ -140,7 +177,8 @@ export function diagnose(l: LogLike, contextText?: string): Diagnosis {
   };
   if (a === 'server.error') {
     const path = str(d.path);
-    const page = PAGES[path.split('?')[0]] ?? path;
+    const page = PAGES[path.split('?')[0]] ?? path.split('?')[0];
+    if (SCHEMA_MISSING.test(msg + ' ' + code + ' ' + str(d.db_details))) return schemaDiag('', who, '', msg + ' ' + str(d.db_details), page);
     const rel = /could not find a relationship|PGRST200|more than one relationship|PGRST201/i.test(msg + code);
     const perm = /permission denied|42501/i.test(msg + code);
     const col = /column .* does not exist|42703|function .* does not exist|42883|relation .* does not exist|42P01/i.test(msg + code);
@@ -180,6 +218,7 @@ export function diagnose(l: LogLike, contextText?: string): Diagnosis {
       title: `انتهاء الجلسة أثناء «${op}» — ${who}${where}`, group: 'انتهاء الجلسة أثناء العمل',
       cause: 'بقيت الصفحة مفتوحة فترة طويلة فانتهت صلاحية الدخول.', fix: 'يكفي تحديث الصفحة أو تسجيل الدخول مرة أخرى — ما رُصد ولم يُحفظ يبقى كمسودة على نفس الجهاز.' };
   }
+  if (a.endsWith('.failed') && SCHEMA_MISSING.test(msg + ' ' + code)) return schemaDiag(op, who, where, msg);
   if (a.endsWith('.failed')) {
     switch (hint) {
       case 'CLOSED': return { kind: 'config', key: 'grade:closed', needsAction: true,

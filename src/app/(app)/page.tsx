@@ -1,6 +1,7 @@
 import Link from 'next/link';
-import { ClipboardCheck, GraduationCap, Inbox, Users, ArrowLeft, Lock, CheckCircle2, Clock, Wrench, UserCheck } from 'lucide-react';
+import { ClipboardCheck, GraduationCap, Inbox, Users, ArrowLeft, Lock, CheckCircle2, Clock, Wrench, UserCheck, DatabaseZap } from 'lucide-react';
 import { diagnose } from '@/lib/diagnose';
+import { missingMigrations } from '@/lib/schema-check';
 import { requireRole } from '@/lib/auth';
 import { firstName, secLabel } from '@/lib/utils';
 import { getSettings, getStats } from '@/lib/data';
@@ -89,8 +90,30 @@ export default async function Dashboard() {
     s.supabase.from('student_reviews').select('id', { count: 'exact', head: true }).eq('status', 'pending').eq('kind', k).then((r) => r.count ?? 0)));
   const reviewTotal = reviewCounts.reduce((a, b) => a + b, 0);
 
+  const missing = s.profile.role === 'admin' ? await missingMigrations(s.supabase) : [];
+
   return (
     <div className="space-y-5">
+      {missing.length > 0 && (
+        <div className="rounded-card bg-rose-soft p-4 text-rose sm:p-5">
+          <div className="flex items-start gap-3">
+            <DatabaseZap className="mt-0.5 h-5 w-5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-[14.5px] font-semibold">قاعدة البيانات تحتاج تحديثاً — بعض الصفحات لن تعمل حتى تشغّليه</p>
+              <p className="mt-1 text-[13px] leading-6 text-rose/90">في Supabase ← SQL Editor، شغّلي هذه الملفات من مجلد <span dir="ltr">supabase/migrations</span> في المستودع بالترتيب:</p>
+              <ol className="mt-2 space-y-1">
+                {missing.map((f, i) => (
+                  <li key={f} className="flex items-center gap-2 text-[13px]">
+                    <span className="num grid h-5 w-5 place-items-center rounded-full bg-white text-[11px] font-semibold">{i + 1}</span>
+                    <code dir="ltr" className="rounded-md bg-white px-2 py-0.5 font-mono text-[12.5px] text-ink">{f}</code>
+                  </li>
+                ))}
+              </ol>
+              <p className="mt-2 text-[12px] text-rose/80">يختفي هذا التنبيه تلقائياً بعد التشغيل.</p>
+            </div>
+          </div>
+        </div>
+      )}
       {reviewTotal > 0 && (
         <Link href="/reviews" className="flex items-start gap-3 rounded-card bg-amber-soft p-4 text-amber transition hover:bg-[#F7E7C6]">
           <UserCheck className="mt-0.5 h-5 w-5 shrink-0" />
