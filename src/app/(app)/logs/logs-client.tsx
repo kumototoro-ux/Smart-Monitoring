@@ -67,7 +67,7 @@ export function LogsClient({ isAdmin, rows, total, page, pageSize, filters, acto
       {!focused && (
         <section className="mb-5">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-[17px] font-semibold">أبرز المشاكل · {RANGE[filters.range]}</h2>
+            <h2 className="text-[17px] font-semibold">أبرز المشاكل<span className="hidden sm:inline"> · {RANGE[filters.range]}</span></h2>
             <Select value={filters.range} onChange={(e) => nav({ range: e.target.value })} className="h-9 w-36 text-[13px]">
               {Object.entries(RANGE).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
             </Select>
@@ -78,7 +78,7 @@ export function LogsClient({ isAdmin, rows, total, page, pageSize, filters, acto
               <span>لا توجد مشاكل في هذه الفترة. كل شيء يعمل بشكل طبيعي.</span>
             </div>
           ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
               {summary.map((g) => <GroupCard key={g.key} g={g} onShow={() => nav({ action: g.filter.action, hint: g.filter.hint ?? '', view: 'all' })} />)}
             </div>
           )}
@@ -148,7 +148,7 @@ export function LogsClient({ isAdmin, rows, total, page, pageSize, filters, acto
                   <button onClick={() => setOpen(isOpen ? null : r.id)} className="flex w-full items-start gap-3 px-4 py-3.5 text-right sm:px-5">
                     <span className={cn('mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full', k.dot)} />
                     <div className="min-w-0 flex-1">
-                      <p className={cn('text-[14px] leading-6', r.diag.kind !== 'ok' && 'font-medium')}>{r.diag.title}</p>
+                      <p className={cn('break-anywhere text-[14px] leading-6', r.diag.kind !== 'ok' && 'font-medium')}><Rich text={r.diag.title} /></p>
                       <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-ink-muted">
                         <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', k.tone)}>{k.label}</span>
                         <span>{fmtDateTime(r.created_at)}</span>
@@ -215,11 +215,11 @@ function Stat({ icon, label, value, hint, tone }: { icon: React.ReactNode; label
 function GroupCard({ g, onShow }: { g: ProblemGroup; onShow: () => void }) {
   const k = KIND[g.kind];
   return (
-    <div className={cn('card flex flex-col p-4', g.needsAction && 'ring-1 ring-rose/25')}>
+    <div className={cn('card flex min-w-0 flex-col p-4', g.needsAction && 'ring-1 ring-rose/25')}>
       <div className="mb-2 flex items-start gap-3">
         <span className="num grid h-11 min-w-11 shrink-0 place-items-center rounded-2xl bg-surface px-2 text-[16px] font-semibold">{g.count}</span>
         <div className="min-w-0 flex-1">
-          <p className="text-[14.5px] font-semibold leading-6">{g.title}</p>
+          <p className="break-anywhere text-[14.5px] font-semibold leading-6"><Rich text={g.title} /></p>
           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px] text-ink-muted">
             <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', k.tone)}>{k.label}</span>
             {g.needsAction && <span className="rounded-full bg-rose-soft px-2 py-0.5 text-[11px] font-medium text-rose">يحتاج تدخلك</span>}
@@ -245,13 +245,13 @@ function Explain({ cause, fix, kind, compact, className }: { cause?: string; fix
       {cause && (
         <div className="flex gap-2.5 rounded-2xl bg-surface p-3">
           <HelpCircle className="mt-0.5 h-4 w-4 shrink-0 text-ink-muted" />
-          <div><p className="text-[12px] font-medium text-ink-muted">السبب</p><p className="text-[13px] leading-6">{cause}</p></div>
+          <div className="min-w-0"><p className="text-[12px] font-medium text-ink-muted">السبب</p><p className="break-anywhere text-[13px] leading-6"><Rich text={cause} /></p></div>
         </div>
       )}
       {fix && (
         <div className="flex gap-2.5 rounded-2xl bg-mint-soft/70 p-3">
           <Lightbulb className="mt-0.5 h-4 w-4 shrink-0 text-mint" />
-          <div><p className="text-[12px] font-medium text-mint">الحل</p><p className="text-[13px] leading-6">{fix}</p></div>
+          <div className="min-w-0"><p className="text-[12px] font-medium text-mint">الحل</p><p className="break-anywhere text-[13px] leading-6"><Rich text={fix} /></p></div>
         </div>
       )}
     </div>
@@ -297,4 +297,10 @@ function Legend() {
       ))}
     </div>
   );
+}
+
+/** يعرض الكلمات الإنجليزية/التقنية (أسماء ملفات، رسائل خطأ) باتجاهها الصحيح داخل النص العربي */
+function Rich({ text }: { text: string }) {
+  const parts = text.split(/([A-Za-z0-9_./\\:'"{}#?=&%@<>|-]+(?:[ ,][A-Za-z0-9_./\\:'"{}#?=&%@<>|()-]+)*)/g);
+  return <>{parts.map((p, i) => (i % 2 ? <bdi key={i} dir="ltr" className="font-mono text-[0.92em]">{p}</bdi> : p))}</>;
 }

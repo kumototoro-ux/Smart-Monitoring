@@ -87,7 +87,7 @@ function schemaDiag(op: string, who: string, where: string, text: string, page?:
       ? `الموقع تحدّث لكن ملف التحديث ${file} لم يُشغَّل بعد في Supabase، فالجدول أو الدالة المطلوبة غير موجودة.`
       : 'الموقع تحدّث لكن أحد ملفات التحديث (migrations) لم يُشغَّل بعد في Supabase.',
     fix: file
-      ? `Supabase ← SQL Editor ← الصقي محتوى supabase/migrations/${file} من المستودع ← Run. ثم أعيدي فتح الصفحة.`
+      ? `في Supabase افتحي SQL Editor، والصقي محتوى الملف ${file} (من مجلد migrations في المستودع)، ثم Run وأعيدي فتح الصفحة.`
       : 'Supabase ← SQL Editor ← شغّلي ملفات supabase/migrations التي لم تُشغَّل بعد بالترتيب. الرئيسية تعرض للأدمن أي ملف ناقص.',
   };
 }

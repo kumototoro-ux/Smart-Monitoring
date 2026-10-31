@@ -8,6 +8,8 @@
   }
   body {
     @apply bg-canvas text-ink antialiased;
+    /* حماية: لا تمرير أفقي للصفحة كلها في الجوال (clip لا يعطّل العناصر الثابتة sticky) */
+    overflow-x: clip;
     font-feature-settings: 'tnum' 1;
   }
   ::selection {
@@ -39,6 +41,9 @@
   }
   .label {
     @apply mb-1.5 block text-[13px] font-medium text-ink-soft;
+  }
+  .break-anywhere {
+    overflow-wrap: anywhere;
   }
   .num {
     font-variant-numeric: tabular-nums;
