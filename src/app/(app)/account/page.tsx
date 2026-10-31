@@ -3,6 +3,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { ROLE_LABEL } from '@/lib/types';
 import { fmtDateTime } from '@/lib/utils';
 import { PasswordForm } from './password-form';
+import { LogoutButton } from './logout-button';
 
 export const metadata = { title: 'حسابي' };
 
@@ -20,6 +21,13 @@ export default async function AccountPage() {
       <div className="card p-5 sm:p-6">
         <h2 className="mb-4 text-[17px] font-semibold">تغيير كلمة المرور</h2>
         <PasswordForm />
+      </div>
+      <div className="card mt-4 flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:p-6">
+        <div className="flex-1">
+          <h2 className="text-[17px] font-semibold">تسجيل الخروج</h2>
+          <p className="text-[13px] text-ink-muted">للدخول بحساب آخر من نفس الجهاز.</p>
+        </div>
+        <LogoutButton />
       </div>
     </div>
   );

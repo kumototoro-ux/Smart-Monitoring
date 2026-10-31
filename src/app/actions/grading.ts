@@ -10,6 +10,7 @@ export interface SheetData {
     section_id: string; section_name: string; grade_id: string; grade_name: string; mode: AssessmentMode;
     grade_subject_id: string; subject_name: string; branch_name: string;
     term: 1 | 2; year: string; grading_open: boolean; edit_window_days: number;
+    viewer_id: string; // لربط المسودة بالحساب
   };
   components: { id: string; name: string; max_score: number | null; editable: boolean; submitted_at: string | null; deadline: string | null; version: number | null }[];
   levels: { id: string; label: string }[];
@@ -74,6 +75,7 @@ export async function loadSheet(sectionId: string, gradeSubjectId: string, term?
         section_id: sec, section_name: section.name, grade_id: section.grade_id, grade_name: section.grade.name,
         mode: section.grade.assessment_mode, grade_subject_id: gs, subject_name: gsRow.subject.name, branch_name: section.branch.name,
         term: t, year: settings.academic_year, grading_open: settings.grading_open, edit_window_days: settings.edit_window_days,
+        viewer_id: profile.id,
       },
       components: compList.map((c) => {
         const s = st.components.find((x) => x.component_id === c.id);

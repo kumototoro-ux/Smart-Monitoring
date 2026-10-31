@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { LogOut, MoreHorizontal, PanelRight, Bell, CalendarDays } from 'lucide-react';
+import { LogOut, MoreHorizontal, PanelRight, Bell, CalendarDays, ChevronDown, UserRound, Loader2 } from 'lucide-react';
+import { FloatingMenu, MenuItem } from '@/components/ui/menu';
 import { NAV, bottomItems, isActive, type NavItem } from './nav';
 import { logout } from '@/app/actions/auth';
 import { Dialog } from '@/components/ui/dialog';
@@ -37,9 +38,12 @@ export function Shell(p: ShellProps) {
   const bell = p.pendingRequests + (p.pendingReviews ?? 0);
   const { main, more } = bottomItems(p.profile.role);
 
+  const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
+  const [leaving, setLeaving] = useState(false);
   const doLogout = async () => {
     if (await confirm({ title: 'تسجيل الخروج', message: 'هل تريدين تسجيل الخروج من النظام؟', confirmText: 'خروج' })) {
-      await logout();
+      setLeaving(true);
+      try { await logout(); } finally { setLeaving(false); }
     }
   };
 
@@ -47,6 +51,11 @@ export function Shell(p: ShellProps) {
     <div className="min-h-dvh lg:h-dvh lg:p-5">
       <ErrorReporter />
       <NavProgress />
+      {leaving && (
+        <div className="fixed inset-0 z-[90] grid place-items-center bg-surface/80">
+          <span className="flex items-center gap-2 rounded-full bg-white px-5 py-3 text-[14px] shadow-pop"><Loader2 className="h-4 w-4 animate-spin" />جارٍ تسجيل الخروج…</span>
+        </div>
+      )}
       {/* في الكمبيوتر: إطار ثابت بارتفاع الشاشة — القائمة ثابتة والمحتوى فقط يتمرر */}
       <div className="flex min-h-dvh bg-surface lg:h-full lg:min-h-0 lg:overflow-hidden lg:rounded-shell lg:shadow-shell">
         {/* القائمة الجانبية — كمبيوتر وتابلت أفقي */}
@@ -89,7 +98,7 @@ export function Shell(p: ShellProps) {
                 </div>
               )}
               {!collapsed && (
-                <button onClick={doLogout} className="rounded-lg p-1.5 text-ink-muted hover:bg-white hover:text-rose" aria-label="تسجيل الخروج">
+                <button onClick={doLogout} title="تسجيل الخروج" className="rounded-lg p-1.5 text-ink-muted hover:bg-white hover:text-rose" aria-label="تسجيل الخروج">
                   <LogOut className="h-[18px] w-[18px]" />
                 </button>
               )}
@@ -122,8 +131,26 @@ export function Shell(p: ShellProps) {
                   </span>
                 )}
               </Link>
+              {/* قائمة الحساب: الاسم + حسابي + تسجيل الخروج — في كل الصفحات والأجهزة */}
+              <button onClick={(e) => { const el = e.currentTarget; setUserMenu((m) => (m ? null : el)); }}
+                className={cn('flex items-center gap-2 rounded-full p-0.5 transition hover:bg-white lg:pl-3', userMenu && 'bg-white')}
+                aria-label="الحساب وتسجيل الخروج" aria-haspopup="menu" aria-expanded={!!userMenu}>
+                <Avatar name={p.profile.full_name} className="h-9 w-9" />
+                <ChevronDown className="hidden h-4 w-4 text-ink-muted lg:block" />
+              </button>
             </div>
           </header>
+          <FloatingMenu anchor={userMenu} onClose={() => setUserMenu(null)} width={250}>
+            <div className="mb-1 border-b border-line px-3 pb-3 pt-2">
+              <p className="truncate text-[14px] font-semibold">{p.profile.full_name}</p>
+              <p className="truncate text-[12px] text-ink-muted">{ROLE_LABEL[p.profile.role]}{p.branchName ? ` · ${p.branchName}` : ''}</p>
+              <p className="mt-0.5 truncate text-[12px] text-ink-faint" dir="ltr" style={{ textAlign: 'right' }}>{p.profile.username}</p>
+            </div>
+            <Link href="/account" onClick={() => setUserMenu(null)} className="flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-[13.5px] hover:bg-surface">
+              <UserRound className="h-4 w-4" />حسابي وتغيير كلمة المرور
+            </Link>
+            <MenuItem icon={<LogOut />} tone="danger" onClick={() => { setUserMenu(null); void doLogout(); }}>تسجيل الخروج</MenuItem>
+          </FloatingMenu>
 
           <main className="flex-1 px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-4">{p.children}</main>
         </div>

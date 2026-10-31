@@ -44,7 +44,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
   const [data, setData] = useState(initial);
   const verbal = data.meta.mode === 'verbal';
   const comps = useMemo(() => data.components.filter((c) => scope === 'all' || scope.includes(c.id)), [data.components, scope]);
-  const draftKey = `mirqat:draft:${data.meta.section_id}:${data.meta.grade_subject_id}:${data.meta.term}`;
+  const draftKey = `mirqat:draft:${data.meta.viewer_id}:${data.meta.section_id}:${data.meta.grade_subject_id}:${data.meta.term}`;
   const canWriteRole = role === 'teacher' || role === 'admin';
   const closed = role === 'teacher' && (!data.meta.grading_open);
   const editable = (c: SheetData['components'][number]) => canWriteRole && !closed && (role === 'admin' || c.editable);
