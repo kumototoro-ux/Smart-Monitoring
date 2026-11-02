@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 
-const PUBLIC = ['/login'];
+// /api/cron: مهام Vercel المجدولة، وكل مسار فيها يتحقق بنفسه من CRON_SECRET
+const PUBLIC = ['/login', '/api/cron'];
 
 export async function updateSession(request: NextRequest) {
   request.headers.set('x-pathname', request.nextUrl.pathname);

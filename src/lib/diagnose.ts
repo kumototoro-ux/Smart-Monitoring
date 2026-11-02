@@ -38,6 +38,7 @@ export interface Diagnosis {
 
 /** أسماء العمليات */
 const OP: Record<string, string> = {
+  'system.heartbeat': 'نبض يومي يبقي قاعدة البيانات نشطة',
   'sheet.save': 'حفظ كشف درجات', 'sheet.load': 'فتح كشف', 'sheet.add_student': 'إضافة طالب للكشف', 'sheet.exclude': 'استبعاد طالب',
   'sheet.restore': 'إعادة طالب للكشف', 'pool.load': 'عرض طلاب الصف', 'pool.claim': 'ضم طلاب للشعبة', 'pool.release': 'إرجاع طالب لقائمة الصف',
   'request.create': 'رفع طلب', 'request.review': 'مراجعة طلب', 'request.cancel': 'إلغاء طلب',
