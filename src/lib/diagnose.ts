@@ -76,7 +76,9 @@ export function migrationFor(text: string) {
 /** أخطاء تعني أن قاعدة البيانات أقدم من نسخة الموقع */
 const SCHEMA_MISSING = /PGRST20[0-5]|could not find (the|a) (table|function|relationship|column)|column .* does not exist|42703|function .* does not exist|42883|relation .* does not exist|42P01|more than one relationship/i;
 /** رسائل الواجهة التي هي مجرد صدى لخطأ حدث في الخادم */
-const SERVER_ECHO = /error occurred in the Server Components render|Minified React error #(418|419|423)|digest/i;
+const SERVER_ECHO = /error occurred in the Server Components render|Minified React error #(419|423)|digest/i;
+/** React #418/#425: اختلاف بين نص الخادم ونص المتصفح — يتعافى منه React تلقائياً */
+const HYDRATION = /Minified React error #(418|425)|Hydration failed|hydrat/i;
 
 function schemaDiag(op: string, who: string, where: string, text: string, page?: string): Diagnosis {
   const file = migrationFor(text);
@@ -162,6 +164,13 @@ export function diagnose(l: LogLike, contextText?: string): Diagnosis {
     title: `فتح صفحة غير مسموحة${d.path ? ` (${str(d.path)})` : ''} — ${who}`, group: 'فتح صفحة غير مصرّح بها',
     cause: 'كتب الرابط يدوياً أو فتح رابطاً محفوظاً من صلاحية سابقة. النظام منعه وأعاده للرئيسية.',
     fix: 'غالباً غير مقصود. إذا تكرر كثيراً من نفس الشخص فراجعيه.',
+  };
+  if ((a === 'client.ui.error' || a === 'client.page.error') && HYDRATION.test(msg)) return {
+    kind: 'system', key: 'ui:hydration', needsAction: false,
+    title: `اختلاف في رسم الصفحة${d.path ? ` (${PAGES[str(d.path).split('?')[0]] ?? str(d.path).split('?')[0]})` : ''} — ${who}`,
+    group: 'اختلاف بسيط في رسم الصفحة (React #418)',
+    cause: 'ما رسمه الخادم لم يطابق ما رسمه المتصفح (غالباً تنسيق التاريخ والوقت). يعيد المتصفح رسم الصفحة تلقائياً فتظهر سليمة، وليس عطلاً في قاعدة البيانات.',
+    fix: 'لا يلزم إجراء. إذا ظهر بعد تاريخ هذا التحديث فأرسليه للمطوّر مع اسم الصفحة.',
   };
   if ((a === 'client.ui.error' || a === 'client.page.error') && SERVER_ECHO.test(msg)) return {
     kind: 'system', key: 'ui:server-echo', needsAction: false,

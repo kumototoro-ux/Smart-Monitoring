@@ -2,10 +2,12 @@ import clsx, { type ClassValue } from 'clsx';
 
 export const cn = (...v: ClassValue[]) => clsx(v);
 
+// المنطقة الزمنية ثابتة: الخادم (UTC) والمتصفح يرسمان التاريخ بنفس الشكل، وإلا ظهر خطأ React #418
+export const APP_TZ = 'Asia/Riyadh';
 const ar = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {
-  year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+  year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: APP_TZ,
 });
-const arDate = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { year: 'numeric', month: 'short', day: 'numeric' });
+const arDate = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { year: 'numeric', month: 'short', day: 'numeric', timeZone: APP_TZ });
 
 export const fmtDateTime = (d?: string | null) => (d ? ar.format(new Date(d)) : '—');
 export const fmtDate = (d?: string | null) => (d ? arDate.format(new Date(d)) : '—');
