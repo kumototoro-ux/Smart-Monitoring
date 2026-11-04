@@ -3,7 +3,7 @@ import { z } from 'zod';
 import ExcelJS from 'exceljs';
 import { run, must, ActionError, parseOr } from '@/lib/action';
 import { gradeKey, normAr, sectionKey } from '@/lib/arabic';
-import { normalizeDigits } from '@/lib/utils';
+import { normalizeDigits, isTempNumber } from '@/lib/utils';
 import { createAdminClient } from '@/lib/supabase/admin';
 import type { Profile } from '@/lib/types';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -88,9 +88,13 @@ export interface ImportRow {
   gender: 'male' | 'female' | null; branch: string; grade: string; section: string;
   branch_id?: string; grade_id?: string; section_id?: string | null; newSection?: boolean;
   existing?: boolean; error?: string;
+  /** طالب برقم مؤقت بنفس الاسم: يأخذ الرقم الحقيقي من الملف بدل إنشاء طالب مكرر */
+  adoptId?: string;
+  /** طالب بلا رقم في الملف ويوجد بنفس الاسم في نفس الفرع والصف: لا يُكرَّر */
+  matched?: boolean;
 }
 export interface ImportPreview {
-  total: number; valid: number; errors: number; updates: number; noNumber: number; newSections: string[];
+  total: number; valid: number; errors: number; updates: number; noNumber: number; adopted: number; matched: number; newSections: string[];
   rows: ImportRow[]; headers: Record<string, string | null>;
 }
 
@@ -225,12 +229,39 @@ async function buildPreview(supabase: SupabaseClient, profile: Profile, base64: 
   }
   if (!rows.length) throw new ActionError('لا توجد صفوف بيانات تحت العناوين');
 
+  // ربط الصفوف بطلاب موجودين بنفس الاسم والفرع والصف:
+  //  - صف له رقم حقيقي وطالب موجود برقم مؤقت → يحل الرقم الحقيقي محل المؤقت
+  //  - صف بلا رقم وطالب موجود بنفس الاسم → لا يُكرَّر (حتى لو أُعيد رفع الملف)
+  const cand = rows.filter((r) => !r.error && !r.existing && r.branch_id);
+  const byKey = new Map<string, { id: string; student_number: string | null }[]>();
+  const names = [...new Set(cand.map((r) => r.full_name))];
+  for (let i = 0; i < names.length; i += 150) {
+    const { data } = await admin.from('students').select('id, full_name, branch_id, grade_id, student_number').in('full_name', names.slice(i, i + 150));
+    (data ?? []).forEach((d) => {
+      const k = `${d.branch_id}:${d.grade_id}:${normAr(d.full_name as string)}`;
+      byKey.set(k, [...(byKey.get(k) ?? []), { id: d.id as string, student_number: d.student_number as string | null }]);
+    });
+  }
+  const taken = new Set<string>();
+  cand.forEach((r) => {
+    const list = byKey.get(`${r.branch_id}:${r.grade_id}:${normAr(r.full_name)}`) ?? [];
+    if (r.student_number) {
+      const temps = list.filter((x) => isTempNumber(x.student_number) && !taken.has(x.id));
+      if (temps.length === 1) { r.adoptId = temps[0].id; taken.add(temps[0].id); }
+    } else {
+      const free = list.filter((x) => !taken.has(x.id));
+      if (free.length) { r.matched = true; taken.add(free[0].id); }
+    }
+  });
+
   return {
     total: rows.length,
     valid: rows.filter((r) => !r.error).length,
     errors: rows.filter((r) => r.error).length,
     updates: rows.filter((r) => !r.error && r.existing).length,
-    noNumber: rows.filter((r) => !r.error && !r.student_number).length,
+    noNumber: rows.filter((r) => !r.error && !r.student_number && !r.matched).length,
+    adopted: rows.filter((r) => !r.error && r.adoptId).length,
+    matched: rows.filter((r) => !r.error && r.matched).length,
     newSections: [...newSections],
     rows,
     headers: Object.fromEntries((Object.keys(HEADERS) as Col[]).map((k) => [k, colMap[k] ? cellText(ws.getRow(headerRow).getCell(colMap[k]).value) : null])),
@@ -281,11 +312,19 @@ export async function commitImport(base64: string, defaultBranch: string | null,
         done += must(res)?.length ?? 0;
       }
     };
-    // طلاب جدد
-    await put(valid.filter((r) => !r.existing).map((r) => ({ ...base(r), section_id: r.section_id ?? null, source: 'import', created_by: profile.id })), 'insert');
+    // طلاب برقم مؤقت وصل رقمهم الحقيقي: تحديث بدل إنشاء مكرر
+    const adopt = valid.filter((r) => !r.existing && r.adoptId);
+    for (let i = 0; i < adopt.length; i += 25) {
+      await Promise.all(adopt.slice(i, i + 25).map(async (r) => {
+        const upd = must(await supabase.from('students').update(r.section_id ? { ...base(r), section_id: r.section_id } : base(r)).eq('id', r.adoptId!).select('id'));
+        done += upd?.length ?? 0;
+      }));
+    }
+    // طلاب جدد (دون المربوطين بطالب موجود بنفس الاسم)
+    await put(valid.filter((r) => !r.existing && !r.adoptId && !r.matched).map((r) => ({ ...base(r), section_id: r.section_id ?? null, source: 'import', created_by: profile.id })), 'insert');
     // موجودون: تحديث بياناتهم — والشعبة لا تتغير إلا إذا كانت محددة في الملف
     await put(valid.filter((r) => r.existing && r.section_id).map((r) => ({ ...base(r), section_id: r.section_id })), 'upsert');
     await put(valid.filter((r) => r.existing && !r.section_id).map((r) => base(r)), 'upsert');
-    return { imported: done, skipped: p.errors, sections: p.newSections.length };
+    return { imported: done, skipped: p.errors, sections: p.newSections.length, matched: p.matched };
   }, { revalidate: ['/students', '/settings'], log: (d) => d });
 }

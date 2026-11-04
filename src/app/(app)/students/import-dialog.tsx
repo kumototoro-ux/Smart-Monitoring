@@ -106,7 +106,16 @@ export function ImportDialog({ open, onClose, isAdmin, branches, defaultBranch }
           {preview.noNumber > 0 && (
             <p className="flex items-start gap-2 rounded-2xl bg-amber-soft p-3.5 text-[13px] leading-6 text-amber">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-              <span><b className="num">{preview.noNumber}</b> طالب بدون رقم أكاديمي: سيُضافون كطلاب جدد، ولو أعدتِ رفع الملف سيتكررون. يُفضّل إكمال أرقامهم.</span>
+              <span><b className="num">{preview.noNumber}</b> طالب بدون رقم أكاديمي: سيُنشئ لهم النظام رقماً مؤقتاً (TMP-…) تستبدلينه بالرقم الحقيقي لاحقاً من صفحة الطلاب.</span>
+            </p>
+          )}
+          {(preview.adopted > 0 || preview.matched > 0) && (
+            <p className="flex items-start gap-2 rounded-2xl bg-peri-soft p-3.5 text-[13px] leading-6 text-peri-deep">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <span>
+                {preview.adopted > 0 && <><b className="num">{preview.adopted}</b> طالب لهم رقم مؤقت وصل رقمهم الحقيقي في الملف: سيحل محل المؤقت دون تكرار الطالب. </>}
+                {preview.matched > 0 && <><b className="num">{preview.matched}</b> طالب بلا رقم في الملف موجودون بنفس الاسم والصف: لن يُضافوا مرة ثانية.</>}
+              </span>
             </p>
           )}
           {preview.newSections.length > 0 && (

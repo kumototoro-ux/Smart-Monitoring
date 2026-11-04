@@ -9,6 +9,9 @@ const ar = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {
 });
 const arDate = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { year: 'numeric', month: 'short', day: 'numeric', timeZone: APP_TZ });
 
+/** رقم مؤقت أنشأه النظام لطالب ليس له رقم أكاديمي (مثل TMP-000123) */
+export const isTempNumber = (n?: string | null) => !!n && /^TMP-\d+$/.test(n);
+
 export const fmtDateTime = (d?: string | null) => (d ? ar.format(new Date(d)) : '—');
 export const fmtDate = (d?: string | null) => (d ? arDate.format(new Date(d)) : '—');
 

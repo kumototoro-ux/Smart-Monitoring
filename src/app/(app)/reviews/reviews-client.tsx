@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/field';
 import { EmptyState } from '@/components/ui/empty';
-import { cn, fmtDateTime, secLabel } from '@/lib/utils';
+import { cn, fmtDateTime, secLabel, isTempNumber } from '@/lib/utils';
 import type { Branch, Section } from '@/lib/types';
 
 type Kind = 'added' | 'released' | 'excluded';
@@ -140,7 +140,7 @@ export function ReviewsClient({ isAdmin, rows, sections, branches, filters, coun
                     <p className="text-[12.5px] text-ink-muted">
                       {st?.grade?.name} {r.kind === 'released' ? `· كان في ${secLabel(r.section?.name)}` : st?.current ? `· ${secLabel(st.current.name)}` : '· بدون شعبة'}
                       {isAdmin && r.branch ? ` · ${r.branch.name}` : ''}
-                      {st?.student_number && <> · <span dir="ltr" className="num">{st.student_number}</span></>}
+                      {st?.student_number && <> · <span dir="ltr" className="num">{st.student_number}</span>{isTempNumber(st.student_number) && <span className="text-amber"> (مؤقت)</span>}</>}
                     </p>
                   </div>
                   <span className={cn('shrink-0 rounded-full px-2.5 py-1 text-[11.5px] font-medium', K.tone)}>{K.label}</span>
@@ -203,7 +203,7 @@ export function ReviewsClient({ isAdmin, rows, sections, branches, filters, coun
         </>}>
         {edit && (
           <div className="space-y-4">
-            <Field label="الرقم الأكاديمي" hint="المعرّف الأساسي للطالب — لا يتكرر">
+            <Field label="الرقم الأكاديمي" hint={isTempNumber(edit.student_number) ? 'رقم مؤقت أنشأه النظام. اكتبي الرقم الأكاديمي الحقيقي عند توفره ليحل محله' : 'المعرّف الأساسي للطالب — لا يتكرر'}>
               <Input value={edit.student_number ?? ''} onChange={(e) => setEdit({ ...edit, student_number: e.target.value })} dir="ltr" className="text-right" inputMode="numeric" />
             </Field>
             <Field label="اسم الطالب الرباعي (عربي)"><Input value={edit.full_name} onChange={(e) => setEdit({ ...edit, full_name: e.target.value })} /></Field>

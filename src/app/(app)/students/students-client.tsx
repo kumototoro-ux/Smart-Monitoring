@@ -11,7 +11,7 @@ import { Field, Input, Select } from '@/components/ui/field';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
 import { ImportDialog } from './import-dialog';
-import { cn, secLabel } from '@/lib/utils';
+import { cn, secLabel, isTempNumber } from '@/lib/utils';
 import type { Branch, Grade, Section, Student } from '@/lib/types';
 
 interface Props {
@@ -161,6 +161,7 @@ export function StudentsClient(p: Props) {
                     </p>
                   </div>
                   <span className="num hidden w-28 text-[12.5px] text-ink-muted md:block" dir="ltr" title="الرقم الأكاديمي">{s.student_number ?? '—'}</span>
+                  {isTempNumber(s.student_number) && <Badge tone="warning">رقم مؤقت</Badge>}
                   {!s.section_id && <Badge tone="warning">بدون شعبة</Badge>}
                   {s.needs_review && <Badge tone="info">أضافته معلمة</Badge>}
                   <button onClick={() => setEdit(s as Edit)} className="rounded-full p-2 text-ink-muted hover:bg-surface hover:text-ink" aria-label="تعديل"><Pencil className="h-4 w-4" /></button>
@@ -193,7 +194,7 @@ export function StudentsClient(p: Props) {
         </>}>
         {edit && (
           <div className="space-y-4">
-            <Field label="الرقم الأكاديمي" hint="المعرّف الأساسي للطالب — لا يتكرر">
+            <Field label="الرقم الأكاديمي" hint={isTempNumber(edit.student_number) ? 'رقم مؤقت أنشأه النظام. اكتبي الرقم الأكاديمي الحقيقي عند توفره ليحل محله' : 'المعرّف الأساسي للطالب — لا يتكرر. إذا تركتِه فارغاً يُنشأ رقم مؤقت'}>
               <Input value={edit.student_number ?? ''} onChange={(e) => setEdit({ ...edit, student_number: e.target.value })} dir="ltr" className="text-right" inputMode="numeric" />
             </Field>
             <Field label="اسم الطالب الرباعي (عربي)"><Input value={edit.full_name ?? ''} onChange={(e) => setEdit({ ...edit, full_name: e.target.value })} /></Field>
