@@ -21,6 +21,7 @@
    6. `supabase/migrations/0006_section_links.sql`: ربط الشعب بالصفوف والفروع، وهو ضروري لصفحات المعلمة والكشوف والطلبات.
    7. `supabase/migrations/0007_student_reviews.sql`: «مراجعة الطلاب» — ما تضيفه المعلمات أو تستبعده أو تُرجعه يصل للمشرفة.
    8. `supabase/migrations/0008_temp_student_number.sql`: رقم تعريف مؤقت (TMP-000123) تلقائي لأي طالب بدون رقم أكاديمي، ويشمل المضافين سابقاً.
+   9. `supabase/migrations/0009_sheet_activity.sql`: دالة «متابعة الرصد» (من بدأ الرصد ولم يحفظ).
 3. من **Authentication → Sign In / Providers**:
    - أوقف **Allow new users to sign up**، لأن الحسابات تُنشأ من داخل النظام فقط.
    - أوقف **Confirm email**.

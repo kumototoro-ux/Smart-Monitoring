@@ -15,7 +15,7 @@ const COLS = 'id, created_at, actor_id, actor_name, actor_role, branch_id, actio
 
 const CATEGORY: Record<string, string> = {
   auth: 'auth.%', grade: 'grade.%', sheet: 'sheet.%', account: 'account.%', request: 'request.%',
-  student: 'student.%', settings: 'settings.%', export: 'export.%', client: 'client.%',
+  student: 'student.%', settings: 'settings.%', export: 'export.%', client: 'client.%error', progress: 'client.sheet.%',
 };
 
 /** أسماء الشعب والمواد المذكورة في الأحداث: «الرياضيات · الأول المتوسط شعبة أ» */

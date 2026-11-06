@@ -115,7 +115,7 @@ export function LogsClient({ isAdmin, rows, total, page, pageSize, filters, acto
             <Select value={filters.cat} onChange={(e) => nav({ cat: e.target.value })} className="sm:w-40">
               <option value="">كل العمليات</option><option value="auth">الدخول</option><option value="grade">حفظ الرصد</option><option value="sheet">الكشوفات</option>
               <option value="student">الطلاب</option><option value="request">الطلبات</option><option value="account">الحسابات</option><option value="settings">الإعدادات</option>
-              <option value="export">التصدير</option><option value="client">أخطاء الواجهة</option>
+              <option value="export">التصدير</option><option value="client">أخطاء الواجهة</option><option value="progress">بدأت / غادرت دون حفظ</option>
             </Select>
             {focused && (
               <Select value={filters.range} onChange={(e) => nav({ range: e.target.value })} className="sm:w-36">

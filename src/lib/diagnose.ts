@@ -58,7 +58,7 @@ const OP: Record<string, string> = {
 /** أسماء الصفحات */
 const PAGES: Record<string, string> = {
   '/': 'الرئيسية', '/grading': 'رصد الدرجات', '/records': 'سجلات الرصد', '/requests': 'الطلبات', '/account': 'حسابي',
-  '/results': 'نتائج الرصد', '/accounts': 'الحسابات', '/assignments': 'الإسناد', '/students': 'الطلاب', '/logs': 'سجل التتبع',
+  '/results': 'نتائج الرصد', '/accounts': 'الحسابات', '/assignments': 'الإسناد', '/students': 'الطلاب', '/logs': 'سجل التتبع', '/follow-up': 'متابعة الرصد',
   '/settings': 'الإعدادات العامة', '/settings/branches': 'الفروع', '/settings/structure': 'الصفوف والشعب', '/settings/subjects': 'المواد والتقييم',
   '/api/export': 'تصدير إكسل', '/reviews': 'مراجعة الطلاب',
 };
@@ -109,6 +109,7 @@ const DONE: Record<string, string> = {
   'account.create': 'إنشاء حساب', 'account.reset_password': 'إعادة تعيين كلمة مرور', 'account.change_username': 'تغيير اسم مستخدم',
   'account.update': 'تعديل حساب', 'account.activate': 'تفعيل حساب', 'account.deactivate': 'إيقاف حساب', 'account.delete': 'حذف حساب',
   'settings.update': 'تعديل الإعدادات العامة', 'student.import': 'استيراد الطلاب', 'export.template': 'تحميل نموذج الاستيراد',
+  'client.sheet.started': 'بدأت الرصد في كشف', 'client.sheet.abandoned': 'غادرت كشفاً وفيه درجات غير محفوظة',
   'review.approve': 'اعتماد/موافقة في مراجعة الطلاب', 'review.move': 'نقل طالب مُرجَع لشعبته', 'review.keep': 'إبقاء طالب بدون شعبة',
   'review.restore': 'إعادة طالب مستبعد للكشف', 'review.deactivate': 'إيقاف طالب من المراجعة',
   'export.section': 'تصدير كشف شعبة', 'export.subject': 'تصدير كشف مادة', 'export.branch': 'تصدير كشوفات فرع', 'export.progress': 'تصدير تقرير متابعة الرصد',
@@ -307,7 +308,8 @@ export function diagnose(l: LogLike, contextText?: string): Diagnosis {
     const extra = a === 'student.claim' && d.claimed != null ? ` (${str(d.claimed)} طالب)` :
       a === 'student.import' && d.imported != null ? ` (${str(d.imported)} طالب)` :
       a.startsWith('grade.') && d.component ? ` (${str(d.component)})` : '';
-    return { kind: 'ok', key: `ok:${a}`, needsAction: false, title: `${done}${extra} — ${who}${where}`, group: done };
+    const prog = a.startsWith('client.sheet.') && d.total != null ? ` (رصدت ${str(d.filled)} من ${str(d.total)} خانة)` : '';
+    return { kind: 'ok', key: `ok:${a}`, needsAction: false, title: `${done}${extra}${prog} — ${who}${where}`, group: done };
   }
   return { kind: l.severity === 'error' ? 'system' : l.severity === 'security' ? 'security' : 'ok', key: `other:${a}`, needsAction: l.severity === 'error',
     title: `${OP[a] ?? a} — ${who}${where}`, group: OP[a] ?? a };

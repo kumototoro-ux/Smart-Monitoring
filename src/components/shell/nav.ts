@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ClipboardPen, History, Inbox, Users, GraduationCap, Link2,
-  FileSpreadsheet, ScrollText, Settings, Building2, Layers, BookOpen, UserRound, UserCheck,
+  FileSpreadsheet, ScrollText, Radar, Settings, Building2, Layers, BookOpen, UserRound, UserCheck,
 } from 'lucide-react';
 import type { Role } from '@/lib/types';
 
@@ -31,6 +31,7 @@ export const NAV: Record<Role, NavGroup[]> = {
     { items: [
       home,
       { href: '/results', label: 'نتائج الرصد', short: 'النتائج', icon: FileSpreadsheet },
+      { href: '/follow-up', label: 'متابعة الرصد', icon: Radar },
       { href: '/requests', label: 'الطلبات', icon: Inbox, badge: 'requests' },
       reviews,
     ] },
@@ -46,6 +47,7 @@ export const NAV: Record<Role, NavGroup[]> = {
     { items: [
       home,
       { href: '/results', label: 'نتائج الرصد', short: 'النتائج', icon: FileSpreadsheet },
+      { href: '/follow-up', label: 'متابعة الرصد', icon: Radar },
       { href: '/requests', label: 'الطلبات', icon: Inbox, badge: 'requests' },
       reviews,
       { href: '/accounts', label: 'الحسابات', icon: Users },

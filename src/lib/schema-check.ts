@@ -15,6 +15,7 @@ export async function missingMigrations(supabase: SupabaseClient): Promise<strin
     ['0006_section_links.sql', () => supabase.from('sections').select('id, grade:grades(name)').limit(1)],
     ['0007_student_reviews.sql', () => supabase.from('student_reviews').select('id').limit(1)],
     ['0008_temp_student_number.sql', () => supabase.rpc('is_temp_student_number', { p: 'x' })],
+    ['0009_sheet_activity.sql', () => supabase.rpc('sheet_activity', { p_since: new Date().toISOString() })],
   ];
   const res = await Promise.all(checks.map(async ([file, run]) => {
     try {

@@ -17,6 +17,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select } from '@/components/ui/field';
 import { Badge } from '@/components/ui/badge';
 import { Bar } from '@/components/ui/progress';
+import { createClient } from '@/lib/supabase/client';
 import { cn, normalizeDigits, timeLeft, scrollAppTop, secLabel } from '@/lib/utils';
 
 type Cell = { raw: string; absent: boolean; level: string | null };
@@ -129,6 +130,82 @@ export function SheetEditor({ initial, scope, role, onBack }: {
     const total = data.students.length * editableComps.length;
     return { filled, empty, over, invalid, total, rowsMissing: rowsMissing.size, first: acc.first, pct: total ? Math.round((filled / total) * 100) : 0 };
   }, [values, data.students, editableComps, verbal]);
+
+  // ------------------------------------------- متابعة: بدأت الرصد / غادرت دون حفظ
+  // «تغييرات غير محفوظة» = اختلاف الخانات عن آخر نسخة محفوظة في السيرفر (بعد توحيد الأرقام العربية)
+  const dirty = useMemo(() => {
+    if (!editableComps.length || phase === 'done') return false;
+    const server = fromServer(data);
+    const num = (t: string) => normalizeDigits(t).trim();
+    return data.students.some((st) => editableComps.some((c) => {
+      const key = k(st.id, c.id);
+      const v = values[key]; const sv = server[key];
+      const vEmpty = !v || (!v.raw.trim() && !v.absent && !v.level);
+      if (!sv) return !vEmpty;
+      if (!v) return true;
+      const a = num(v.raw), b = num(sv.raw);
+      const same = a === b || (a !== '' && b !== '' && Number(a) === Number(b));
+      return !(same && v.absent === sv.absent && v.level === sv.level);
+    }));
+  }, [values, phase, data, editableComps, fromServer]);
+
+  const live = useRef({ dirty, filled: stats.filled, total: stats.total, meta: data.meta });
+  live.current = { dirty, filled: stats.filled, total: stats.total, meta: data.meta };
+  const startedRef = useRef(false);
+  const abandonedRef = useRef(false);
+
+  // تُرسل بـ keepalive لتصل حتى لو أُغلقت الصفحة
+  const sendEvent = useCallback(async (kind: 'started' | 'abandoned') => {
+    const { meta, filled, total } = live.current;
+    if (role !== 'teacher') return;
+    try {
+      const { data: { session } } = await createClient().auth.getSession();
+      const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+      if (!session || !url || !key) return;
+      await fetch(`${url}/rest/v1/rpc/log_client_event`, {
+        method: 'POST', keepalive: true,
+        headers: { 'Content-Type': 'application/json', apikey: key, Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ p_action: `sheet.${kind}`, p_severity: 'info', p_details: {
+          section_id: meta.section_id, grade_subject_id: meta.grade_subject_id, term: meta.term, filled, total, path: location.pathname,
+        } }),
+      });
+    } catch { /* التسجيل لا يعطّل الرصد */ }
+  }, [role]);
+
+  useEffect(() => {
+    if (dirty) {
+      abandonedRef.current = false; // تغييرات جديدة بعد المغادرة السابقة
+      if (!startedRef.current) { startedRef.current = true; void sendEvent('started'); }
+    }
+  }, [dirty, sendEvent]);
+
+  useEffect(() => {
+    const leave = () => {
+      if (live.current.dirty && !abandonedRef.current) { abandonedRef.current = true; void sendEvent('abandoned'); }
+    };
+    const onHide = () => { if (document.visibilityState === 'hidden') leave(); };
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (live.current.dirty) { e.preventDefault(); e.returnValue = ''; }
+    };
+    window.addEventListener('pagehide', leave);
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => {
+      window.removeEventListener('pagehide', leave);
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('beforeunload', onBeforeUnload);
+      leave(); // الانتقال لصفحة أخرى داخل الموقع
+    };
+  }, [sendEvent]);
+
+  const goBack = async () => {
+    if (dirty && !(await confirm({
+      title: 'لديك درجات لم تُحفظ',
+      message: 'لم يُحفظ الكشف بعد. تبقى درجاتك كمسودة على هذا الجهاز، لكن لن تظهر للمشرفة قبل الحفظ النهائي.',
+      confirmText: 'رجوع بدون حفظ', tone: 'danger',
+    }))) return;
+    onBack();
+  };
 
   const focusCell = (key: string) => {
     const el = tableRef.current?.querySelector<HTMLElement>(`[data-key="${key}"]`);
@@ -260,7 +337,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
   const header = (
     <div className="card mb-4 p-4 sm:p-5">
       <div className="flex flex-wrap items-start gap-3">
-        <button onClick={onBack} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface text-ink-soft hover:text-ink" aria-label="رجوع">
+        <button onClick={goBack} className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-surface text-ink-soft hover:text-ink" aria-label="رجوع">
           <ArrowRight className="h-5 w-5" />
         </button>
         <div className="min-w-0 flex-1">
