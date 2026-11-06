@@ -78,6 +78,8 @@ export function migrationFor(text: string) {
 const SCHEMA_MISSING = /PGRST20[0-5]|could not find (the|a) (table|function|relationship|column)|column .* does not exist|42703|function .* does not exist|42883|relation .* does not exist|42P01|more than one relationship/i;
 /** رسائل الواجهة التي هي مجرد صدى لخطأ حدث في الخادم */
 const SERVER_ECHO = /error occurred in the Server Components render|Minified React error #(419|423)|digest/i;
+/** فشل طلب شبكة من المتصفح (انقطاع/ضعف إنترنت أو إغلاق الصفحة أثناء التحميل). «Load failed» رسالة Safari/آيفون */
+const NETWORK = /^(Uncaught \(in promise\):?\s*)?(TypeError:\s*)?(Load failed|Failed to fetch|NetworkError|The network connection was lost|The Internet connection appears to be offline|Network request failed|fetch failed|Importing a module script failed|Loading chunk|ChunkLoadError)/i;
 /** React #418/#425: اختلاف بين نص الخادم ونص المتصفح — يتعافى منه React تلقائياً */
 const HYDRATION = /Minified React error #(418|425)|Hydration failed|hydrat/i;
 
@@ -179,6 +181,13 @@ export function diagnose(l: LogLike, contextText?: string): Diagnosis {
     group: 'صفحة خطأ ظهرت للمستخدم (السبب في «تعذّر فتح…» بنفس الوقت)',
     cause: 'هذا انعكاس في المتصفح لخطأ حدث في الخادم — السبب الحقيقي مسجّل كحدث «تعذّر فتح …» في نفس الدقيقة.',
     fix: d.digest ? `ابحثي في السجل بالرمز ${str(d.digest)} لتجدي السبب والحل.` : 'راجعي حدث «تعذّر فتح …» في نفس الوقت لمعرفة السبب.',
+  };
+  if ((a === 'client.ui.error' || a === 'client.page.error') && NETWORK.test(msg.trim())) return {
+    kind: 'user', key: 'ui:network', needsAction: false,
+    title: `انقطع الاتصال أثناء استخدام الموقع${d.path ? ` (${PAGES[str(d.path).split('?')[0]] ?? str(d.path).split('?')[0]})` : ''} — ${who}`,
+    group: 'انقطاع الاتصال بالإنترنت أثناء الاستخدام',
+    cause: 'فشل طلب من جهاز المستخدم للموقع (ضعف أو انقطاع في الإنترنت، أو تبديل بين الواي فاي والبيانات، أو إغلاق الصفحة أثناء التحميل). الرسالة «Load failed» تظهر هكذا في الآيفون والسفاري.',
+    fix: 'لا يلزم إجراء إذا ظهر مرة أو مرتين. المسودة تُحفظ على جهاز المعلمة، وتتأكد من الحفظ من «السجلات». إذا تكرر من أغلب المستخدمين وفي وقت واحد فقد تكون هناك مشكلة في الاستضافة.',
   };
   if (a === 'client.ui.error' || a === 'client.page.error') return {
     kind: 'system', key: `ui:${msg.slice(0, 60)}`, needsAction: true,
