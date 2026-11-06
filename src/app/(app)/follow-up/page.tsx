@@ -4,6 +4,8 @@ import { requireRole } from '@/lib/auth';
 import { getSettings } from '@/lib/data';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
+import { Bar } from '@/components/ui/progress';
+import { ViewSheetButton, CopyReminderButton } from './follow-up-actions';
 import { EmptyState } from '@/components/ui/empty';
 import { cn, fmtDateTime, secLabel } from '@/lib/utils';
 
@@ -13,7 +15,7 @@ type St = 'abandoned' | 'edit_unsaved' | 'started' | 'none' | 'done';
 type Asg = {
   teacher_id: string; section_id: string; grade_subject_id: string;
   teacher: { full_name: string; is_active: boolean } | null;
-  section: { id: string; name: string; sort_order: number; grade: { name: string; sort_order: number } | null } | null;
+  section: { id: string; name: string; sort_order: number; grade: { id: string; name: string; sort_order: number } | null } | null;
   gs: { id: string; subject: { name: string } | null; comps: { id: string }[] } | null;
 };
 type Act = {
@@ -23,6 +25,7 @@ type Act = {
 };
 type Row = {
   key: string; teacherId: string; teacher: string; sheet: string; where: string; st: St;
+  sectionId: string; gsId: string; gradeId: string; gradeName: string;
   saved: number; comps: number; act?: Act; lastSave: string | null; order: number;
 };
 
@@ -36,6 +39,11 @@ const META: Record<St, { label: string; tone: 'danger' | 'warning' | 'info' | 'n
 const ORDER: St[] = ['abandoned', 'edit_unsaved', 'started', 'none', 'done'];
 const WEIGHT: Record<St, number> = { abandoned: 0, edit_unsaved: 1, started: 2, none: 3, done: 4 };
 
+function reminder(name: string, items: Row[]) {
+  const lines = items.map((r) => `• ${r.sheet} — ${r.where}`);
+  return `السلام عليكم ${name}،\nتذكير بإكمال رصد الدرجات وحفظها نهائياً في موقع مِرقاة:\n${lines.join('\n')}\nفضلاً اضغطي «حفظ الكشف» بعد المراجعة. شكراً لتعاونك.`;
+}
+
 async function all<T>(build: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>) {
   const out: T[] = [];
   for (let from = 0; from < 10000; from += 1000) {
@@ -47,7 +55,7 @@ async function all<T>(build: (from: number, to: number) => PromiseLike<{ data: T
   return out;
 }
 
-export default async function FollowUpPage({ searchParams }: { searchParams: Promise<{ branch?: string; status?: string; q?: string }> }) {
+export default async function FollowUpPage({ searchParams }: { searchParams: Promise<{ branch?: string; status?: string; q?: string; grade?: string }> }) {
   const { supabase, profile } = await requireRole('admin', 'supervisor');
   const settings = await getSettings();
   const sp = await searchParams;
@@ -62,7 +70,7 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
     all<Asg>((a, b) => supabase.from('teacher_assignments')
       .select(`teacher_id, section_id, grade_subject_id,
         teacher:profiles(full_name, is_active),
-        section:sections!inner(id, name, sort_order, branch_id, grade:grades(name, sort_order)),
+        section:sections!inner(id, name, sort_order, branch_id, grade:grades(id, name, sort_order)),
         gs:grade_subjects(id, subject:subjects(name), comps:assessment_components(id))`)
       .eq('section.branch_id', branchId).range(a, b).returns<Asg[]>()),
     supabase.from('branch_subject_exclusions').select('grade_subject_id').eq('branch_id', branchId),
@@ -100,17 +108,24 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
     return {
       key: `${r.teacher_id}:${r.section_id}:${r.grade_subject_id}`, teacherId: r.teacher_id, teacher: r.teacher!.full_name,
       sheet: r.gs!.subject?.name ?? '—', where: `${r.section!.grade?.name ?? ''} ${secLabel(r.section!.name)}`.trim(),
+      sectionId: r.section_id, gsId: r.grade_subject_id, gradeId: r.section!.grade?.id ?? '', gradeName: r.section!.grade?.name ?? '',
       st, saved: have.length, comps: comps.length, act, lastSave,
       order: (r.section!.grade?.sort_order ?? 0) * 1000 + r.section!.sort_order,
     };
   });
 
-  const counts = Object.fromEntries(ORDER.map((s) => [s, rows.filter((r) => r.st === s).length])) as Record<St, number>;
-  const attention = rows.length - counts.done;
-  const shown = rows
+  const gradeOpts = [...new Map(rows.sort((a, b) => a.order - b.order).map((r) => [r.gradeId, r.gradeName])).entries()];
+  const gradeId = sp.grade && gradeOpts.some(([id]) => id === sp.grade) ? sp.grade : '';
+  const scoped = gradeId ? rows.filter((r) => r.gradeId === gradeId) : rows;
+  const counts = Object.fromEntries(ORDER.map((s) => [s, scoped.filter((r) => r.st === s).length])) as Record<St, number>;
+  const attention = scoped.length - counts.done;
+  const pct = scoped.length ? Math.round((counts.done / scoped.length) * 100) : 0;
+  const shown = scoped
     .filter((r) => (status === 'all' ? true : status === 'attention' ? r.st !== 'done' : r.st === status))
     .filter((r) => !q || r.teacher.includes(q));
 
+  const totalByTeacher = new Map<string, { all: number; done: number }>();
+  scoped.forEach((r) => { const t = totalByTeacher.get(r.teacherId) ?? { all: 0, done: 0 }; t.all++; if (r.st === 'done') t.done++; totalByTeacher.set(r.teacherId, t); });
   const byTeacher = new Map<string, { name: string; worst: number; items: Row[] }>();
   shown.forEach((r) => {
     const g = byTeacher.get(r.teacherId) ?? { name: r.teacher, worst: 9, items: [] };
@@ -121,7 +136,7 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
 
   const href = (patch: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    const m = { branch: profile.role === 'admin' ? branchId : undefined, status: sp.status, q: sp.q, ...patch };
+    const m = { branch: profile.role === 'admin' ? branchId : undefined, grade: gradeId || undefined, status: sp.status, q: sp.q, ...patch };
     Object.entries(m).forEach(([k, v]) => { if (v) p.set(k, v); });
     const s = p.toString();
     return `/follow-up${s ? `?${s}` : ''}`;
@@ -147,6 +162,23 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
         </div>
       )}
 
+      <div className="card mb-3 p-4">
+        <div className="mb-2 flex items-baseline justify-between gap-2">
+          <p className="text-[14px] font-medium">اكتمال الرصد{gradeId ? ` — ${gradeOpts.find(([id]) => id === gradeId)?.[1]}` : ' في الفرع'}</p>
+          <p className="num text-[13px] text-ink-muted"><b className="text-[18px] text-ink">{pct}%</b> · {counts.done} من {scoped.length} كشف</p>
+        </div>
+        <Bar value={pct} />
+      </div>
+
+      {gradeOpts.length > 1 && (
+        <div className="mb-3 flex flex-wrap gap-2">
+          {[['', 'كل الصفوف'] as const, ...gradeOpts].map(([id, name]) => (
+            <Link key={id || 'all'} href={href({ grade: id || undefined })}
+              className={cn('rounded-full border px-3 py-1 text-[12.5px]', id === gradeId ? 'border-ink bg-ink-soft/10 font-medium text-ink' : 'border-line bg-white text-ink-muted hover:border-ink-faint')}>{name}</Link>
+          ))}
+        </div>
+      )}
+
       <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
         {([['attention', 'تحتاج متابعة', attention, 'bg-rose-soft text-rose'] as const, ...ORDER.map((s) => [s, META[s].label, counts[s], 'bg-white text-ink'] as const)]).map(([key, label, n, tone]) => (
           <Link key={key} href={href({ status: key === 'attention' ? undefined : key })}
@@ -160,6 +192,7 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
       <form action="/follow-up" className="card mb-4 flex items-center gap-2 p-3">
         {profile.role === 'admin' && <input type="hidden" name="branch" value={branchId} />}
         {sp.status && <input type="hidden" name="status" value={sp.status} />}
+        {gradeId && <input type="hidden" name="grade" value={gradeId} />}
         <Search className="h-4 w-4 shrink-0 text-ink-muted" />
         <input name="q" defaultValue={q} placeholder="ابحثي باسم المعلمة" className="min-w-0 flex-1 bg-transparent text-[14px] outline-none placeholder:text-ink-faint" />
         <button className="rounded-full bg-black px-4 py-1.5 text-[13px] text-white">بحث</button>
@@ -176,9 +209,15 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
         <div className="space-y-3">
           {groups.map((g) => (
             <section key={g.items[0].teacherId} className="card p-4 sm:p-5">
-              <div className="mb-2 flex items-center justify-between gap-2">
-                <h2 className="text-[15.5px] font-semibold">{g.name}</h2>
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-[15.5px] font-semibold">{g.name}</h2>
+                  <p className="num text-[12px] text-ink-muted">{totalByTeacher.get(g.items[0].teacherId)?.done ?? 0} من {totalByTeacher.get(g.items[0].teacherId)?.all ?? 0} كشف محفوظ</p>
+                </div>
+                <div className="flex items-center gap-2">
+                {g.items.some((r) => r.st !== 'done') && <CopyReminderButton text={reminder(g.name, g.items.filter((r) => r.st !== 'done'))} />}
                 <Link href={`/logs?view=all&range=30d&q=${encodeURIComponent(g.name)}`} className="text-[12px] text-ink-muted hover:text-ink">سجل نشاطها</Link>
+                </div>
               </div>
               <ul className="divide-y divide-line">
                 {g.items.map((r) => {
@@ -198,7 +237,11 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
                           {a && r.lastSave && ` · آخر حفظ: ${fmtDateTime(r.lastSave)}`}
                         </p>
                       </div>
-                      <Badge tone={m.tone} icon={m.icon} className="self-start sm:self-center">{m.label}</Badge>
+                      <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
+                        <Badge tone={m.tone} icon={m.icon}>{m.label}</Badge>
+                        <ViewSheetButton sectionId={r.sectionId} gradeSubjectId={r.gsId} disabled={r.saved === 0}
+                          label={r.saved === 0 ? 'لا يوجد محفوظ' : r.saved < r.comps ? 'عرض المحفوظ' : 'عرض الكشف'} />
+                      </div>
                     </li>
                   );
                 })}
