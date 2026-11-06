@@ -81,6 +81,7 @@ const SERVER_ECHO = /error occurred in the Server Components render|Minified Rea
 /** فشل طلب شبكة من المتصفح (انقطاع/ضعف إنترنت أو إغلاق الصفحة أثناء التحميل). «Load failed» رسالة Safari/آيفون */
 const NETWORK = /^(Uncaught \(in promise\):?\s*)?(TypeError:\s*)?(Load failed|Failed to fetch|NetworkError|The network connection was lost|The Internet connection appears to be offline|Network request failed|fetch failed|Importing a module script failed|Loading chunk|ChunkLoadError)/i;
 /** React #418/#425: اختلاف بين نص الخادم ونص المتصفح — يتعافى منه React تلقائياً */
+const FOREIGN = /__firefox__|webkit\.messageHandlers|chrome-extension|moz-extension|safari-extension|Script error\.?$|ResizeObserver loop/i;
 const HYDRATION = /Minified React error #(418|425)|Hydration failed|hydrat/i;
 
 function schemaDiag(op: string, who: string, where: string, text: string, page?: string): Diagnosis {
@@ -167,6 +168,13 @@ export function diagnose(l: LogLike, contextText?: string): Diagnosis {
     title: `فتح صفحة غير مسموحة${d.path ? ` (${str(d.path)})` : ''} — ${who}`, group: 'فتح صفحة غير مصرّح بها',
     cause: 'كتب الرابط يدوياً أو فتح رابطاً محفوظاً من صلاحية سابقة. النظام منعه وأعاده للرئيسية.',
     fix: 'غالباً غير مقصود. إذا تكرر كثيراً من نفس الشخص فراجعيه.',
+  };
+  if ((a === 'client.ui.error' || a === 'client.page.error') && FOREIGN.test(msg)) return {
+    kind: 'user', key: 'ui:foreign', needsAction: false,
+    title: `خطأ من متصفح المستخدم نفسه (ليس من الموقع)${d.path ? ` (${PAGES[str(d.path).split('?')[0]] ?? str(d.path).split('?')[0]})` : ''} — ${who}`,
+    group: 'خطأ من المتصفح أو إضافة فيه (ليس من الموقع)',
+    cause: 'سكربت يحقنه المتصفح نفسه (مثل وضع القراءة في فايرفوكس للآيفون: window.__firefox__) أو إضافة، وليس من كود الموقع. لا يؤثر على الموقع ولا البيانات.',
+    fix: 'لا يلزم إجراء. لن تُسجَّل أخطاء كهذه بعد الآن.',
   };
   if ((a === 'client.ui.error' || a === 'client.page.error') && HYDRATION.test(msg)) return {
     kind: 'system', key: 'ui:hydration', needsAction: false,
