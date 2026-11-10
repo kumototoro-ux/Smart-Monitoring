@@ -39,7 +39,7 @@ export async function fetchServerDraft(key: Omit<DraftKey, 'academic_year'>): Pr
 }
 
 /** upsert بصف واحد لكل كشف. keepalive لتصل حتى لو أُغلقت الصفحة */
-export async function putServerDraft(key: DraftKey, values: DraftValues, stats: { filled: number; total: number }, baseSig: string, keepalive = false): Promise<boolean> {
+export async function putServerDraft(key: DraftKey, values: DraftValues, stats: { filled: number; total: number }, baseSig: string | null, keepalive = false): Promise<boolean> {
   try {
     const { data: { session } } = await createClient().auth.getSession();
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL, apikey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;

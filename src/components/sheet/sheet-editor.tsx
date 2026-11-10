@@ -213,12 +213,12 @@ export function SheetEditor({ initial, scope, role, onBack, preload }: {
     draftChecked.current = true;
     const t = setTimeout(() => {
       try {
-        if (dirty) localStorage.setItem(draftKey, JSON.stringify({ v: 2, at: Date.now(), values }));
+        if (dirty) localStorage.setItem(draftKey, JSON.stringify({ v: 2, at: Date.now(), values, filled: stats.filled, total: stats.total, sig: sheetSig(data) }));
         else localStorage.removeItem(draftKey);
       } catch { /* */ }
     }, 600);
     return () => clearTimeout(t);
-  }, [values, dirty, phase, draftKey, editableComps.length]);
+  }, [values, dirty, phase, draftKey, editableComps.length, stats.filled, stats.total, data]);
 
   // ---- حفظ المسودة على السيرفر: بعد توقف الكتابة 8 ثوانٍ، وفوراً عند مغادرة الصفحة ----
   const pushDraft = useCallback(async (keepalive = false) => {

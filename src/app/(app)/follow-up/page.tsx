@@ -254,7 +254,7 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
                         {r.draft && (
                           <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px] leading-5 text-[#2E7D5B]">
                             <Cloud className="h-3.5 w-3.5" />
-                            مسودة محفوظة في حسابها: <span className="num">{r.draft.filled} من {r.draft.total}</span> خانة · {timeAgo(r.draft.updated_at)}{r.draft.device_label ? ` · ${r.draft.device_label}` : ''}
+                            مسودة محفوظة في حسابها: <span className="num">{r.draft.total > 0 ? `${r.draft.filled} من ${r.draft.total}` : r.draft.filled}</span> خانة · {timeAgo(r.draft.updated_at)}{r.draft.device_label ? ` · ${r.draft.device_label}` : ''}
                           </p>
                         )}
                       </div>

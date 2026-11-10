@@ -7,6 +7,8 @@ import { BellRing, ChevronLeft, Smartphone, Clock3, Cloud } from 'lucide-react';
 import { getUnsavedAlerts, type UnsavedAlert, type LocalDraft } from '@/app/actions/grading';
 import { Dialog } from '@/components/ui/dialog';
 import { cn, fmtDateTime, secLabel } from '@/lib/utils';
+import { createClient } from '@/lib/supabase/client';
+import { fetchServerDraft, putServerDraft, type DraftValues } from '@/lib/draft-sync';
 
 const SEEN = 'mirqat:unsaved:seen';
 
@@ -23,6 +25,41 @@ function localDrafts(uid: string): LocalDraft[] {
     }
   } catch { /* التخزين غير متاح */ }
   return out;
+}
+
+const attempted = new Set<string>(); // محاولة واحدة لكل مسودة في كل تحميل للصفحة
+
+/**
+ * رفع مسودات هذا الجهاز للسيرفر بمجرد فتح أي صفحة في الموقع (دون فتح الكشف)،
+ * حتى يراها الأدمن والمشرفة في «متابعة الرصد» وتنتقل مع المعلمة لأي جهاز.
+ * لا نكتب فوق مسودة أحدث موجودة على السيرفر.
+ */
+async function uploadLocalDrafts(uid: string) {
+  try {
+    const found: { section_id: string; grade_subject_id: string; term: 1 | 2; at: number; values: DraftValues; filled: number; total: number; sig: string | null }[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(`mirqat:draft:${uid}:`)) continue;
+      const [, , , section_id, grade_subject_id, term] = key.split(':');
+      const d = JSON.parse(localStorage.getItem(key) ?? 'null') as { v?: number; at?: number; values?: DraftValues; filled?: number; total?: number; sig?: string } | null;
+      if (d?.v !== 2 || typeof d.at !== 'number' || !d.values || Date.now() - d.at > 7 * 86400_000) continue;
+      const filled = typeof d.filled === 'number' ? d.filled : Object.values(d.values).filter((c) => c.raw?.trim() || c.absent || c.level).length;
+      if (filled === 0 || (term !== '1' && term !== '2')) continue;
+      found.push({ section_id, grade_subject_id, term: Number(term) as 1 | 2, at: d.at, values: d.values, filled, total: typeof d.total === 'number' ? d.total : 0, sig: d.sig ?? null });
+    }
+    if (!found.length) return;
+    const { data: st } = await createClient().from('settings').select('academic_year, current_term').eq('id', 1).single();
+    if (!st) return;
+    for (const it of found.slice(0, 20)) {
+      const id = `${it.section_id}:${it.grade_subject_id}:${it.term}:${it.at}`;
+      if (it.term !== st.current_term || attempted.has(id)) continue;
+      attempted.add(id);
+      const sd = await fetchServerDraft({ teacher_id: uid, section_id: it.section_id, grade_subject_id: it.grade_subject_id, term: it.term });
+      if (sd && new Date(sd.updated_at).getTime() >= it.at) continue;
+      await putServerDraft({ teacher_id: uid, section_id: it.section_id, grade_subject_id: it.grade_subject_id, term: it.term, academic_year: st.academic_year },
+        it.values, { filled: it.filled, total: it.total }, it.sig);
+    }
+  } catch { /* لا يعطّل الموقع */ }
 }
 
 const sigOf = (items: UnsavedAlert[]) => items.map((i) => `${i.section_id}:${i.grade_subject_id}:${i.kind}`).sort().join('|');
@@ -42,6 +79,7 @@ export function UnsavedAlertHost({ uid }: { uid: string }) {
     if (!force && now - last.current.at < 60_000) return;
     last.current.at = now;
     try {
+      await uploadLocalDrafts(uid);
       const r = await getUnsavedAlerts(localDrafts(uid));
       if (!r.ok) return;
       const list = r.data ?? [];
