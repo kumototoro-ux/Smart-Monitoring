@@ -4,9 +4,10 @@ import Link from 'next/link';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowRight, AlertTriangle, Lock, Clock, UserPlus, UserMinus, CheckCircle2, Info, Undo2,
-  ClipboardCheck, PencilLine, Save, Send, RotateCcw, ChevronDown, History, Download,
+  ClipboardCheck, PencilLine, Save, Send, RotateCcw, ChevronDown, History, Download, Cloud, CloudOff, Loader2,
 } from 'lucide-react';
 import type { SheetData } from '@/app/actions/grading';
+import { adoptDraftDone } from '@/app/actions/drafts';
 import { saveSheet, teacherAddStudent, excludeStudent, restoreStudent, createRequest, loadSheet, releaseStudents } from '@/app/actions/grading';
 import { PoolPicker } from './pool-picker';
 import { useAction } from '@/lib/use-action';
@@ -18,12 +19,24 @@ import { Field, Input, Select } from '@/components/ui/field';
 import { Badge } from '@/components/ui/badge';
 import { Bar } from '@/components/ui/progress';
 import { createClient } from '@/lib/supabase/client';
-import { cn, normalizeDigits, timeLeft, scrollAppTop, secLabel } from '@/lib/utils';
+import { fetchServerDraft, putServerDraft, deleteServerDraft, deviceId, type DraftValues } from '@/lib/draft-sync';
+import { cn, normalizeDigits, timeLeft, timeAgo, scrollAppTop, secLabel } from '@/lib/utils';
 
 type Cell = { raw: string; absent: boolean; level: string | null };
 const RELEASE = 'ليس من شعبتي — إرجاعه لقائمة طلاب الصف';
 type Values = Record<string, Cell>;
 const k = (s: string, c: string) => `${s}:${c}`;
+/** مقارنة خانتين مع توحيد الأرقام العربية وتجاهل الفراغ */
+function sameCell(a: Cell | undefined, b: Cell | undefined) {
+  const ea = !a || (!a.raw.trim() && !a.absent && !a.level), eb = !b || (!b.raw.trim() && !b.absent && !b.level);
+  if (ea || eb) return ea === eb;
+  const x = normalizeDigits(a!.raw).trim(), y = normalizeDigits(b!.raw).trim();
+  const num = x !== '' && y !== '' && Number(x) === Number(y);
+  return (x === y || num) && a!.absent === b!.absent && a!.level === b!.level;
+}
+const sheetSig = (d: SheetData) => d.components.map((c) => `${c.id}:${c.version ?? 0}`).join('|');
+/** هل تختلف المسودة عن الكشف المحفوظ؟ */
+const draftDiffers = (draft: Values, server: Values) => Object.keys({ ...draft, ...server }).some((key) => !sameCell(draft[key], server[key]));
 const ABSENT = /^\s*(غ|غائب|غائبة|غياب|a|abs)\s*$/i;
 
 function cellState(cell: Cell | undefined, max: number | null, verbal: boolean): 'empty' | 'ok' | 'over' | 'invalid' | 'absent' {
@@ -39,13 +52,17 @@ function cellState(cell: Cell | undefined, max: number | null, verbal: boolean):
   return 'ok';
 }
 
-export function SheetEditor({ initial, scope, role, onBack }: {
-  initial: SheetData; scope: string[] | 'all'; role: 'teacher' | 'admin' | 'supervisor'; onBack: () => void;
+/** مسودة معلمة يفتحها الأدمن للمراجعة والاعتماد نيابةً عنها */
+export interface DraftPreload { values: DraftValues; teacherId: string; teacherName: string; updatedAt: string; deviceLabel: string | null }
+
+export function SheetEditor({ initial, scope, role, onBack, preload }: {
+  initial: SheetData; scope: string[] | 'all'; role: 'teacher' | 'admin' | 'supervisor'; onBack: () => void; preload?: DraftPreload;
 }) {
   const [data, setData] = useState(initial);
   const verbal = data.meta.mode === 'verbal';
   const comps = useMemo(() => data.components.filter((c) => scope === 'all' || scope.includes(c.id)), [data.components, scope]);
   const draftKey = `mirqat:draft:${data.meta.viewer_id}:${data.meta.section_id}:${data.meta.grade_subject_id}:${data.meta.term}`;
+  const dkey = { teacher_id: data.meta.viewer_id, section_id: data.meta.section_id, grade_subject_id: data.meta.grade_subject_id, term: data.meta.term as 1 | 2 };
   const canWriteRole = role === 'teacher' || role === 'admin';
   const closed = role === 'teacher' && (!data.meta.grading_open);
   const editable = (c: SheetData['components'][number]) => canWriteRole && !closed && (role === 'admin' || c.editable);
@@ -65,6 +82,15 @@ export function SheetEditor({ initial, scope, role, onBack }: {
   const [phase, setPhase] = useState<'entry' | 'review' | 'done'>('entry');
   const [showErrors, setShowErrors] = useState(false);
   const [draftRestored, setDraftRestored] = useState(false);
+  const [draftNote, setDraftNote] = useState<string | null>(null); // مصدر المسودة المستعادة من السيرفر
+  const [sync, setSync] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [syncAt, setSyncAt] = useState<number | null>(null);
+  const localDraft = useRef<{ at: number; values: Values } | null>(null);
+  const serverDraftExists = useRef(false);
+  const syncReady = useRef(false);
+  const [syncOn, setSyncOn] = useState(false); // يُعيد تشغيل الحفظ المؤجل بعد انتهاء فحص مسودة السيرفر
+  const markReady = () => { syncReady.current = true; setSyncOn(true); };
+  const lastSent = useRef('');
   const [missingOpen, setMissingOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [poolOpen, setPoolOpen] = useState(false);
@@ -88,21 +114,68 @@ export function SheetEditor({ initial, scope, role, onBack }: {
       if (!raw) return;
       const d = JSON.parse(raw) as { at: number; values: Values };
       if (Date.now() - d.at > 7 * 86400_000) { localStorage.removeItem(draftKey); return; }
-      const server = fromServer(initial);
-      const differs = Object.entries(d.values).some(([key, v]) => {
-        const s = server[key];
-        return !s || s.raw !== v.raw || s.absent !== v.absent || s.level !== v.level;
-      });
-      if (differs) { setValues((cur) => ({ ...cur, ...d.values })); setDraftRestored(true); }
+      const differs = draftDiffers(d.values, fromServer(initial));
+      if (differs) { setValues((cur) => ({ ...cur, ...d.values })); setDraftRestored(true); localDraft.current = { at: d.at, values: d.values }; }
     } catch { /* التخزين غير متاح */ }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
+  // ---- الأدمن يفتح مسودة معلمة للمراجعة والاعتماد ----
+  useEffect(() => {
+    if (!preload) return;
+    setValues((cur) => ({ ...cur, ...preload.values }));
+    setDraftRestored(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ---- استعادة مسودة السيرفر (من جهاز آخر أو بعد مسح المتصفح) ----
+  useEffect(() => {
+    if (role !== 'teacher' || !editableComps.length) { markReady(); return; }
+    let cancelled = false;
+    (async () => {
+      const sd = await fetchServerDraft(dkey);
+      if (cancelled) return;
+      if (!sd) { markReady(); return; }
+      const server = fromServer(initial);
+      if (!draftDiffers(sd.values, server)) { await deleteServerDraft(dkey); markReady(); return; } // مسودة قديمة مطابقة للمحفوظ
+      serverDraftExists.current = true;
+      const mine = sd.device_id === deviceId();
+      const local = localDraft.current;
+      const srvAt = new Date(sd.updated_at).getTime();
+      let useServer = false;
+      if (!local) useServer = !live.current.dirty;
+      else if (!mine && srvAt > local.at + 30_000 && draftDiffers(local.values, sd.values)) {
+        useServer = await confirm({
+          title: 'وجدنا مسودة أحدث من جهاز آخر',
+          message: `مسودة ${timeAgo(sd.updated_at)} من ${sd.device_label ?? 'جهاز آخر'} (${sd.filled} من ${sd.total} خانة). هل تستعيدينها بدل مسودة هذا الجهاز؟`,
+          confirmText: 'استعادة الأحدث', cancelText: 'إبقاء مسودة هذا الجهاز',
+        });
+      }
+      if (useServer && sd.base_sig !== null && sd.base_sig !== sheetSig(initial)) {
+        useServer = await confirm({
+          title: 'الكشف تغيّر بعد كتابة المسودة',
+          message: 'تغيّر الكشف المحفوظ بعد وقت مسودتك (حُفظ من مكان آخر أو عدّله أحد). استعادة المسودة ستستبدل تلك التغييرات عند الحفظ. هل تريدين استعادتها؟',
+          confirmText: 'استعادة المسودة', cancelText: 'تجاهلها',
+        });
+      }
+      if (cancelled) return;
+      if (useServer) {
+        setValues((cur) => ({ ...cur, ...sd.values }));
+        setDraftRestored(true);
+        setDraftNote(`${mine ? 'من هذا الجهاز' : `من ${sd.device_label ?? 'جهاز آخر'}`} ${timeAgo(sd.updated_at)}`);
+      }
+      markReady();
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const discardDraft = async () => {
     if (!(await confirm({ title: 'تجاهل المسودة', message: 'سيتم إرجاع الكشف لآخر نسخة محفوظة.', confirmText: 'تجاهل', tone: 'danger' }))) return;
     try { localStorage.removeItem(draftKey); } catch { /* */ }
-    setValues(fromServer(data)); setDraftRestored(false);
+    if (role === 'teacher') { void deleteServerDraft(dkey); serverDraftExists.current = false; setSync('idle'); }
+    setValues(fromServer(data)); setDraftRestored(false); setDraftNote(null);
   };
 
   // ------------------------------------------------------------- الإحصاء
@@ -129,17 +202,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
   const dirty = useMemo(() => {
     if (!editableComps.length || phase === 'done') return false;
     const server = fromServer(data);
-    const num = (t: string) => normalizeDigits(t).trim();
-    return data.students.some((st) => editableComps.some((c) => {
-      const key = k(st.id, c.id);
-      const v = values[key]; const sv = server[key];
-      const vEmpty = !v || (!v.raw.trim() && !v.absent && !v.level);
-      if (!sv) return !vEmpty;
-      if (!v) return true;
-      const a = num(v.raw), b = num(sv.raw);
-      const same = a === b || (a !== '' && b !== '' && Number(a) === Number(b));
-      return !(same && v.absent === sv.absent && v.level === sv.level);
-    }));
+    return data.students.some((st) => editableComps.some((c) => !sameCell(values[k(st.id, c.id)], server[k(st.id, c.id)])));
   }, [values, phase, data, editableComps, fromServer]);
 
   // المسودة تُحفظ فقط عندما توجد تغييرات غير محفوظة (v:2) — وجودها = «لم تحفظ» ويعتمد عليه تنبيه الدخول
@@ -156,6 +219,41 @@ export function SheetEditor({ initial, scope, role, onBack }: {
     }, 600);
     return () => clearTimeout(t);
   }, [values, dirty, phase, draftKey, editableComps.length]);
+
+  // ---- حفظ المسودة على السيرفر: بعد توقف الكتابة 8 ثوانٍ، وفوراً عند مغادرة الصفحة ----
+  const pushDraft = useCallback(async (keepalive = false) => {
+    if (role !== 'teacher' || !syncReady.current || !live.current.dirty) return;
+    const json = JSON.stringify(valuesRef.current);
+    if (json === lastSent.current) return;
+    if (!keepalive) setSync('saving');
+    const ok = await putServerDraft({ ...dkey, academic_year: data.meta.year }, valuesRef.current, { filled: live.current.filled, total: live.current.total }, sheetSig(data), keepalive);
+    if (ok) { lastSent.current = json; serverDraftExists.current = true; if (!keepalive) { setSync('saved'); setSyncAt(Date.now()); } }
+    else if (!keepalive) setSync('error');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [role, data]);
+  const pushRef = useRef(pushDraft);
+  pushRef.current = pushDraft;
+  const valuesRef = useRef(values);
+  valuesRef.current = values;
+
+  useEffect(() => {
+    if (role !== 'teacher' || phase !== 'entry' || !editableComps.length || !syncReady.current) return;
+    if (!dirty) {
+      // رجعت للمحفوظ: نحذف المسودة من السيرفر
+      if (serverDraftExists.current) { serverDraftExists.current = false; lastSent.current = ''; setSync('idle'); void deleteServerDraft(dkey); }
+      return;
+    }
+    const t = setTimeout(() => void pushRef.current(false), 8000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [values, dirty, phase, editableComps.length, syncOn]);
+
+  // فشل الحفظ (انقطاع إنترنت مثلاً): نعيد المحاولة كل 30 ثانية ما دامت هناك تغييرات
+  useEffect(() => {
+    if (sync !== 'error' || !dirty) return;
+    const t = setTimeout(() => void pushRef.current(false), 30_000);
+    return () => clearTimeout(t);
+  }, [sync, dirty]);
 
   const live = useRef({ dirty, filled: stats.filled, total: stats.total, meta: data.meta });
   live.current = { dirty, filled: stats.filled, total: stats.total, meta: data.meta };
@@ -189,6 +287,7 @@ export function SheetEditor({ initial, scope, role, onBack }: {
 
   useEffect(() => {
     const leave = () => {
+      if (live.current.dirty) void pushRef.current(true); // نسخة أخيرة من المسودة للسيرفر
       if (live.current.dirty && !abandonedRef.current) { abandonedRef.current = true; void sendEvent('abandoned'); }
     };
     const onHide = () => { if (document.visibilityState === 'hidden') leave(); };
@@ -275,6 +374,8 @@ export function SheetEditor({ initial, scope, role, onBack }: {
     const r = await exec(() => saveSheet(data.meta.section_id, data.meta.grade_subject_id, data.meta.term, entries), { refresh: false });
     if (r?.ok && r.data) {
       try { localStorage.removeItem(draftKey); } catch { /* */ }
+      if (role === 'teacher') { serverDraftExists.current = false; lastSent.current = ''; setSync('idle'); void deleteServerDraft(dkey); }
+      if (role === 'admin' && preload) void adoptDraftDone({ teacherId: preload.teacherId, sectionId: data.meta.section_id, gradeSubjectId: data.meta.grade_subject_id, term: data.meta.term });
       setSaved(r.data); setPhase('done');
       scrollAppTop();
       const fresh = await loadSheet(data.meta.section_id, data.meta.grade_subject_id, data.meta.term);
@@ -374,6 +475,14 @@ export function SheetEditor({ initial, scope, role, onBack }: {
           <span className="num whitespace-nowrap text-[12.5px] text-ink-soft">{stats.filled} من {stats.total}</span>
         </div>
       )}
+      {phase === 'entry' && role === 'teacher' && editableComps.length > 0 && dirty && (
+        <p className={cn('mt-2 flex items-center gap-1.5 text-[12px]', sync === 'error' ? 'text-rose' : 'text-ink-muted')} aria-live="polite">
+          {sync === 'saving' ? <><Loader2 className="h-3.5 w-3.5 animate-spin" />جارٍ حفظ المسودة…</>
+            : sync === 'saved' ? <><Cloud className="h-3.5 w-3.5 text-mint" />مسودتك محفوظة في حسابك {syncAt ? timeAgo(syncAt) : ''} — لكنها لم تُحفظ كشفاً نهائياً بعد</>
+            : sync === 'error' ? <><CloudOff className="h-3.5 w-3.5" />تعذّر حفظ المسودة في الحساب (محفوظة على هذا الجهاز) — سنعيد المحاولة</>
+            : <><Cloud className="h-3.5 w-3.5" />سيُحفظ رصدك مسودةً في حسابك تلقائياً</>}
+        </p>
+      )}
     </div>
   );
 
@@ -426,10 +535,15 @@ export function SheetEditor({ initial, scope, role, onBack }: {
             يوجد <b className="num">{data.poolCount}</b> طالب في {data.meta.grade_name} بدون شعبة. اختاري منهم طلاب شعبتك.
           </Banner>
         )}
-        {phase === 'entry' && draftRestored && (
+        {phase === 'entry' && draftRestored && preload && (
+          <Banner tone="info" icon={<RotateCcw className="h-4 w-4" />}>
+            هذه <b>مسودة {preload.teacherName}</b> ({timeAgo(preload.updatedAt)}{preload.deviceLabel ? ` · ${preload.deviceLabel}` : ''}) لم تُحفظ منها بعد. راجعي الدرجات ثم اضغطي «حفظ» لاعتمادها نيابةً عنها، أو ارجعي لتتركيها.
+          </Banner>
+        )}
+        {phase === 'entry' && draftRestored && !preload && (
           <Banner tone="info" icon={<RotateCcw className="h-4 w-4" />}
             action={<Button size="sm" variant="ghost" onClick={discardDraft}>تجاهل المسودة</Button>}>
-            تم استعادة رصد غير محفوظ من آخر جلسة.
+            {draftNote ? <>استعدنا رصدك غير المحفوظ {draftNote}.</> : 'تم استعادة رصد غير محفوظ من آخر جلسة.'}
           </Banner>
         )}
         {phase === 'entry' && showErrors && (stats.over > 0 || stats.invalid > 0) && (

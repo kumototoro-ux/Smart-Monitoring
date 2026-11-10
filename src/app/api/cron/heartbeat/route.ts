@@ -30,11 +30,15 @@ export async function GET(request: Request) {
     const readError = students.error ?? accounts.error ?? settings.error;
     if (readError) throw readError;
 
+    // تنظيف مسودات الرصد القديمة أو التي اكتمل حفظ كشفها (لا يفشل النبض إن لم تُشغَّل 0011 بعد)
+    const cleaned = await admin.rpc('cleanup_sheet_drafts');
+    const draftsCleaned = typeof cleaned.data === 'number' ? cleaned.data : null;
+
     const { error } = await admin.from('audit_logs').insert({
       action: 'system.heartbeat',
       severity: 'info',
       entity: 'system',
-      details: { students: students.count ?? 0, accounts: accounts.count ?? 0 },
+      details: { students: students.count ?? 0, accounts: accounts.count ?? 0, drafts_cleaned: draftsCleaned },
     });
     if (error) throw error;
     return NextResponse.json({ ok: true, at: new Date().toISOString() });

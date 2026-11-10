@@ -205,7 +205,7 @@ export async function releaseStudents(sectionId: string, studentIds: string[]) {
 // ------------------------------------------------------------ تنبيه الكشوف غير المحفوظة
 export interface UnsavedAlert {
   section_id: string; grade_subject_id: string;
-  kind: 'unsaved' | 'edit'; on_device: boolean;
+  kind: 'unsaved' | 'edit'; on_device: boolean; server_draft: boolean;
   last_event: string | null; filled: number | null; total: number | null;
   section_name: string; grade_name: string; subject_name: string;
 }

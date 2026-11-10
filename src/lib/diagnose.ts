@@ -65,6 +65,9 @@ const PAGES: Record<string, string> = {
 
 /** أي ملف تحديث (migration) يُنشئ هذا الجدول/الدالة/العمود — لنقول للمسؤول بالضبط ماذا يشغّل */
 const MIGRATION_OF: [RegExp, string][] = [
+  [/sheet_drafts|branch_sheet_drafts|cleanup_sheet_drafts/i, '0011_sheet_drafts.sql'],
+  [/my_unsaved_sheets/i, '0010_my_unsaved_sheets.sql'],
+  [/sheet_activity/i, '0009_sheet_activity.sql'],
   [/is_temp_student_number|students_fill_number|student_temp_seq/i, '0008_temp_student_number.sql'],
   [/student_reviews|review_resolve|_close_reviews/i, '0007_student_reviews.sql'],
   [/relationship between 'sections' and '(grades|branches)'|sections_(grade|branch)_id_fkey/i, '0006_section_links.sql'],
@@ -109,6 +112,7 @@ const DONE: Record<string, string> = {
   'account.create': 'إنشاء حساب', 'account.reset_password': 'إعادة تعيين كلمة مرور', 'account.change_username': 'تغيير اسم مستخدم',
   'account.update': 'تعديل حساب', 'account.activate': 'تفعيل حساب', 'account.deactivate': 'إيقاف حساب', 'account.delete': 'حذف حساب',
   'settings.update': 'تعديل الإعدادات العامة', 'student.import': 'استيراد الطلاب', 'export.template': 'تحميل نموذج الاستيراد',
+  'draft.view': 'اطّلع الأدمن على مسودة معلمة', 'draft.delete': 'حذف الأدمن مسودة معلمة', 'draft.adopt': 'اعتمد الأدمن كشفاً من مسودة معلمة',
   'client.sheet.started': 'بدأت الرصد في كشف', 'client.sheet.abandoned': 'غادرت كشفاً وفيه درجات غير محفوظة',
   'review.approve': 'اعتماد/موافقة في مراجعة الطلاب', 'review.move': 'نقل طالب مُرجَع لشعبته', 'review.keep': 'إبقاء طالب بدون شعبة',
   'review.restore': 'إعادة طالب مستبعد للكشف', 'review.deactivate': 'إيقاف طالب من المراجعة',

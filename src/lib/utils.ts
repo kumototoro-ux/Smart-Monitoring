@@ -61,3 +61,16 @@ export function firstName(full: string) {
 export const GENERAL_SECTION = 'عام';
 /** «شعبة أ» — أو «عام» للصف الواحد */
 export const secLabel = (name?: string | null) => (!name ? '' : name === GENERAL_SECTION ? GENERAL_SECTION : `شعبة ${name}`);
+
+/** «منذ 3 دقائق» بالعربية */
+export function timeAgo(iso: string | number | Date | null | undefined) {
+  if (!iso) return '';
+  const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (s < 45) return 'منذ لحظات';
+  const m = Math.round(s / 60);
+  if (m < 60) return m === 1 ? 'منذ دقيقة' : m === 2 ? 'منذ دقيقتين' : m <= 10 ? `منذ ${m} دقائق` : `منذ ${m} دقيقة`;
+  const h = Math.round(m / 60);
+  if (h < 24) return h === 1 ? 'منذ ساعة' : h === 2 ? 'منذ ساعتين' : h <= 10 ? `منذ ${h} ساعات` : `منذ ${h} ساعة`;
+  const d = Math.round(h / 24);
+  return d === 1 ? 'منذ يوم' : d === 2 ? 'منذ يومين' : d <= 10 ? `منذ ${d} أيام` : `منذ ${d} يوماً`;
+}

@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
-import { BellRing, ChevronLeft, Smartphone, Clock3 } from 'lucide-react';
+import { BellRing, ChevronLeft, Smartphone, Clock3, Cloud } from 'lucide-react';
 import { getUnsavedAlerts, type UnsavedAlert, type LocalDraft } from '@/app/actions/grading';
 import { Dialog } from '@/components/ui/dialog';
 import { cn, fmtDateTime, secLabel } from '@/lib/utils';
@@ -114,7 +114,8 @@ export function UnsavedAlertView({ items, open, onOpen, onClose: close }: { item
                     <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[12px] text-ink-faint">
                       {it.filled != null && it.total ? <span className="num">رصدتِ {it.filled} من {it.total} خانة</span> : null}
                       {it.last_event && <span className="inline-flex items-center gap-1"><Clock3 className="h-3 w-3" />{fmtDateTime(it.last_event)}</span>}
-                      {it.on_device && <span className="inline-flex items-center gap-1"><Smartphone className="h-3 w-3" />مسودة محفوظة على هذا الجهاز</span>}
+                      {it.server_draft && <span className="inline-flex items-center gap-1 text-[#2E7D5B]"><Cloud className="h-3 w-3" />مسودتك محفوظة في حسابك وستجدينها عند فتح الكشف</span>}
+                      {it.on_device && !it.server_draft && <span className="inline-flex items-center gap-1"><Smartphone className="h-3 w-3" />مسودة محفوظة على هذا الجهاز</span>}
                     </p>
                   </div>
                   <ChevronLeft className="h-4 w-4 shrink-0 text-ink-faint transition group-hover:-translate-x-0.5 group-hover:text-ink" />

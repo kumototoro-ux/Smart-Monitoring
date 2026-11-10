@@ -1,13 +1,13 @@
 import Link from 'next/link';
-import { AlertTriangle, CheckCircle2, CircleDashed, DoorOpen, PencilLine, Search, Hourglass, DatabaseZap } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, CircleDashed, DoorOpen, PencilLine, Search, Hourglass, DatabaseZap, Cloud } from 'lucide-react';
 import { requireRole } from '@/lib/auth';
 import { getSettings } from '@/lib/data';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import { Bar } from '@/components/ui/progress';
-import { ViewSheetButton, CopyReminderButton } from './follow-up-actions';
+import { ViewSheetButton, CopyReminderButton, OpenDraftButton, DeleteDraftButton } from './follow-up-actions';
 import { EmptyState } from '@/components/ui/empty';
-import { cn, fmtDateTime, secLabel } from '@/lib/utils';
+import { cn, fmtDateTime, secLabel, timeAgo } from '@/lib/utils';
 
 export const metadata = { title: 'متابعة الرصد' };
 
@@ -23,10 +23,11 @@ type Act = {
   first_started: string | null; last_event: string; last_kind: string;
   last_filled: number | null; last_total: number | null; abandoned_count: number;
 };
+type Draft = { teacher_id: string; section_id: string; grade_subject_id: string; filled: number; total: number; updated_at: string; device_label: string | null };
 type Row = {
   key: string; teacherId: string; teacher: string; sheet: string; where: string; st: St;
   sectionId: string; gsId: string; gradeId: string; gradeName: string;
-  saved: number; comps: number; act?: Act; lastSave: string | null; order: number;
+  saved: number; comps: number; act?: Act; draft?: Draft; lastSave: string | null; order: number;
 };
 
 const META: Record<St, { label: string; tone: 'danger' | 'warning' | 'info' | 'neutral' | 'success'; icon: React.ReactNode; hint: string }> = {
@@ -90,6 +91,10 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
   const since = new Date(Date.now() - 90 * 86400_000).toISOString();
   const actRes = await supabase.rpc('sheet_activity', { p_since: since, p_branch: branchId });
   const activityOk = !actRes.error;
+  // مسودات المعلمات المحفوظة على السيرفر (ملخص بدون الدرجات؛ يتطلب 0011)
+  const dRes = await supabase.rpc('branch_sheet_drafts', { p_branch: branchId });
+  const draftsOk = !dRes.error;
+  const draftMap = new Map(((dRes.data ?? []) as Draft[]).map((d) => [`${d.teacher_id}:${d.section_id}:${d.grade_subject_id}`, d]));
   const actMap = new Map(((actRes.data ?? []) as Act[]).filter((a) => a.term === term).map((a) => [`${a.actor_id}:${a.section_id}:${a.grade_subject_id}`, a]));
 
   const rows: Row[] = rows0.map((r) => {
@@ -100,16 +105,19 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
       return !m || t > m ? t : m;
     }, null);
     const act = actMap.get(`${r.teacher_id}:${r.section_id}:${r.grade_subject_id}`);
+    const dr = draftMap.get(`${r.teacher_id}:${r.section_id}:${r.grade_subject_id}`);
     const complete = have.length === comps.length;
+    const draftNewer = !!dr && (!lastSave || dr.updated_at > lastSave);
     let st: St;
-    if (complete) st = act && act.last_kind === 'client.sheet.abandoned' && lastSave && act.last_event > lastSave ? 'edit_unsaved' : 'done';
+    if (complete) st = (act && act.last_kind === 'client.sheet.abandoned' && lastSave && act.last_event > lastSave) || draftNewer ? 'edit_unsaved' : 'done';
     else if (act) st = act.last_kind === 'client.sheet.abandoned' ? 'abandoned' : 'started';
+    else if (draftNewer) st = 'started';
     else st = 'none';
     return {
       key: `${r.teacher_id}:${r.section_id}:${r.grade_subject_id}`, teacherId: r.teacher_id, teacher: r.teacher!.full_name,
       sheet: r.gs!.subject?.name ?? '—', where: `${r.section!.grade?.name ?? ''} ${secLabel(r.section!.name)}`.trim(),
       sectionId: r.section_id, gsId: r.grade_subject_id, gradeId: r.section!.grade?.id ?? '', gradeName: r.section!.grade?.name ?? '',
-      st, saved: have.length, comps: comps.length, act, lastSave,
+      st, saved: have.length, comps: comps.length, act, draft: draftNewer ? dr : undefined, lastSave,
       order: (r.section!.grade?.sort_order ?? 0) * 1000 + r.section!.sort_order,
     };
   });
@@ -150,6 +158,13 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
         <div className="mb-4 flex items-start gap-3 rounded-card bg-rose-soft p-4 text-rose">
           <DatabaseZap className="mt-0.5 h-5 w-5 shrink-0" />
           <p className="text-[13.5px] leading-6">قاعدة البيانات تحتاج تشغيل الملف <code dir="ltr" className="rounded bg-white px-1.5 font-mono text-[12.5px] text-ink">0009_sheet_activity.sql</code> ليظهر «بدأت / غادرت دون حفظ». الآن تظهر فقط الكشوف المحفوظة وغير المحفوظة.</p>
+        </div>
+      )}
+
+      {activityOk && !draftsOk && (
+        <div className="mb-4 flex items-start gap-3 rounded-card bg-rose-soft p-4 text-rose">
+          <DatabaseZap className="mt-0.5 h-5 w-5 shrink-0" />
+          <p className="text-[13.5px] leading-6">شغّلي الملف <code dir="ltr" className="rounded bg-white px-1.5 font-mono text-[12.5px] text-ink">0011_sheet_drafts.sql</code> لتظهر مسودات المعلمات المحفوظة في حسابها.</p>
         </div>
       )}
 
@@ -236,11 +251,21 @@ export default async function FollowUpPage({ searchParams }: { searchParams: Pro
                           </> : r.st === 'done' ? `آخر حفظ: ${fmtDateTime(r.lastSave)}` : 'لا نشاط مسجّل'}
                           {a && r.lastSave && ` · آخر حفظ: ${fmtDateTime(r.lastSave)}`}
                         </p>
+                        {r.draft && (
+                          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[12px] leading-5 text-[#2E7D5B]">
+                            <Cloud className="h-3.5 w-3.5" />
+                            مسودة محفوظة في حسابها: <span className="num">{r.draft.filled} من {r.draft.total}</span> خانة · {timeAgo(r.draft.updated_at)}{r.draft.device_label ? ` · ${r.draft.device_label}` : ''}
+                          </p>
+                        )}
                       </div>
                       <div className="flex flex-wrap items-center gap-2 self-start sm:self-center">
                         <Badge tone={m.tone} icon={m.icon}>{m.label}</Badge>
                         <ViewSheetButton sectionId={r.sectionId} gradeSubjectId={r.gsId} disabled={r.saved === 0}
                           label={r.saved === 0 ? 'لا يوجد محفوظ' : r.saved < r.comps ? 'عرض المحفوظ' : 'عرض الكشف'} />
+                        {profile.role === 'admin' && r.draft && <>
+                          <OpenDraftButton teacherId={r.teacherId} sectionId={r.sectionId} gradeSubjectId={r.gsId} term={term as 1 | 2} />
+                          <DeleteDraftButton teacherId={r.teacherId} sectionId={r.sectionId} gradeSubjectId={r.gsId} term={term as 1 | 2} teacher={r.teacher} />
+                        </>}
                       </div>
                     </li>
                   );
