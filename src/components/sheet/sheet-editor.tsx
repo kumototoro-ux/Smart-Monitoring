@@ -98,13 +98,6 @@ export function SheetEditor({ initial, scope, role, onBack }: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (phase !== 'entry' || !editableComps.length) return;
-    const t = setTimeout(() => {
-      try { localStorage.setItem(draftKey, JSON.stringify({ at: Date.now(), values })); } catch { /* */ }
-    }, 600);
-    return () => clearTimeout(t);
-  }, [values, phase, draftKey, editableComps.length]);
 
   const discardDraft = async () => {
     if (!(await confirm({ title: 'تجاهل المسودة', message: 'سيتم إرجاع الكشف لآخر نسخة محفوظة.', confirmText: 'تجاهل', tone: 'danger' }))) return;
@@ -148,6 +141,21 @@ export function SheetEditor({ initial, scope, role, onBack }: {
       return !(same && v.absent === sv.absent && v.level === sv.level);
     }));
   }, [values, phase, data, editableComps, fromServer]);
+
+  // المسودة تُحفظ فقط عندما توجد تغييرات غير محفوظة (v:2) — وجودها = «لم تحفظ» ويعتمد عليه تنبيه الدخول
+  const draftChecked = useRef(false);
+  useEffect(() => {
+    if (phase !== 'entry' || !editableComps.length) return;
+    if (!dirty && !draftChecked.current) { draftChecked.current = true; return; } // لا نحذف مسودة قبل استعادتها
+    draftChecked.current = true;
+    const t = setTimeout(() => {
+      try {
+        if (dirty) localStorage.setItem(draftKey, JSON.stringify({ v: 2, at: Date.now(), values }));
+        else localStorage.removeItem(draftKey);
+      } catch { /* */ }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [values, dirty, phase, draftKey, editableComps.length]);
 
   const live = useRef({ dirty, filled: stats.filled, total: stats.total, meta: data.meta });
   live.current = { dirty, filled: stats.filled, total: stats.total, meta: data.meta };

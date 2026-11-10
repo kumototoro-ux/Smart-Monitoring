@@ -13,9 +13,10 @@ import { ROLE_LABEL, type Profile } from '@/lib/types';
 import { cn, firstName } from '@/lib/utils';
 import { ErrorReporter } from './error-reporter';
 import { NavProgress, LinkPending } from './nav-progress';
+import { UnsavedAlertHost } from './unsaved-alert';
 
 export interface ShellProps {
-  profile: Pick<Profile, 'full_name' | 'username' | 'role'>;
+  profile: Pick<Profile, 'id' | 'full_name' | 'username' | 'role'>;
   branchName: string | null;
   term: number;
   year: string;
@@ -152,7 +153,7 @@ export function Shell(p: ShellProps) {
             <MenuItem icon={<LogOut />} tone="danger" onClick={() => { setUserMenu(null); void doLogout(); }}>تسجيل الخروج</MenuItem>
           </FloatingMenu>
 
-          <main className="flex-1 px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-4">{p.children}</main>
+          <main className="flex-1 px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-4">{p.profile.role === 'teacher' && <UnsavedAlertHost uid={p.profile.id} />}{p.children}</main>
         </div>
       </div>
 

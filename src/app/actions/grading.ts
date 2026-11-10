@@ -201,3 +201,29 @@ export async function releaseStudents(sectionId: string, studentIds: string[]) {
     return data as number;
   }, { revalidate: ['/students'] });
 }
+
+// ------------------------------------------------------------ تنبيه الكشوف غير المحفوظة
+export interface UnsavedAlert {
+  section_id: string; grade_subject_id: string;
+  kind: 'unsaved' | 'edit'; on_device: boolean;
+  last_event: string | null; filled: number | null; total: number | null;
+  section_name: string; grade_name: string; subject_name: string;
+}
+export interface LocalDraft { section_id: string; grade_subject_id: string; term: number; at: number }
+
+/** كشوف المعلمة التي رصدتها ولم تحفظها (من سجل نشاطها + مسودات جهازها). بدون رسائل خطأ إن لم تُشغَّل 0010 بعد */
+export async function getUnsavedAlerts(drafts: LocalDraft[]) {
+  return run('alerts.unsaved', ['teacher'], async ({ supabase }) => {
+    const { data: st } = await supabase.from('settings').select('grading_open').eq('id', 1).single();
+    if (!st?.grading_open) return [] as UnsavedAlert[];
+    const clean = (Array.isArray(drafts) ? drafts : []).slice(0, 50)
+      .filter((d) => d && uuid.safeParse(d.section_id).success && uuid.safeParse(d.grade_subject_id).success && Number.isFinite(d.at) && (d.term === 1 || d.term === 2))
+      .map((d) => ({ section_id: d.section_id, grade_subject_id: d.grade_subject_id, term: d.term, at: Math.round(d.at) }));
+    const { data, error } = await supabase.rpc('my_unsaved_sheets', { p_drafts: clean });
+    if (error) {
+      if (error.code === 'PGRST202' || /Could not find the function/i.test(error.message)) return [] as UnsavedAlert[];
+      throw error;
+    }
+    return (data ?? []) as UnsavedAlert[];
+  });
+}
