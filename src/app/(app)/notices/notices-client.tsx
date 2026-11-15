@@ -6,7 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Field, Input, Select } from '@/components/ui/field';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton, NoticeSheetSkeleton } from '@/components/ui/skeleton';
+import { useConfirm } from '@/components/ui/confirm';
 import { NoticeViewer } from '@/components/notice/notice-sheet';
 import { OffscreenRenderer } from '@/components/notice/notice-offscreen';
 import { saveBlob, shareFile, lastShareError, logNoticeFailure } from '@/components/notice/notice-export';
@@ -24,6 +25,7 @@ type RowState = 'preparing' | 'ready';
 
 export function NoticesClient({ role, sections, currentTerm }: { role: Role; sections: NoticeSection[]; currentTerm: 1 | 2 }) {
   const toast = useToast();
+  const confirm = useConfirm();
   const branches = useMemo(() => [...new Map(sections.map((s) => [s.branch_id, s.branch])).entries()], [sections]);
   const [branch, setBranch] = useState(branches[0]?.[0] ?? '');
   const inBranch = sections.filter((s) => s.branch_id === branch);
@@ -125,6 +127,12 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
   /** كل إشعار ملف مستقل داخل ملف مضغوط واحد */
   const downloadSection = async () => {
     if (!sec) return;
+    const ok = await confirm({
+      title: 'تحميل إشعارات الشعبة',
+      message: <>سيُجهَّز إشعار مستقل لكل طالب مكتمل الرصد في <b>{sec.grade} · {secLabel(sec.name)}</b> ({readyCount} إشعار) {batchKind === 'pdf' ? 'بصيغة PDF' : 'كصور'} داخل ملف مضغوط واحد. قد يستغرق ذلك دقيقة، فأبقي الصفحة مفتوحة حتى ينتهي.</>,
+      confirmText: 'ابدئي التحميل', tone: 'success',
+    });
+    if (!ok) return;
     cancel.current = false;
     setBatch({ done: 0, total: 0 });
     try {
@@ -272,7 +280,7 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
         {!sel && (
           <div className="card"><EmptyState icon={<FileText className="h-6 w-6" />} title="اختاري طالباً" hint="يظهر إشعار درجاته هنا، وتنزّلينه أو تشاركينه عبر واتساب." /></div>
         )}
-        {sel && loading && <Skeleton className="h-[70vh] rounded-2xl" />}
+        {sel && loading && <NoticeSheetSkeleton />}
         {view && !loading && (
           <div className="space-y-3">
             {!view.data.complete && (
