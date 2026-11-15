@@ -103,7 +103,7 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
     const ready = files.current.get(id);
     if (ready) { // الضغطة الثانية: مشاركة فورية
       const r = await shareFile(ready, `إشعار درجات الطالب ${ready.name.replace(/\.pdf$/, '')}`);
-      if (r === 'fallback') toast.success('تعذّرت المشاركة المباشرة فنُزّل الملف', `أرفقيه في واتساب يدوياً (${lastShareError})`);
+      if (r === 'fallback') toast.error('تعذّرت المشاركة المباشرة', `نُزّل الملف، أرفقيه في واتساب يدوياً (${lastShareError})`);
       if (r !== 'cancelled') void logNoticeIssued(id, term, 'pdf');
       files.current.delete(id);
       setRows((m) => ({ ...m, [id]: undefined }));
@@ -253,7 +253,7 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
                         {st === 'preparing' ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
                       </button>
                       <button type="button" title={st === 'ready' ? 'اضغطي للإرسال' : 'مشاركة عبر واتساب'} aria-label="مشاركة عبر واتساب" disabled={st === 'preparing' || !!batch} onClick={() => rowShare(s.id)}
-                        className={cn('grid h-9 shrink-0 place-items-center rounded-full hover:bg-white disabled:opacity-40', st === 'ready' ? 'bg-mint px-3 text-white hover:bg-mint' : 'w-9 text-ink-soft')}>
+                        className={cn('grid h-9 shrink-0 place-items-center rounded-full disabled:opacity-40', st === 'ready' ? 'bg-mint px-3 text-white' : 'w-9 text-ink-soft hover:bg-white')}>
                         {st === 'ready' ? <span className="inline-flex items-center gap-1 text-[12.5px] font-medium"><Send className="h-3.5 w-3.5" />إرسال</span> : <Share2 className="h-4 w-4" />}
                       </button>
                     </>
