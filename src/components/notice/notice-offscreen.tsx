@@ -11,7 +11,8 @@ export class OffscreenRenderer {
   private root: ReturnType<typeof createRoot>;
   constructor() {
     this.host = document.createElement('div');
-    this.host.style.cssText = `position:fixed;top:0;left:-${NOTICE_W + 300}px;width:${NOTICE_W}px;pointer-events:none;z-index:-1`;
+    // داخل الشاشة بارتفاع صفر ومقصوص: لا إزاحة سالبة، فلا يتسع مجال التمرير الأفقي في الصفحات اليمين-لليسار
+    this.host.style.cssText = `position:fixed;top:0;right:0;width:${NOTICE_W}px;height:0;overflow:hidden;pointer-events:none;z-index:-1`;
     document.body.appendChild(this.host);
     this.root = createRoot(this.host);
   }

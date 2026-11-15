@@ -126,7 +126,7 @@ export function AssignmentsClient(p: Props) {
       ) : p.teachers.length === 0 ? (
         <div className="card"><EmptyState icon={<Users className="h-6 w-6" />} title="لا توجد معلمات في هذا الفرع" hint="أضيفي حسابات المعلمات أولاً من صفحة الحسابات." /></div>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-[320px_1fr]">
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
           <div className="card overflow-hidden">
             <div className="border-b border-line p-3">
               <div className="relative">

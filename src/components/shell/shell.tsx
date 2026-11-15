@@ -154,7 +154,7 @@ export function Shell(p: ShellProps) {
             <MenuItem icon={<LogOut />} tone="danger" onClick={() => { setUserMenu(null); void doLogout(); }}>تسجيل الخروج</MenuItem>
           </FloatingMenu>
 
-          <main className="flex-1 px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-4">{p.profile.role === 'teacher' && <UnsavedAlertHost uid={p.profile.id} />}{p.children}</main>
+          <main className="min-w-0 flex-1 overflow-x-clip px-4 pb-28 pt-5 sm:px-6 lg:px-8 lg:pb-10 lg:pt-4">{p.profile.role === 'teacher' && <UnsavedAlertHost uid={p.profile.id} />}{p.children}</main>
         </div>
       </div>
 

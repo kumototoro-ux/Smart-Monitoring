@@ -47,7 +47,7 @@ function ListTab({ subjects }: Props) {
       <div className="mb-4 flex justify-end">
         <Button onClick={() => setEdit({ kind: 'general', is_active: true, sort_order: subjects.length + 1 })}><Plus className="h-4 w-4" />مادة جديدة</Button>
       </div>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-4 lg:grid-cols-2">
         {groups.map(([title, list]) => (
           <section key={title} className="card overflow-hidden">
             <h2 className="border-b border-line px-5 py-3.5 text-[15px] font-semibold">{title} <span className="text-ink-muted">({list.length})</span></h2>
