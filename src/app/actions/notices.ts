@@ -24,6 +24,7 @@ const generalSchema = z.object({
   header_en: z.string().trim().min(1, 'اكتبي سطر الترويسة الإنجليزي').max(120),
   show_basmala: z.boolean(),
   school_en: z.string().trim().max(120),
+  year_hijri: z.string().trim().max(40),
   year_greg: z.string().trim().max(40),
   title_ar: z.string().trim().min(5, 'عنوان الإشعار العربي قصير').max(200),
   title_en: z.string().trim().min(5, 'عنوان الإشعار الإنجليزي قصير').max(200),
@@ -189,13 +190,32 @@ export async function getNoticeRoster(sectionId: string, term: 1 | 2) {
   });
 }
 
-/** بيانات إشعار طالب وإعداداته وصوره. التحقق من الصلاحية والاكتمال داخل قاعدة البيانات */
-export async function loadNotice(studentId: string, term: 1 | 2) {
-  return run('notice.load', ['admin', 'supervisor', 'teacher'], async ({ supabase }): Promise<NoticeBundle> => {
+/**
+ * بيانات إشعار طالب. الإعدادات والصور (الأثقل) تُرسل فقط عند الطلب، فيحملها العميل مرة واحدة لكل فرع.
+ * التحقق من الصلاحية والاكتمال داخل قاعدة البيانات
+ */
+export async function loadNotice(studentId: string, term: 1 | 2, withRender = true) {
+  return run('notice.load', ['admin', 'supervisor', 'teacher'], async ({ supabase }): Promise<{ data: NoticeData; render: NoticeRender | null }> => {
     const data = must(await supabase.rpc('notice_student', { p_student: parse(uuid, studentId), p_term: parse(z.union([z.literal(1), z.literal(2)]), term) })) as NoticeData;
-    const render = await buildRender(supabase, data.branch.id);
-    return { data, render };
+    return { data, render: withRender ? await buildRender(supabase, data.branch.id) : null };
   }, { context: { student: studentId, term } });
+}
+
+/** إشعارات الشعبة كلها دفعة واحدة (أدمن/مشرفة) — بيانات خفيفة بلا صور */
+export async function loadNoticeSection(sectionId: string, term: 1 | 2) {
+  return run('notice.section', ['admin', 'supervisor'], async ({ supabase }) => {
+    const list = must(await supabase.rpc('notice_section', { p_section: parse(uuid, sectionId), p_term: parse(z.union([z.literal(1), z.literal(2)]), term) })) as NoticeData[];
+    const first = list[0];
+    return { list, render: first ? await buildRender(supabase, first.branch.id) : null };
+  }, { context: { section: sectionId, term } });
+}
+
+/** يسجّل إصدار شعبة كاملة (ملف مضغوط) في سجل التتبع */
+export async function logNoticeBatch(sectionId: string, term: 1 | 2, count: number, skipped: number, kind: 'pdf' | 'png') {
+  return run('notice.batch', ['admin', 'supervisor'], async ({ supabase }) => {
+    must(await supabase.rpc('notice_roster', { p_section: parse(uuid, sectionId), p_term: term })); // تحقق من الصلاحية
+    return { section: sectionId, term, count, skipped, kind };
+  }, { log: (d) => d });
 }
 
 /** يسجّل التنزيل في سجل التتبع بعد نجاحه في المتصفح */

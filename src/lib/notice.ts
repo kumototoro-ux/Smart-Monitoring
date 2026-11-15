@@ -23,6 +23,8 @@ export interface NoticeSettings {
   header_en: string;
   show_basmala: boolean;
   school_en: string;
+  /** العام الدراسي الهجري كما يظهر في الإشعار (فارغ = عام النظام) */
+  year_hijri: string;
   year_greg: string;
   /** {الفصل} {الصف} {العام} — و {term} {grade} {year} في الإنجليزي */
   title_ar: string;
@@ -63,6 +65,7 @@ export const NOTICE_DEFAULTS: NoticeSettings = {
   header_en: 'Kingdom of Saudi Arabia',
   show_basmala: true,
   school_en: '',
+  year_hijri: '',
   year_greg: '',
   title_ar: 'إشعار درجات الفصل الدراسي {الفصل} — {الصف} — للعام الدراسي {العام}',
   title_en: '{term} Term Grade Notice – {grade} – Academic Year {year}',
@@ -118,6 +121,7 @@ export function normalizeNotice(raw: unknown): NoticeSettings {
     header_en: str(v.header_en, 120, D.header_en).trim() || D.header_en,
     show_basmala: bool(v.show_basmala, D.show_basmala),
     school_en: str(v.school_en, 120),
+    year_hijri: str(v.year_hijri, 40),
     year_greg: str(v.year_greg, 40),
     title_ar: str(v.title_ar, 200, D.title_ar).trim() || D.title_ar,
     title_en: str(v.title_en, 200, D.title_en).trim() || D.title_en,
@@ -212,8 +216,8 @@ export function fillTitle(tpl: string, vars: Record<string, string>) {
 export function titles(d: NoticeData, s: NoticeSettings) {
   const gradeAr = [d.grade.name, d.section && d.section !== 'عام' ? secLabel(d.section) : ''].filter(Boolean).join(' / ');
   return {
-    ar: fillTitle(s.title_ar, { الفصل: TERM_AR[d.term], الصف: d.grade.name, العام: d.year }),
-    en: d.grade.name_en ? fillTitle(s.title_en, { term: TERM_EN[d.term], grade: d.grade.name_en, year: s.year_greg || d.year }) : '',
+    ar: fillTitle(s.title_ar, { الفصل: TERM_AR[d.term], الصف: d.grade.name, العام: s.year_hijri || d.year }),
+    en: d.grade.name_en ? fillTitle(s.title_en, { term: TERM_EN[d.term], grade: d.grade.name_en, year: s.year_greg || s.year_hijri || d.year }) : '',
     gradeSection: gradeAr,
   };
 }
@@ -266,3 +270,7 @@ export const LEVELS_NOTE = {
   ar: 'يُستخدم هذا التقييم لقياس مدى تحقق الطالب من معايير المادة في المرحلة الابتدائية.',
   en: 'This evaluation is used to measure the student’s attainment of subject standards in the primary stage.',
 };
+
+/** مقاس صفحة الإشعار (A4 بالبكسل) */
+export const NOTICE_W = 794;
+export const NOTICE_H = 1123;

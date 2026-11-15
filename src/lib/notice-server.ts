@@ -8,14 +8,26 @@ import {
 
 export const NOTICE_BUCKET = 'notice-assets';
 
+/**
+ * ذاكرة مؤقتة للصور: كل رفع جديد له مسار جديد، فالمسار لا يتغير محتواه أبداً ويمكن حفظه بأمان.
+ * تتكرر الصور نفسها في كل إشعار، فلا نعيد تنزيلها من التخزين في كل مرة
+ */
+const cache = new Map<string, string>();
+const CACHE_MAX = 24;
+
 /** صورة من المخزن الخاص كرابط data: (ليلتقطها المصدّر دون CORS) */
 async function dataUrl(path: string | undefined): Promise<string | undefined> {
   if (!path) return undefined;
+  const hit = cache.get(path);
+  if (hit) return hit;
   try {
     const { data, error } = await createAdminClient().storage.from(NOTICE_BUCKET).download(path);
     if (error || !data) return undefined;
     const buf = Buffer.from(await data.arrayBuffer());
-    return `data:${data.type || 'image/png'};base64,${buf.toString('base64')}`;
+    const url = `data:${data.type || 'image/png'};base64,${buf.toString('base64')}`;
+    if (cache.size >= CACHE_MAX) cache.delete(cache.keys().next().value as string);
+    cache.set(path, url);
+    return url;
   } catch {
     return undefined;
   }

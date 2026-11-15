@@ -168,7 +168,7 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
 
   const saveGeneral = () => exec(() => saveNoticeSettings({
     enabled: v.enabled, allow_supervisor: v.allow_supervisor, allow_homeroom: v.allow_homeroom,
-    header_ar: v.header_ar, header_en: v.header_en, show_basmala: v.show_basmala, school_en: v.school_en, year_greg: v.year_greg,
+    header_ar: v.header_ar, header_en: v.header_en, show_basmala: v.show_basmala, school_en: v.school_en, year_hijri: v.year_hijri, year_greg: v.year_greg,
     title_ar: v.title_ar, title_en: v.title_en, show_signature: v.show_signature, show_stamp: v.show_stamp,
     show_disclaimer: v.show_disclaimer, show_footer: v.show_footer, show_levels_legend: v.show_levels_legend, level_en: v.level_en, bands: v.bands,
   }), { success: 'تم حفظ الإعدادات' });
@@ -213,7 +213,8 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
                   <Field label="السطر العربي (يمين)"><Input value={v.header_ar} onChange={(e) => set('header_ar', e.target.value)} /></Field>
                   <Field label="السطر الإنجليزي (يسار)"><Input dir="ltr" className="text-right" value={v.header_en} onChange={(e) => set('header_en', e.target.value)} /></Field>
                   <Field label="اسم المدرسة بالإنجليزي" hint="يظهر بجانب اسم المدرسة بالعربي"><Input dir="ltr" className="text-right" value={v.school_en} onChange={(e) => set('school_en', e.target.value)} /></Field>
-                  <Field label="العام الميلادي" hint="مثال: 2025/2026"><Input dir="ltr" className="text-right" value={v.year_greg} onChange={(e) => set('year_greg', e.target.value)} /></Field>
+                  <Field label="العام الدراسي الهجري" hint={`يظهر في الإشعار. اتركيه فارغاً لاستخدام عام النظام (${year}). مثال: 1447هـ`}><Input value={v.year_hijri} onChange={(e) => set('year_hijri', e.target.value)} placeholder={year} /></Field>
+                  <Field label="العام الدراسي الميلادي" hint="مثال: 2025/2026"><Input dir="ltr" className="text-right" value={v.year_greg} onChange={(e) => set('year_greg', e.target.value)} /></Field>
                 </div>
                 <Toggle label="البسملة" hint="تظهر أعلى الإشعار، ويمكن رفعها صورة" checked={v.show_basmala} onChange={(x) => set('show_basmala', x)} />
               </div>
@@ -370,7 +371,7 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
               )}
               <Button size="lg" loading={busy} onClick={() => exec<unknown>(async () => { const a = await saveNoticeSettings({
                 enabled: v.enabled, allow_supervisor: v.allow_supervisor, allow_homeroom: v.allow_homeroom,
-                header_ar: v.header_ar, header_en: v.header_en, show_basmala: v.show_basmala, school_en: v.school_en, year_greg: v.year_greg,
+                header_ar: v.header_ar, header_en: v.header_en, show_basmala: v.show_basmala, school_en: v.school_en, year_hijri: v.year_hijri, year_greg: v.year_greg,
                 title_ar: v.title_ar, title_en: v.title_en, show_signature: v.show_signature, show_stamp: v.show_stamp,
                 show_disclaimer: v.show_disclaimer, show_footer: v.show_footer, show_levels_legend: v.show_levels_legend, level_en: v.level_en, bands: v.bands,
               }); return a.ok ? saveEnglishNames({

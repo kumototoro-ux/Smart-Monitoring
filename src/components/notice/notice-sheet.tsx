@@ -1,10 +1,11 @@
 'use client';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Download, Image as ImageIcon } from 'lucide-react';
+import { Download, Image as ImageIcon, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
+import { capture, makePdf, saveBlob, shareFile, type Captured } from './notice-export';
 import {
-  LEVELS_LEGEND, LEVELS_NOTE, fmtNum, levelEn, noticeFileName, principalTitle, rate, summarize, titles,
+  NOTICE_H, NOTICE_W, LEVELS_LEGEND, LEVELS_NOTE, fmtNum, levelEn, noticeFileName, principalTitle, rate, summarize, titles,
   type NoticeData, type NoticeRender,
 } from '@/lib/notice';
 
@@ -13,8 +14,6 @@ import {
    يُعرض مصغّراً ليناسب أي شاشة، ويُصدَّر بمقاسه الأصلي صورةً أو PDF
    ===================================================================== */
 
-export const NOTICE_W = 794;
-export const NOTICE_H = 1123;
 
 const INK = '#1b2420';
 const MINT = '#e3faf1';
@@ -126,7 +125,7 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
             <tbody>
               <tr>
                 <td style={th()}>العام الدراسي</td>
-                <td style={td({ fontWeight: 700 })} colSpan={2}>{data.year}</td>
+                <td style={td({ fontWeight: 700 })} colSpan={2}>{S.year_hijri || data.year}</td>
                 <td style={td({ fontWeight: 700 })} colSpan={2} dir="ltr">{S.year_greg || '—'}</td>
                 <td style={th()} dir="ltr">Academic Year</td>
               </tr>
@@ -287,32 +286,7 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
 }
 
 /* --------------------------------------------------------------------- */
-function dataUrlToBlob(url: string) {
-  const [head, b64] = url.split(',');
-  const bin = atob(b64);
-  const bytes = new Uint8Array(bin.length);
-  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return new Blob([bytes], { type: head.slice(5).split(';')[0] });
-}
-function saveBlob(blob: Blob, name: string) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url; a.download = name; a.rel = 'noopener';
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 4000);
-}
-
-/** PNG للتنزيل كصورة، وJPEG عالي الجودة داخل PDF (حجم أصغر بكثير) */
-async function capture(node: HTMLElement, jpeg: boolean) {
-  const { toPng, toJpeg } = await import('html-to-image');
-  await document.fonts.ready;
-  const opts = { pixelRatio: 2, backgroundColor: '#ffffff', width: NOTICE_W, height: node.offsetHeight, style: { transform: 'none' }, cacheBust: true, quality: 0.92 };
-  const fn = jpeg ? toJpeg : toPng;
-  await fn(node, opts).catch(() => null); // تمريرة تهيئة للخطوط والصور (Safari)
-  return { img: await fn(node, opts), h: node.offsetHeight };
-}
-
-/** يعرض الإشعار مصغّراً، مع تنزيله PDF أو صورة بمقاسه الأصلي */
+/** يعرض الإشعار مصغّراً، مع تنزيله أو مشاركته (واتساب) بمقاسه الأصلي. الصورة تُجهَّز مسبقاً فتكون الأزرار فورية */
 export function NoticeViewer({ data, render, onExported, extra }: {
   data: NoticeData; render: NoticeRender; onExported?: (kind: 'pdf' | 'png') => void; extra?: React.ReactNode;
 }) {
@@ -320,9 +294,12 @@ export function NoticeViewer({ data, render, onExported, extra }: {
   const sheet = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
   const [height, setHeight] = useState(NOTICE_H);
-  const [busy, setBusy] = useState<'png' | 'pdf' | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [menu, setMenu] = useState(false);
   const toast = useToast();
   const fileName = noticeFileName(data);
+  const prep = useRef<Promise<Captured> | null>(null);
+  const pdf = useRef<Promise<Blob> | null>(null);
 
   useLayoutEffect(() => {
     const el = wrap.current;
@@ -338,34 +315,54 @@ export function NoticeViewer({ data, render, onExported, extra }: {
     return () => ro.disconnect();
   }, []);
 
+  /** الالتقاط بعد استقرار الصفوف، مرة واحدة لكل إشعار، ويُعاد استعماله في كل الأزرار */
+  const getCapture = () => {
+    prep.current ??= (async () => {
+      for (let f = 0; f < 60 && !sheet.current?.querySelector('[data-fitted]'); f++) await new Promise((r) => requestAnimationFrame(() => r(null)));
+      return capture(sheet.current!);
+    })();
+    prep.current.catch(() => { prep.current = null; });
+    return prep.current;
+  };
+  const getPdf = () => {
+    pdf.current ??= getCapture().then((c) => makePdf(c, fileName));
+    pdf.current.catch(() => { pdf.current = null; });
+    return pdf.current;
+  };
+  // تجهيز مسبق في وقت الفراغ بعد ظهور الإشعار
   useEffect(() => {
-    const t = setTimeout(() => { void import('html-to-image'); void import('jspdf'); }, 1200);
+    prep.current = null; pdf.current = null;
+    const t = setTimeout(() => { void getPdf().catch(() => {}); }, 600);
     return () => clearTimeout(t);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, render]);
+
+  const fileOf = async (kind: 'pdf' | 'png') => kind === 'png'
+    ? new File([(await getCapture()).png], `${fileName}.png`, { type: 'image/png' })
+    : new File([await getPdf()], `${fileName}.pdf`, { type: 'application/pdf' });
 
   const download = async (kind: 'png' | 'pdf') => {
     setBusy(kind);
     try {
-      // ننتظر انتهاء ضبط الصفوف على صفحة A4
-      for (let f = 0; f < 40 && !sheet.current?.querySelector('[data-fitted]'); f++) await new Promise((r) => requestAnimationFrame(() => r(null)));
-      const { img, h } = await capture(sheet.current!, kind === 'pdf');
-      if (kind === 'png') saveBlob(dataUrlToBlob(img), `${fileName}.png`);
-      else {
-        const { jsPDF } = await import('jspdf');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
-        let w = 210; let hh = (h / NOTICE_W) * 210;
-        if (hh > 297) { w = (297 / hh) * 210; hh = 297; }
-        pdf.addImage(img, 'JPEG', (210 - w) / 2, 0, w, hh, undefined, 'FAST');
-        pdf.setProperties({ title: fileName, creator: 'مِرقاة للرصد الذكي' });
-        saveBlob(pdf.output('blob'), `${fileName}.pdf`);
-      }
+      const f = await fileOf(kind);
+      saveBlob(f, f.name);
       toast.success(kind === 'png' ? 'نُزّل الإشعار صورة' : 'نُزّل الإشعار PDF');
       onExported?.(kind);
     } catch {
       toast.error('تعذّر التنزيل', 'حدّثي الصفحة وحاولي مجدداً');
-    } finally {
-      setBusy(null);
-    }
+    } finally { setBusy(null); }
+  };
+
+  const share = async (kind: 'png' | 'pdf') => {
+    setMenu(false); setBusy('share');
+    try {
+      const f = await fileOf(kind);
+      const r = await shareFile(f, `إشعار درجات الطالب ${data.student.name}`);
+      if (r === 'fallback') toast.success('نُزّل الملف وفُتح واتساب', 'أرفقيه في المحادثة');
+      if (r !== 'cancelled') onExported?.(kind);
+    } catch {
+      toast.error('تعذّرت المشاركة', 'نزّلي الملف ثم أرسليه يدوياً');
+    } finally { setBusy(null); }
   };
 
   return (
@@ -373,7 +370,19 @@ export function NoticeViewer({ data, render, onExported, extra }: {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Button onClick={() => download('pdf')} loading={busy === 'pdf'} disabled={!!busy}><Download className="h-4 w-4" />تنزيل PDF</Button>
         <Button variant="secondary" onClick={() => download('png')} loading={busy === 'png'} disabled={!!busy}><ImageIcon className="h-4 w-4" />تنزيل صورة</Button>
-        <span className="text-[12.5px] text-ink-muted">بمقاس A4 وجودة عالية</span>
+        <div className="relative">
+          <Button variant="soft" onClick={() => setMenu((m) => !m)} loading={busy === 'share'} disabled={!!busy}><Share2 className="h-4 w-4" />مشاركة عبر واتساب</Button>
+          {menu && (
+            <>
+              <button type="button" aria-label="إغلاق" className="fixed inset-0 z-40 cursor-default" onClick={() => setMenu(false)} />
+              <div className="absolute right-0 top-full z-50 mt-1.5 w-44 overflow-hidden rounded-2xl border border-line bg-white shadow-pop">
+                <button type="button" className="block w-full px-4 py-3 text-right text-[14px] hover:bg-surface" onClick={() => share('pdf')}>مشاركة PDF</button>
+                <button type="button" className="block w-full border-t border-line px-4 py-3 text-right text-[14px] hover:bg-surface" onClick={() => share('png')}>مشاركة صورة</button>
+              </div>
+            </>
+          )}
+        </div>
+        <span className="text-[12.5px] text-ink-muted">A4 بجودة عالية</span>
         {extra}
       </div>
       <div ref={wrap} className="w-full">
