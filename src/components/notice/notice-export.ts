@@ -81,7 +81,11 @@ export async function shareFile(file: File, text: string): Promise<ShareResult> 
       if (name === 'AbortError') return 'cancelled';
       lastShareError = `${name}${nav.canShare?.({ files: [file] }) === false ? ' (غير مدعوم)' : ''}`;
     }
-  } else lastShareError = 'المتصفح لا يدعم المشاركة';
+    saveBlob(file, file.name);
+    return 'fallback'; // المتصفح يدعم المشاركة لكنها فشلت: لا نخرج من الصفحة، نُنزّل الملف ونُظهر السبب
+  }
+  // لا مشاركة أصلاً (غالباً كمبيوتر): ننزّل الملف ونفتح واتساب برسالة جاهزة
+  lastShareError = 'المتصفح لا يدعم المشاركة';
   saveBlob(file, file.name);
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
   return 'fallback';

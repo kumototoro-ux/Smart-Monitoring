@@ -358,7 +358,7 @@ export function NoticeViewer({ data, render, onExported, extra }: {
     try {
       const f = await fileOf(kind);
       const r = await shareFile(f, `إشعار درجات الطالب ${data.student.name}`);
-      if (r === 'fallback') toast.success('تعذّرت المشاركة المباشرة فنُزّل الملف', `أرفقيه في واتساب يدوياً (${lastShareError})`);
+      if (r === 'fallback') toast.error('تعذّرت المشاركة المباشرة', `نُزّل الملف، أرفقيه في واتساب يدوياً (${lastShareError})`);
       if (r !== 'cancelled') onExported?.(kind);
     } catch {
       toast.error('تعذّرت المشاركة', 'نزّلي الملف ثم أرسليه يدوياً');
