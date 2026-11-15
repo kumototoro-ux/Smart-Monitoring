@@ -176,6 +176,18 @@ export function diagnose(l: LogLike, contextText?: string): Diagnosis {
     cause: 'كتب الرابط يدوياً أو فتح رابطاً محفوظاً من صلاحية سابقة. النظام منعه وأعاده للرئيسية.',
     fix: 'غالباً غير مقصود. إذا تكرر كثيراً من نفس الشخص فراجعيه.',
   };
+  if (a.startsWith('client.notice.')) {
+    const what = ({ share: 'مشاركة إشعار الدرجات', download: 'تنزيل إشعار الدرجات', 'row-download': 'تنزيل إشعار من القائمة', 'row-prepare': 'تجهيز إشعار للمشاركة', batch: 'تحميل إشعارات الشعبة', open: 'فتح إشعار الدرجات' } as Record<string, string>)[a.slice(14)] ?? 'إشعار الدرجات';
+    const perm = /NotAllowed/i.test(`${str(d.name)} ${msg}`);
+    return {
+      kind: 'user', key: `notice:${a}:${str(d.name)}`, needsAction: false,
+      title: `تعذّر ${what} — ${who}`, group: `تعذّر ${what}${d.name ? ` (${str(d.name)})` : ''}`,
+      cause: perm
+        ? 'رفض المتصفح المشاركة المباشرة للملف (شائع في متصفح سامسونج وبعض المتصفحات). نُزّل الملف وطُلب من المستخدمة إرفاقه يدوياً.'
+        : `رسالة الخطأ: ${msg || 'غير معروفة'}${d.ua ? ` — الجهاز: ${str(d.ua)}` : ''}`,
+      fix: perm ? 'لا يلزم إجراء. اقترحي تنزيل الملف ثم إرساله من واتساب يدوياً.' : 'اطلبي من المستخدمة تحديث الصفحة والمحاولة. إذا تكرر أرسلي هذا الحدث للمطوّر.',
+    };
+  }
   if ((a === 'client.ui.error' || a === 'client.page.error') && FOREIGN.test(msg)) return {
     kind: 'user', key: 'ui:foreign', needsAction: false,
     title: `خطأ من متصفح المستخدم نفسه (ليس من الموقع)${d.path ? ` (${PAGES[str(d.path).split('?')[0]] ?? str(d.path).split('?')[0]})` : ''} — ${who}`,
