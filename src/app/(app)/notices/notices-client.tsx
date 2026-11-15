@@ -169,8 +169,8 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
   }
 
   return (
-    <div className="grid gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
-      <div className="space-y-3">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+      <div className="min-w-0 space-y-3">
         <div className="card space-y-3 p-4">
           {branches.length > 1 && (
             <Field label="الفرع">
