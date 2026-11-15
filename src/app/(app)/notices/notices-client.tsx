@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NoticeViewer } from '@/components/notice/notice-sheet';
 import { OffscreenRenderer } from '@/components/notice/notice-offscreen';
-import { saveBlob, shareFile } from '@/components/notice/notice-export';
+import { saveBlob, shareFile, lastShareError } from '@/components/notice/notice-export';
 import { useToast } from '@/components/ui/toast';
 import { cn, secLabel } from '@/lib/utils';
 import type { NoticeData, NoticeRender } from '@/lib/notice';
@@ -103,7 +103,7 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
     const ready = files.current.get(id);
     if (ready) { // الضغطة الثانية: مشاركة فورية
       const r = await shareFile(ready, `إشعار درجات الطالب ${ready.name.replace(/\.pdf$/, '')}`);
-      if (r === 'fallback') toast.success('نُزّل الملف وفُتح واتساب', 'أرفقيه في المحادثة');
+      if (r === 'fallback') toast.success('تعذّرت المشاركة المباشرة فنُزّل الملف', `أرفقيه في واتساب يدوياً (${lastShareError})`);
       if (r !== 'cancelled') void logNoticeIssued(id, term, 'pdf');
       files.current.delete(id);
       setRows((m) => ({ ...m, [id]: undefined }));

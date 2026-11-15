@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Download, Image as ImageIcon, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
-import { capture, makePdf, saveBlob, shareFile, type Captured } from './notice-export';
+import { capture, makePdf, saveBlob, shareFile, lastShareError, type Captured } from './notice-export';
 import {
   NOTICE_H, NOTICE_W, LEVELS_LEGEND, LEVELS_NOTE, fmtNum, levelEn, noticeFileName, principalTitle, rate, summarize, titles,
   type NoticeData, type NoticeRender,
@@ -358,7 +358,7 @@ export function NoticeViewer({ data, render, onExported, extra }: {
     try {
       const f = await fileOf(kind);
       const r = await shareFile(f, `إشعار درجات الطالب ${data.student.name}`);
-      if (r === 'fallback') toast.success('نُزّل الملف وفُتح واتساب', 'أرفقيه في المحادثة');
+      if (r === 'fallback') toast.success('تعذّرت المشاركة المباشرة فنُزّل الملف', `أرفقيه في واتساب يدوياً (${lastShareError})`);
       if (r !== 'cancelled') onExported?.(kind);
     } catch {
       toast.error('تعذّرت المشاركة', 'نزّلي الملف ثم أرسليه يدوياً');
