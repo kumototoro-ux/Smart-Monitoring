@@ -102,16 +102,17 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
   const rowShare = async (id: string) => {
     const ready = files.current.get(id);
     if (ready) { // الضغطة الثانية: مشاركة فورية
-      const r = await shareFile(ready, `إشعار درجات الطالب ${ready.name.replace(/\.pdf$/, '')}`);
+      const r = await shareFile(ready, `إشعار درجات الطالب ${ready.name.replace(/\.(pdf|png)$/, '')}`);
       if (r === 'fallback') toast.error('تعذّرت المشاركة المباشرة', `نُزّل الملف، أرفقيه في واتساب يدوياً (${lastShareError})`);
-      if (r !== 'cancelled') void logNoticeIssued(id, term, 'pdf');
+      if (r !== 'cancelled') void logNoticeIssued(id, term, 'png');
       files.current.delete(id);
       setRows((m) => ({ ...m, [id]: undefined }));
       return;
     }
     setRows((m) => ({ ...m, [id]: 'preparing' }));
     try {
-      const { file } = await makeFile(id, 'pdf');
+      // المشاركة بصورة: متصفحات الجوال (مثل سامسونج) ترفض مشاركة PDF مباشرة وتقبل الصور
+      const { file } = await makeFile(id, 'png');
       files.current.set(id, file);
       setRows((m) => ({ ...m, [id]: 'ready' }));
     } catch (e) {
