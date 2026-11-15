@@ -19,7 +19,7 @@ export async function capture(node: HTMLElement): Promise<Captured> {
   await document.fonts.ready;
   const opts = {
     pixelRatio: 2, backgroundColor: '#ffffff', width: NOTICE_W, height: node.offsetHeight,
-    style: { transform: 'none' }, fontEmbedCSS: await fonts(node),
+    style: { transform: 'none', position: 'static', top: 'auto', right: 'auto', left: 'auto', margin: '0' }, fontEmbedCSS: await fonts(node),
   };
   // تمريرة تهيئة للخطوط والصور مرة واحدة في الجلسة (Safari)
   if (!warmed) { warmed = true; await toBlob(node, opts).catch(() => null); }

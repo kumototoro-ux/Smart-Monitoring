@@ -390,8 +390,11 @@ export function NoticeViewer({ data, render, onExported, extra }: {
       <div ref={wrap} className="w-full">
         {/* الورقة بعرضها الأصلي (794px) خارج التدفق ومقصوصة داخل الإطار، فلا تُوسّع الصفحة في الجوال */}
         <div className="relative overflow-hidden rounded-2xl border border-line shadow-soft" style={{ width: NOTICE_W * scale, height: height * scale, maxWidth: '100%', contain: 'paint' }}>
-          <div ref={sheet} style={{ width: NOTICE_W, position: 'absolute', top: 0, right: 0, transform: `scale(${scale})`, transformOrigin: 'top right' }}>
+          <div style={{ width: NOTICE_W, position: 'absolute', top: 0, right: 0, transform: `scale(${scale})`, transformOrigin: 'top right' }}>
+          {/* العقدة الملتقطة بلا إزاحة ولا تحجيم: التحجيم والموضع على الغلاف فقط */}
+          <div ref={sheet} style={{ width: NOTICE_W }}>
             <NoticeSheet data={data} render={render} />
+          </div>
           </div>
         </div>
       </div>
@@ -421,8 +424,11 @@ export function NoticePreview({ data, render }: { data: NoticeData; render: Noti
   return (
     <div ref={wrap} className="w-full">
       <div className="relative overflow-hidden rounded-xl border border-line bg-white shadow-soft" style={{ width: NOTICE_W * scale, height: height * scale, maxWidth: '100%', contain: 'paint' }}>
-        <div ref={sheet} style={{ width: NOTICE_W, position: 'absolute', top: 0, right: 0, transform: `scale(${scale})`, transformOrigin: 'top right' }}>
-          <NoticeSheet data={data} render={render} />
+        <div style={{ width: NOTICE_W, position: 'absolute', top: 0, right: 0, transform: `scale(${scale})`, transformOrigin: 'top right' }}>
+          {/* العقدة الملتقطة بلا إزاحة ولا تحجيم: التحجيم والموضع على الغلاف فقط */}
+          <div ref={sheet} style={{ width: NOTICE_W }}>
+            <NoticeSheet data={data} render={render} />
+          </div>
         </div>
       </div>
     </div>
