@@ -58,13 +58,14 @@ const OP: Record<string, string> = {
 /** أسماء الصفحات */
 const PAGES: Record<string, string> = {
   '/': 'الرئيسية', '/grading': 'رصد الدرجات', '/records': 'سجلات الرصد', '/requests': 'الطلبات', '/account': 'حسابي',
-  '/results': 'نتائج الرصد', '/accounts': 'الحسابات', '/assignments': 'الإسناد', '/students': 'الطلاب', '/logs': 'سجل التتبع', '/follow-up': 'متابعة الرصد',
+  '/results': 'نتائج الرصد', '/accounts': 'الحسابات', '/assignments': 'الإسناد', '/students': 'الطلاب', '/logs': 'سجل التتبع', '/follow-up': 'متابعة الرصد', '/notices': 'إشعارات الدرجات', '/settings/notices': 'إعدادات الإشعارات',
   '/settings': 'الإعدادات العامة', '/settings/branches': 'الفروع', '/settings/structure': 'الصفوف والشعب', '/settings/subjects': 'المواد والتقييم',
   '/api/export': 'تصدير إكسل', '/reviews': 'مراجعة الطلاب',
 };
 
 /** أي ملف تحديث (migration) يُنشئ هذا الجدول/الدالة/العمود — لنقول للمسؤول بالضبط ماذا يشغّل */
 const MIGRATION_OF: [RegExp, string][] = [
+  [/notice_(settings|branch_settings|student|roster|sections|can|has_access|missing)|class_teachers|subjects?\.name_en|grades?\.name_en/i, '0012_grade_notices.sql'],
   [/sheet_drafts|branch_sheet_drafts|cleanup_sheet_drafts/i, '0011_sheet_drafts.sql'],
   [/my_unsaved_sheets/i, '0010_my_unsaved_sheets.sql'],
   [/sheet_activity/i, '0009_sheet_activity.sql'],

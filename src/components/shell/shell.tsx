@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import { LogOut, MoreHorizontal, PanelRight, Bell, CalendarDays, ChevronDown, UserRound, Loader2 } from 'lucide-react';
 import { FloatingMenu, MenuItem } from '@/components/ui/menu';
-import { NAV, bottomItems, isActive, type NavItem } from './nav';
+import { navFor, bottomItems, isActive, type NavItem } from './nav';
 import { logout } from '@/app/actions/auth';
 import { Dialog } from '@/components/ui/dialog';
 import { useConfirm } from '@/components/ui/confirm';
@@ -23,6 +23,7 @@ export interface ShellProps {
   gradingOpen: boolean;
   pendingRequests: number;
   pendingReviews?: number;
+  noticeAccess?: boolean;
   children: React.ReactNode;
 }
 
@@ -35,9 +36,9 @@ export function Shell(p: ShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const confirm = useConfirm();
-  const groups = NAV[p.profile.role];
+  const groups = navFor(p.profile.role, !!p.noticeAccess);
   const bell = p.pendingRequests + (p.pendingReviews ?? 0);
-  const { main, more } = bottomItems(p.profile.role);
+  const { main, more } = bottomItems(p.profile.role, !!p.noticeAccess);
 
   const [userMenu, setUserMenu] = useState<HTMLElement | null>(null);
   const [leaving, setLeaving] = useState(false);

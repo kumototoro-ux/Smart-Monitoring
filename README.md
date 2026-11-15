@@ -24,6 +24,7 @@
    9. `supabase/migrations/0009_sheet_activity.sql`: دالة «متابعة الرصد» (من بدأ الرصد ولم يحفظ).
    10. `supabase/migrations/0010_my_unsaved_sheets.sql`: تنبيه المعلمة بكشوفها غير المحفوظة عند الدخول.
    11. `supabase/migrations/0011_sheet_drafts.sql`: مسودات الرصد على السيرفر (استعادة من جهاز آخر، ومتابعة وصلاحيات الأدمن).
+   12. `supabase/migrations/0012_grade_notices.sql`: إشعارات درجات الفصل (إعدادات الترويسة والمديرات، مربية الفصل، الأسماء الإنجليزية، مخزن الصور الخاص).
 3. من **Authentication → Sign In / Providers**:
    - أوقف **Allow new users to sign up**، لأن الحسابات تُنشأ من داخل النظام فقط.
    - أوقف **Confirm email**.

@@ -21,6 +21,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     pendingReviews = count ?? 0;
   }
 
+  // «إشعارات الدرجات» تظهر لمن يملك صلاحية إصدارها فقط (إن لم يُشغَّل 0012 تُخفى بصمت)
+  let noticeAccess = s.profile.role === 'admin';
+  if (!noticeAccess) {
+    const { data } = await s.supabase.rpc('notice_has_access');
+    noticeAccess = data === true;
+  }
+
   return (
     <Shell
       profile={s.profile}
@@ -30,6 +37,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       gradingOpen={settings.grading_open}
       pendingRequests={stats?.pending_requests ?? 0}
       pendingReviews={pendingReviews}
+      noticeAccess={noticeAccess}
     >
       {children}
     </Shell>
