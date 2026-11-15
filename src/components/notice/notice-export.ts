@@ -65,16 +65,23 @@ export type ShareResult = 'shared' | 'cancelled' | 'fallback';
  * إن لم يدعمها المتصفح (غالباً الكمبيوتر): ينزّل الملف ويفتح واتساب برسالة جاهزة لإرفاقه.
  * يجب استدعاؤها مباشرة من ضغطة المستخدم، ويكون الملف جاهزاً مسبقاً
  */
+/** سبب آخر فشل في المشاركة المباشرة (للتشخيص في رسالة التنبيه) */
+export let lastShareError = '';
+
 export async function shareFile(file: File, text: string): Promise<ShareResult> {
   const nav = navigator as Navigator & { canShare?: (d: ShareData) => boolean };
-  if (nav.share && nav.canShare?.({ files: [file] })) {
+  lastShareError = '';
+  if (typeof nav.share === 'function') {
+    // الملف وحده بلا عنوان ولا نص: بعض المتصفحات والتطبيقات تُسقط الملف أو ترفض الطلب إن اقترن بنص
     try {
-      await nav.share({ files: [file], title: file.name, text });
+      await nav.share({ files: [file] });
       return 'shared';
     } catch (e) {
-      if ((e as DOMException)?.name === 'AbortError') return 'cancelled';
+      const name = (e as DOMException)?.name || 'Error';
+      if (name === 'AbortError') return 'cancelled';
+      lastShareError = `${name}${nav.canShare?.({ files: [file] }) === false ? ' (غير مدعوم)' : ''}`;
     }
-  }
+  } else lastShareError = 'المتصفح لا يدعم المشاركة';
   saveBlob(file, file.name);
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
   return 'fallback';
