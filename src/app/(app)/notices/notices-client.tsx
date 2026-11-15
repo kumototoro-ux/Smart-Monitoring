@@ -179,7 +179,7 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
               </Select>
             </Field>
           )}
-          <div className="grid grid-cols-[1fr_110px] gap-3">
+          <div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3">
             <Field label="الشعبة">
               <Select value={section} onChange={(e) => setSection(e.target.value)}>
                 {inBranch.map((s) => <option key={s.id} value={s.id}>{s.grade} · {secLabel(s.name)}</option>)}

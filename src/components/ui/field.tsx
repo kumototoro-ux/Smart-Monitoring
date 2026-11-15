@@ -6,7 +6,7 @@ export function Field({ label, hint, error, children, className }: {
   label?: string; hint?: string; error?: string; children: React.ReactNode; className?: string;
 }) {
   return (
-    <div className={className}>
+    <div className={cn('min-w-0', className)}>
       {label && <label className="label">{label}</label>}
       {children}
       {error ? <p className="mt-1.5 text-[12.5px] text-rose">{error}</p>
@@ -24,7 +24,7 @@ export const Input = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTML
 export const Select = forwardRef<HTMLSelectElement, React.SelectHTMLAttributes<HTMLSelectElement>>(
   function Select({ className, children, ...p }, ref) {
     return (
-      <div className="relative">
+      <div className="relative min-w-0">
         <select ref={ref} className={cn('field appearance-none pl-9', className)} {...p}>
           {children}
         </select>
