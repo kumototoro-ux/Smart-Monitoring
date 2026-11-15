@@ -5,6 +5,7 @@ import {
   loadNoticeAssets, removeNoticeImage, saveEnglishNames, saveNoticeBranch, saveNoticeSettings, setClassTeacher, uploadNoticeImage,
 } from '@/app/actions/notices';
 import { useAction } from '@/lib/use-action';
+import { useConfirm } from '@/components/ui/confirm';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select, Switch } from '@/components/ui/field';
@@ -60,6 +61,7 @@ function ImageSlot({ kind, scope, brand, owned, onChanged }: {
   const meta = NOTICE_IMAGES.find((i) => i.kind === kind)!;
   const input = useRef<HTMLInputElement>(null);
   const { exec, busy } = useAction();
+  const confirm = useConfirm();
   const src = brand[kind];
   const pick = async (f: File | undefined) => {
     if (!f) return;
@@ -87,7 +89,10 @@ function ImageSlot({ kind, scope, brand, owned, onChanged }: {
         <Button size="sm" variant="secondary" loading={busy} onClick={() => input.current?.click()}>{src && (scope === 'global' || owned) ? 'تغيير' : 'رفع'}</Button>
         {(scope === 'global' || owned) && src && (
           <Button size="sm" variant="ghost" className="text-rose" aria-label="حذف" disabled={busy}
-            onClick={async () => { const r = await exec(() => removeNoticeImage(scope, kind), { success: 'تم الحذف', refresh: false }); if (r?.ok) onChanged(false); }}>
+            onClick={async () => {
+              if (!(await confirm({ title: `حذف ${meta.ar}`, message: scope === 'global' ? 'ستُحذف الصورة من كل الإشعارات التي تستخدمها.' : 'ستعود إشعارات هذا الفرع لاستخدام الصورة العامة.', confirmText: 'حذف', tone: 'danger' }))) return;
+              const r = await exec(() => removeNoticeImage(scope, kind), { success: 'تم الحذف', refresh: false }); if (r?.ok) onChanged(false);
+            }}>
             <Trash2 className="h-4 w-4" />
           </Button>
         )}
@@ -135,6 +140,7 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
   });
   const [home, setHome] = useState<Record<string, string | null>>(Object.fromEntries(sections.map((s) => [s.id, s.teacher_id])));
   const { exec, busy } = useAction();
+  const confirm = useConfirm();
 
   const scopeBranch = tab === 'branches' ? bid : null;
   const branch = (bid && bd[bid]) || BRANCH_DEFAULTS;
@@ -166,12 +172,19 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
     );
   }
 
-  const saveGeneral = () => exec(() => saveNoticeSettings({
+  const saveGeneral = async () => {
+    if (initial.enabled && !v.enabled && !(await confirm({
+      title: 'إيقاف إصدار الإشعارات',
+      message: 'ستتوقف المشرفات والمربيات عن إصدار الإشعارات فوراً (يبقى الأدمن قادراً على الإصدار).',
+      confirmText: 'إيقاف وحفظ', tone: 'danger',
+    }))) return;
+    return exec(() => saveNoticeSettings({
     enabled: v.enabled, allow_supervisor: v.allow_supervisor, allow_homeroom: v.allow_homeroom,
     header_ar: v.header_ar, header_en: v.header_en, show_basmala: v.show_basmala, school_en: v.school_en, year_hijri: v.year_hijri, year_greg: v.year_greg,
     title_ar: v.title_ar, title_en: v.title_en, show_signature: v.show_signature, show_stamp: v.show_stamp,
     show_disclaimer: v.show_disclaimer, show_footer: v.show_footer, show_levels_legend: v.show_levels_legend, level_en: v.level_en, bands: v.bands,
-  }), { success: 'تم حفظ الإعدادات' });
+    }), { success: 'تم حفظ الإعدادات' });
+  };
 
   const saveBranch = () => exec(() => saveNoticeBranch(bid, {
     name_en: branch.name_en, principal_gender: branch.principal_gender, principal_title: branch.principal_title,
@@ -324,6 +337,12 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
                       <Select value={home[s.id] ?? ''} disabled={busy}
                         onChange={async (e) => {
                           const val = e.target.value || null;
+                          const prevName = home[s.id] ? teachers.find((t) => t.id === home[s.id])?.full_name : null;
+                          if (prevName && !(await confirm({
+                            title: val ? 'تغيير مربية الفصل' : 'إلغاء إسناد مربية الفصل',
+                            message: <>ستفقد <b>{prevName}</b> صلاحية إصدار إشعارات {s.grade} · {secLabel(s.name)}{val ? ' وتنتقل الصلاحية للمربية الجديدة' : ''}.</>,
+                            confirmText: val ? 'تغيير' : 'إلغاء الإسناد', tone: 'danger',
+                          }))) return;
                           const r = await exec(() => setClassTeacher(s.id, val), { success: val ? 'تم إسناد مربية الفصل' : 'تم إلغاء الإسناد', refresh: false });
                           if (r?.ok) setHome((m) => ({ ...m, [s.id]: val }));
                         }}>

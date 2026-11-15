@@ -95,7 +95,46 @@ function CardGrid({ count = 6, cols = 'md:grid-cols-2 xl:grid-cols-3' }: { count
   );
 }
 
+/** ورقة A4 وهمية أثناء تحميل الإشعار */
+export function NoticeSheetSkeleton({ label = 'جارٍ تحضير الإشعار…' }: { label?: string }) {
+  return (
+    <div className="card overflow-hidden p-4" role="status" aria-live="polite">
+      <div className="mb-3 flex items-center gap-2 text-[13px] text-ink-muted">
+        <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-line border-t-ink" />{label}
+      </div>
+      <div className="mx-auto w-full max-w-[560px] space-y-3 rounded-xl border border-line bg-white p-5" style={{ aspectRatio: '794 / 1123' }}>
+        <div className="flex items-center justify-between"><Skeleton className="h-14 w-14 rounded-xl" /><Skeleton className="h-4 w-1/3" /><Skeleton className="h-14 w-14 rounded-xl" /></div>
+        <Skeleton className="mx-auto h-5 w-2/3" />
+        <div className="grid grid-cols-2 gap-2"><Skeleton className="h-4" /><Skeleton className="h-4" /><Skeleton className="h-4" /><Skeleton className="h-4" /></div>
+        <div className="space-y-2 pt-2">{Array.from({ length: 9 }).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}</div>
+        <Skeleton className="h-9 w-full" />
+      </div>
+    </div>
+  );
+}
+
 export const PageSkeletons = {
+  notices: () => (
+    <div><Header actions={0} />
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">
+        <div className="space-y-3">
+          <div className="card space-y-3 p-4"><div className="grid grid-cols-[minmax(0,1fr)_110px] gap-3"><Skeleton className="h-11" /><Skeleton className="h-11" /></div><Skeleton className="h-4 w-40" /></div>
+          <div className="card overflow-hidden"><div className="border-b border-line p-3"><Skeleton className="h-11" /></div>
+            <div className="space-y-2 p-3">{Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-12" />)}</div></div>
+        </div>
+        <div className="hidden lg:block"><Skeleton className="h-64 rounded-card" /></div>
+      </div>
+    </div>
+  ),
+  noticeSettings: () => (
+    <div><Header actions={0} />
+      <div className="mb-4 flex gap-2 overflow-hidden">{Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-10 w-28 shrink-0 rounded-full" />)}</div>
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[minmax(0,1fr)_340px]">
+        <div className="space-y-4">{[0, 1, 2].map((i) => <div key={i} className="card space-y-3 p-5"><Skeleton className="h-5 w-40" /><Skeleton className="h-11" /><Skeleton className="h-11" /></div>)}</div>
+        <Skeleton className="hidden h-96 rounded-card lg:block" />
+      </div>
+    </div>
+  ),
   dashboard: () => (
     <div className="space-y-5">
       <TilesSkeleton />
