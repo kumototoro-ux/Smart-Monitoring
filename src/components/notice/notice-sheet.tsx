@@ -3,7 +3,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Download, Image as ImageIcon, Share2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
-import { capture, makePdf, saveBlob, shareFile, lastShareError, type Captured } from './notice-export';
+import { capture, makePdf, saveBlob, shareFile, lastShareError, logNoticeFailure, type Captured } from './notice-export';
 import {
   NOTICE_H, NOTICE_W, LEVELS_LEGEND, LEVELS_NOTE, fmtNum, levelEn, noticeFileName, principalTitle, rate, summarize, titles,
   type NoticeData, type NoticeRender,
@@ -348,7 +348,8 @@ export function NoticeViewer({ data, render, onExported, extra }: {
       saveBlob(f, f.name);
       toast.success(kind === 'png' ? 'نُزّل الإشعار صورة' : 'نُزّل الإشعار PDF');
       onExported?.(kind);
-    } catch {
+    } catch (e) {
+      logNoticeFailure('download', e, { kind });
       toast.error('تعذّر التنزيل', 'حدّثي الصفحة وحاولي مجدداً');
     } finally { setBusy(null); }
   };
@@ -360,7 +361,8 @@ export function NoticeViewer({ data, render, onExported, extra }: {
       const r = await shareFile(f, `إشعار درجات الطالب ${data.student.name}`);
       if (r === 'fallback') toast.error('تعذّرت المشاركة المباشرة', `نُزّل الملف، أرفقيه في واتساب يدوياً (${lastShareError})`);
       if (r !== 'cancelled') onExported?.(kind);
-    } catch {
+    } catch (e) {
+      logNoticeFailure('share', e, { kind });
       toast.error('تعذّرت المشاركة', 'نزّلي الملف ثم أرسليه يدوياً');
     } finally { setBusy(null); }
   };

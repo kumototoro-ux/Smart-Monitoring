@@ -79,6 +79,7 @@ export async function shareFile(file: File, text: string): Promise<ShareResult> 
     } catch (e) {
       const name = (e as DOMException)?.name || 'Error';
       if (name === 'AbortError') return 'cancelled';
+      logNoticeFailure('share', e, { fileType: file.type, size: file.size });
       lastShareError = `${name}${nav.canShare?.({ files: [file] }) === false ? ' (غير مدعوم)' : ''}`;
     }
     saveBlob(file, file.name);
@@ -89,4 +90,17 @@ export async function shareFile(file: File, text: string): Promise<ShareResult> 
   saveBlob(file, file.name);
   window.open(`https://wa.me/?text=${encodeURIComponent(text)}`, '_blank', 'noopener');
   return 'fallback';
+}
+
+/** يسجّل فشل التنزيل/المشاركة/التجهيز في سجل التتبع (صفحة سجل التتبع) ليتابعه الأدمن */
+export function logNoticeFailure(what: string, err: unknown, extra: Record<string, unknown> = {}) {
+  try {
+    const e = err as { name?: string; message?: string } | undefined;
+    void import('@/lib/supabase/client').then(({ createClient }) =>
+      createClient().rpc('log_client_event', {
+        p_action: `notice.${what}`,
+        p_severity: 'error',
+        p_details: { message: String(e?.message ?? err ?? '').slice(0, 300), name: e?.name, ua: navigator.userAgent.slice(0, 160), path: location.pathname, ...extra },
+      }).then(() => {}, () => {}));
+  } catch { /* التسجيل لا يعطّل المستخدم */ }
 }

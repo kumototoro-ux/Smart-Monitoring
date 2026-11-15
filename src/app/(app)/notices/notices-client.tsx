@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { Skeleton } from '@/components/ui/skeleton';
 import { NoticeViewer } from '@/components/notice/notice-sheet';
 import { OffscreenRenderer } from '@/components/notice/notice-offscreen';
-import { saveBlob, shareFile, lastShareError } from '@/components/notice/notice-export';
+import { saveBlob, shareFile, lastShareError, logNoticeFailure } from '@/components/notice/notice-export';
 import { useToast } from '@/components/ui/toast';
 import { cn, secLabel } from '@/lib/utils';
 import type { NoticeData, NoticeRender } from '@/lib/notice';
@@ -79,7 +79,7 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
         const v = await fetchNotice(id);
         setView(v);
         setTimeout(() => viewer.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
-      } catch (e) { toast.error((e as Error).message); }
+      } catch (e) { logNoticeFailure('open', e); toast.error((e as Error).message); }
       setLoading(false);
     });
   };
@@ -95,7 +95,7 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
       const { file } = await makeFile(id, 'pdf');
       saveBlob(file, file.name);
       void logNoticeIssued(id, term, 'pdf');
-    } catch (e) { toast.error((e as Error).message || 'تعذّر التنزيل'); }
+    } catch (e) { logNoticeFailure('row-download', e); toast.error((e as Error).message || 'تعذّر التنزيل'); }
     setRows((m) => ({ ...m, [id]: undefined }));
   };
 
@@ -116,6 +116,7 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
       files.current.set(id, file);
       setRows((m) => ({ ...m, [id]: 'ready' }));
     } catch (e) {
+      logNoticeFailure('row-prepare', e);
       toast.error((e as Error).message || 'تعذّر التجهيز');
       setRows((m) => ({ ...m, [id]: undefined }));
     }
@@ -154,6 +155,7 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
       void logNoticeBatch(section, term, done, skipped, batchKind);
       toast.success(`نُزّل ${done} إشعار في ملف مضغوط`, skipped ? `تخطّينا ${skipped} طالباً لنقص رصدهم` : undefined);
     } catch (e) {
+      logNoticeFailure('batch', e);
       toast.error((e as Error).message || 'تعذّر التحميل');
     }
     setBatch(null);
