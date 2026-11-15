@@ -31,6 +31,10 @@ export interface NoticeSettings {
   show_stamp: boolean;
   show_disclaimer: boolean;
   show_footer: boolean;
+  /** شرح مستويات التقييم اللفظي أسفل الجدول */
+  show_levels_legend: boolean;
+  /** ترجمة مستويات التقييم اللفظي: النص العربي ← الإنجليزي (تغلب الترجمة المضمّنة) */
+  level_en: Record<string, string>;
   bands: NoticeBands;
   /** مسارات الصور في التخزين الخاص */
   images: Partial<Record<NoticeImageKind, string>>;
@@ -66,6 +70,8 @@ export const NOTICE_DEFAULTS: NoticeSettings = {
   show_stamp: false,
   show_disclaimer: true,
   show_footer: true,
+  show_levels_legend: true,
+  level_en: {},
   bands: { excellent: 90, vgood: 80, good: 70, pass: 60 },
   images: {},
 };
@@ -85,6 +91,16 @@ export const BRANCH_DEFAULTS: NoticeBranch = {
 const str = (v: unknown, max: number, d = '') => (typeof v === 'string' ? v.slice(0, max) : d);
 const bool = (v: unknown, d: boolean) => (typeof v === 'boolean' ? v : d);
 const path = (v: unknown) => (typeof v === 'string' && /^notice\/[\w.-]+$/.test(v) ? v : undefined);
+
+function normLevels(raw: unknown): Record<string, string> {
+  const out: Record<string, string> = {};
+  if (raw && typeof raw === 'object')
+    for (const [k, val] of Object.entries(raw as Record<string, unknown>).slice(0, 40)) {
+      const en = typeof val === 'string' ? val.trim().slice(0, 60) : '';
+      if (en) out[k.slice(0, 60)] = en;
+    }
+  return out;
+}
 
 export function normalizeNotice(raw: unknown): NoticeSettings {
   const v = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
@@ -109,6 +125,8 @@ export function normalizeNotice(raw: unknown): NoticeSettings {
     show_stamp: bool(v.show_stamp, D.show_stamp),
     show_disclaimer: bool(v.show_disclaimer, D.show_disclaimer),
     show_footer: bool(v.show_footer, D.show_footer),
+    show_levels_legend: bool(v.show_levels_legend, D.show_levels_legend),
+    level_en: normLevels(v.level_en),
     bands: { excellent: n(b.excellent, 90), vgood: n(b.vgood, 80), good: n(b.good, 70), pass: n(b.pass, 60) },
     images,
   };
@@ -219,3 +237,32 @@ export function summarize(d: NoticeData, bands: NoticeBands) {
 
 export const noticeFileName = (d: NoticeData) =>
   `إشعار-${d.student.name}-الفصل-${TERM_AR[d.term]}`.replace(/[\\/:*?"<>|]+/g, '').replace(/\s+/g, '-').slice(0, 120);
+
+/* ------------------------------ التقييم اللفظي ------------------------------ */
+const norm = (t: string) => t.replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/\s+/g, ' ').trim();
+
+/** الترجمة المضمّنة لمستويات التقييم اللفظي الشائعة */
+const BUILTIN_LEVEL_EN: [string, string][] = [
+  ['متفوق', 'Excelling'], ['متقدم', 'Proficient'], ['متمكن', 'Developing'], ['غير مجتاز', 'Not Achieved'],
+  ['ممتاز', 'Excellent'], ['جيد جدا', 'Very Good'], ['جيد', 'Good'], ['مقبول', 'Pass'], ['يحتاج الي دعم', 'Needs Support'], ['يحتاج دعم', 'Needs Support'],
+];
+
+/** الترجمة الإنجليزية لمستوى لفظي: ما حدّده الأدمن أولاً، ثم المضمّنة */
+export function levelEn(label: string | null | undefined, s: NoticeSettings): string {
+  if (!label) return '';
+  const own = s.level_en[label] ?? Object.entries(s.level_en).find(([k]) => norm(k) === norm(label))?.[1];
+  if (own) return own;
+  return BUILTIN_LEVEL_EN.find(([k]) => norm(k) === norm(label))?.[1] ?? '';
+}
+
+/** شرح مستويات الطالب أسفل جدول التقييم اللفظي */
+export const LEVELS_LEGEND: { ar: string; en: string }[] = [
+  { ar: 'متفوق: أنجز الطالب 95٪ فأكثر من معايير المادة، مع إتقان 100٪ لمعايير الحد الأدنى.', en: 'Excelling: The student has achieved 95% or more of the subject standards, with 100% mastery of the minimum required standards.' },
+  { ar: 'متقدم: أنجز الطالب من 85٪ إلى أقل من 95٪ من معايير المادة، مع إتقان من 90٪ إلى أقل من 100٪ لمعايير الحد الأدنى.', en: 'Proficient: The student has achieved 85% to less than 95% of the subject standards, with 90% to less than 100% mastery of the minimum required standards.' },
+  { ar: 'متمكن: أنجز الطالب من 75٪ إلى أقل من 85٪ من معايير المادة، مع إتقان من 80٪ إلى أقل من 90٪ لمعايير الحد الأدنى.', en: 'Developing: The student has achieved 75% to less than 85% of the subject standards, with 80% to less than 90% mastery of the minimum required standards.' },
+  { ar: 'غير مجتاز: إنجاز الطالب أقل من 75٪ من معايير المادة أو لم يجتز معيارًا أو أكثر من معايير الحد الأدنى.', en: 'Not Achieved: The student has achieved less than 75% of the subject standards or did not meet one or more of the minimum required standards.' },
+];
+export const LEVELS_NOTE = {
+  ar: 'يُستخدم هذا التقييم لقياس مدى تحقق الطالب من معايير المادة في المرحلة الابتدائية.',
+  en: 'This evaluation is used to measure the student’s attainment of subject standards in the primary stage.',
+};

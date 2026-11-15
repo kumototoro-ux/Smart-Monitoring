@@ -31,6 +31,8 @@ const generalSchema = z.object({
   show_stamp: z.boolean(),
   show_disclaimer: z.boolean(),
   show_footer: z.boolean(),
+  show_levels_legend: z.boolean(),
+  level_en: z.record(z.string().max(60), z.string().trim().max(60)).default({}),
   bands: z.object({ excellent: bandNum, vgood: bandNum, good: bandNum, pass: bandNum }),
 }).refine((v) => v.bands.excellent > v.bands.vgood && v.bands.vgood > v.bands.good && v.bands.good > v.bands.pass, { message: 'حدود التقدير يجب أن تتنازل: ممتاز > جيد جداً > جيد > مقبول' });
 

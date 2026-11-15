@@ -9,7 +9,7 @@ export const metadata = { title: 'إعدادات الإشعارات' };
 export default async function NoticeSettingsPage() {
   const { supabase } = await requireRole('admin');
   const settings = await getSettings();
-  const [g, br, branches, subjects, grades, sections, teachers, ct] = await Promise.all([
+  const [g, br, branches, subjects, grades, sections, teachers, ct, vl] = await Promise.all([
     supabase.from('notice_settings').select('data').eq('id', 1).maybeSingle(),
     supabase.from('notice_branch_settings').select('branch_id, data'),
     supabase.from('branches').select('id, name').eq('is_active', true).order('name'),
@@ -18,7 +18,9 @@ export default async function NoticeSettingsPage() {
     supabase.from('sections').select('id, name, branch_id, grade_id, sort_order').eq('is_active', true).order('sort_order'),
     supabase.from('profiles').select('id, full_name, branch_id').eq('role', 'teacher').eq('is_active', true).order('full_name'),
     supabase.from('class_teachers').select('section_id, teacher_id'),
+    supabase.from('verbal_levels').select('label'),
   ]);
+  const levels = [...new Set((vl.data ?? []).map((r) => r.label as string))];
   const missing = !!(g.error || br.error || ct.error || subjects.error);
   const homeroom = new Map((ct.data ?? []).map((r) => [r.section_id as string, r.teacher_id as string]));
   const gradeName = new Map((grades.data ?? []).map((x) => [x.id as string, x.name as string]));
@@ -44,6 +46,7 @@ export default async function NoticeSettingsPage() {
         grades={(grades.data ?? []).map((x) => ({ id: x.id as string, name: x.name as string, name_en: (x.name_en as string | null) ?? null }))}
         sections={secRows}
         teachers={(teachers.data ?? []) as TeacherRow[]}
+        levels={levels}
       />
     </div>
   );

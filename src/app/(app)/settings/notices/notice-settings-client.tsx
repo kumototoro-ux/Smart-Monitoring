@@ -10,7 +10,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select, Switch } from '@/components/ui/field';
 import { NoticePreview } from '@/components/notice/notice-sheet';
 import {
-  BRANCH_DEFAULTS, NOTICE_IMAGES, resolveRender,
+  BRANCH_DEFAULTS, NOTICE_IMAGES, levelEn, resolveRender,
   type NoticeBranch, type NoticeBrand, type NoticeData, type NoticeImageKind, type NoticeSettings,
 } from '@/lib/notice';
 import { cn, secLabel } from '@/lib/utils';
@@ -111,11 +111,11 @@ function Toggle({ label, hint, checked, onChange }: { label: string; hint?: stri
 const tri = (v: boolean | null) => (v === null ? 'inherit' : v ? 'on' : 'off');
 const untri = (s: string) => (s === 'inherit' ? null : s === 'on');
 
-export function NoticeSettingsClient({ missing, initial, school, year, branches, branchData, subjects, grades, sections, teachers }: {
+export function NoticeSettingsClient({ missing, initial, school, year, branches, branchData, subjects, grades, sections, teachers, levels }: {
   missing: boolean; initial: NoticeSettings; school: string; year: string;
   branches: { id: string; name: string }[]; branchData: Record<string, NoticeBranch>;
   subjects: { id: string; name: string; name_en: string | null }[]; grades: { id: string; name: string; name_en: string | null }[];
-  sections: SectionRow[]; teachers: TeacherRow[];
+  sections: SectionRow[]; teachers: TeacherRow[]; levels: string[];
 }) {
   const [tab, setTab] = useState<Tab>('general');
   const [v, setV] = useState(initial);
@@ -170,7 +170,7 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
     enabled: v.enabled, allow_supervisor: v.allow_supervisor, allow_homeroom: v.allow_homeroom,
     header_ar: v.header_ar, header_en: v.header_en, show_basmala: v.show_basmala, school_en: v.school_en, year_greg: v.year_greg,
     title_ar: v.title_ar, title_en: v.title_en, show_signature: v.show_signature, show_stamp: v.show_stamp,
-    show_disclaimer: v.show_disclaimer, show_footer: v.show_footer, bands: v.bands,
+    show_disclaimer: v.show_disclaimer, show_footer: v.show_footer, show_levels_legend: v.show_levels_legend, level_en: v.level_en, bands: v.bands,
   }), { success: 'تم حفظ الإعدادات' });
 
   const saveBranch = () => exec(() => saveNoticeBranch(bid, {
@@ -248,6 +248,7 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
                 <h3 className="text-[15px] font-semibold">أسفل الإشعار</h3>
                 <Toggle label="شريط «ليس شهادة نهائية»" hint="يوضح أنه إشعار فصل وليس شهادة" checked={v.show_disclaimer} onChange={(x) => set('show_disclaimer', x)} />
                 <Toggle label="عبارة «صادر إلكترونياً من منصة مِرقاة»" checked={v.show_footer} onChange={(x) => set('show_footer', x)} />
+                <Toggle label="شرح مستويات الطالب (للتقييم اللفظي)" hint="متفوق / متقدم / متمكن / غير مجتاز، بالعربي والإنجليزي أسفل الجدول" checked={v.show_levels_legend} onChange={(x) => set('show_levels_legend', x)} />
               </div>
               <Button size="lg" onClick={saveGeneral} loading={busy}>حفظ إعدادات الإشعار</Button>
             </>
@@ -356,10 +357,26 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
                   ))}
                 </div>
               </div>
-              <Button size="lg" loading={busy} onClick={() => exec(() => saveEnglishNames({
+              {levels.length > 0 && (
+                <div className="card space-y-3 p-5 sm:p-6">
+                  <h3 className="text-[15px] font-semibold">مستويات التقييم اللفظي</h3>
+                  <p className="text-[12.5px] text-ink-muted">تظهر في عمود الترجمة. المستويات الشائعة (متفوق، متقدم، متمكن، غير مجتاز…) مترجمة تلقائياً، واكتبي هنا لتغيير ترجمة أي مستوى.</p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {levels.map((l) => (
+                      <Field key={l} label={l}><Input dir="ltr" className="text-right" value={v.level_en[l] ?? ''} onChange={(e) => set('level_en', { ...v.level_en, [l]: e.target.value })} placeholder={levelEn(l, { ...v, level_en: {} }) || 'Level'} /></Field>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <Button size="lg" loading={busy} onClick={() => exec<unknown>(async () => { const a = await saveNoticeSettings({
+                enabled: v.enabled, allow_supervisor: v.allow_supervisor, allow_homeroom: v.allow_homeroom,
+                header_ar: v.header_ar, header_en: v.header_en, show_basmala: v.show_basmala, school_en: v.school_en, year_greg: v.year_greg,
+                title_ar: v.title_ar, title_en: v.title_en, show_signature: v.show_signature, show_stamp: v.show_stamp,
+                show_disclaimer: v.show_disclaimer, show_footer: v.show_footer, show_levels_legend: v.show_levels_legend, level_en: v.level_en, bands: v.bands,
+              }); return a.ok ? saveEnglishNames({
                 subjects: subjects.map((s) => ({ id: s.id, name_en: en.subjects[s.id] ?? '' })),
                 grades: grades.map((g) => ({ id: g.id, name_en: en.grades[g.id] ?? '' })),
-              }), { success: 'تم حفظ الأسماء الإنجليزية' })}>حفظ الأسماء</Button>
+              }) : a; }, { success: 'تم حفظ الأسماء الإنجليزية' })}>حفظ الأسماء</Button>
             </>
           )}
 

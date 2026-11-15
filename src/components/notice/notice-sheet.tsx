@@ -4,7 +4,7 @@ import { Download, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import {
-  fmtNum, noticeFileName, principalTitle, rate, summarize, titles,
+  LEVELS_LEGEND, LEVELS_NOTE, fmtNum, levelEn, noticeFileName, principalTitle, rate, summarize, titles,
   type NoticeData, type NoticeRender,
 } from '@/lib/notice';
 
@@ -174,7 +174,7 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
             <colgroup>
               <col style={{ width: '4%' }} />
               {numeric ? (<><col style={{ width: '22%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '11%' }} /><col style={{ width: '12%' }} /><col style={{ width: '24%' }} /></>)
-                : (<><col style={{ width: '38%' }} /><col style={{ width: '30%' }} /><col style={{ width: '28%' }} /></>)}
+                : (<><col style={{ width: '30%' }} /><col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '22%' }} /></>)}
             </colgroup>
             <tbody>
               <tr>
@@ -189,7 +189,10 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
                     <th style={rh()} dir="ltr">Grade</th>
                   </>
                 ) : (
-                  <th style={rh()}>التقدير<div dir="ltr" style={{ fontWeight: 600 }}>Level</div></th>
+                  <>
+                    <th style={rh()}>التقدير اللفظي</th>
+                    <th style={rh()} dir="ltr">Verbal Level</th>
+                  </>
                 )}
                 <th style={rh()} dir="ltr">Subject</th>
               </tr>
@@ -208,17 +211,39 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
                         <td style={rc()} dir="ltr">{rt?.en ?? ''}</td>
                       </>
                     ) : (
-                      <td style={rc({ fontWeight: 600 })}>{s.absent ? 'غائب' : s.level ?? ''}</td>
+                      <>
+                        <td style={rc({ fontWeight: 600 })}>{s.absent ? 'غائب' : s.level ?? ''}</td>
+                        <td style={rc()} dir="ltr">{s.absent ? 'Absent' : levelEn(s.level, S)}</td>
+                      </>
                     )}
                     <td style={rc({ fontWeight: 700, ...long(s.name_en, 20) })} dir="ltr">{s.name_en ?? ''}</td>
                   </tr>
                 );
               })}
               {!subjects.length && (
-                <tr data-row><td style={rc({ padding: 10, color: '#6b7a72' })} colSpan={numeric ? 7 : 3}>لا درجات معتمدة · No grades</td></tr>
+                <tr data-row><td style={rc({ padding: 10, color: '#6b7a72' })} colSpan={numeric ? 7 : 4}>لا درجات معتمدة · No grades</td></tr>
               )}
             </tbody>
           </table>
+
+          {/* شرح مستويات الطالب (التقييم اللفظي) */}
+          {!numeric && S.show_levels_legend && (
+            <div style={{ border: B, marginTop: 8, padding: '6px 10px 7px', fontSize: 9.5, lineHeight: 1.5 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 11.5, marginBottom: 3 }}>
+                <span>مستوى الطالب:</span><span dir="ltr">Student’s Level:</span>
+              </div>
+              {LEVELS_LEGEND.map((l) => (
+                <div key={l.en} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, padding: '3px 0', borderTop: '0.5px solid #c9d3ce' }}>
+                  <div>{l.ar}</div>
+                  <div dir="ltr" style={{ textAlign: 'left', color: '#2c3a34' }}>{l.en}</div>
+                </div>
+              ))}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, padding: '4px 0 0', borderTop: '0.5px solid #c9d3ce', fontWeight: 600 }}>
+                <div>{LEVELS_NOTE.ar}</div>
+                <div dir="ltr" style={{ textAlign: 'left' }}>{LEVELS_NOTE.en}</div>
+              </div>
+            </div>
+          )}
 
           {/* المديرة والتوقيع والختم | الملخص */}
           <div style={{ display: 'grid', gridTemplateColumns: render.showStamp ? '1fr 130px 1.35fr' : '1fr 1.35fr', gap: 12, marginTop: 10, alignItems: 'center' }}>
