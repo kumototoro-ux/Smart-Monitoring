@@ -210,18 +210,64 @@ export async function loadNoticeSection(sectionId: string, term: 1 | 2) {
   }, { context: { section: sectionId, term } });
 }
 
-/** يسجّل إصدار شعبة كاملة (ملف مضغوط) في سجل التتبع */
-export async function logNoticeBatch(sectionId: string, term: 1 | 2, count: number, skipped: number, kind: 'pdf' | 'png') {
+type IssueKind = 'pdf' | 'png' | 'share' | 'zip';
+const issueKind = z.enum(['pdf', 'png', 'share', 'zip']);
+const termSchema = z.union([z.literal(1), z.literal(2)]);
+
+/** يسجّل الإصدار في سجل الإشعارات الدائم. قبل تشغيل 0014 يمرّ بصمت ويبقى أثره في سجل التتبع فقط */
+async function logIssue(supabase: import('@supabase/supabase-js').SupabaseClient, ids: string[], term: 1 | 2, kind: IssueKind) {
+  const { data, error } = await supabase.rpc('notice_log_issue', { p_students: ids, p_term: term, p_kind: kind });
+  if (error) {
+    if (error.code === 'PGRST202' || error.code === '42883') return null; // الدالة غير موجودة بعد (0014)
+    throw error;
+  }
+  return data as number;
+}
+
+/** يسجّل إصدار شعبة كاملة (ملف مضغوط): سجلاً لكل طالب + أثر في سجل التتبع */
+export async function logNoticeBatch(sectionId: string, term: 1 | 2, studentIds: string[], skipped: number, kind: 'pdf' | 'png') {
   return run('notice.batch', ['admin', 'supervisor'], async ({ supabase }) => {
-    must(await supabase.rpc('notice_roster', { p_section: parse(uuid, sectionId), p_term: term })); // تحقق من الصلاحية
-    return { section: sectionId, term, count, skipped, kind };
+    const ids = parse(z.array(uuid).max(300), studentIds);
+    const logged = ids.length ? await logIssue(supabase, ids, parse(termSchema, term), 'zip') : 0;
+    if (logged === null) must(await supabase.rpc('notice_roster', { p_section: parse(uuid, sectionId), p_term: term })); // تحقق من الصلاحية
+    return { section: sectionId, term, count: ids.length, skipped, kind, logged };
   }, { log: (d) => d });
 }
 
-/** يسجّل التنزيل في سجل التتبع بعد نجاحه في المتصفح */
-export async function logNoticeIssued(studentId: string, term: 1 | 2, kind: 'pdf' | 'png') {
+/** يسجّل التنزيل/المشاركة بعد نجاحه في المتصفح */
+export async function logNoticeIssued(studentId: string, term: 1 | 2, kind: 'pdf' | 'png' | 'share') {
   return run('notice.issued', ['admin', 'supervisor', 'teacher'], async ({ supabase }) => {
-    const d = must(await supabase.rpc('notice_student', { p_student: parse(uuid, studentId), p_term: term })) as NoticeData;
-    return { student_id: studentId, student: d.student.name, branch: d.branch.name, grade: d.grade.name, section: d.section, term, kind, complete: d.complete };
+    const id = parse(uuid, studentId);
+    const logged = await logIssue(supabase, [id], parse(termSchema, term), parse(issueKind, kind));
+    if (logged === null) must(await supabase.rpc('notice_student', { p_student: id, p_term: term })); // تحقق من الصلاحية فقط
+    return { student_id: id, term, kind, logged };
   }, { log: (d) => d });
+}
+
+// ------------------------------------------------------------------ سجل الإصدار (أدمن/مشرفة)
+export interface IssueRow {
+  id: string; student_id: string | null; student_name: string; student_number: string | null;
+  branch_id: string; grade_id: string | null; section_id: string | null; term: number; kind: IssueKind;
+  complete: boolean; issuer_name: string | null; issuer_role: string | null; created_at: string;
+}
+export interface IssueFilter { section?: string; branch?: string; grade?: string; issuer?: string; term: 1 | 2; q?: string; before?: string }
+
+/** صفحات سجل الإصدار (50 صفاً في كل مرة) حسب الفرع/الصف/الشعبة/المُصدِرة */
+export async function loadNoticeIssues(f: IssueFilter) {
+  return run('notice.issues', ['admin', 'supervisor'], async ({ supabase }) => {
+    const opt = (v: unknown) => (v ? parse(uuid, v) : undefined);
+    let q = supabase.from('notice_issues')
+      .select('id, student_id, student_name, student_number, branch_id, grade_id, section_id, term, kind, complete, issuer_name, issuer_role, created_at')
+      .eq('term', parse(termSchema, f.term))
+      .order('created_at', { ascending: false }).limit(51);
+    const section = opt(f.section), branch = opt(f.branch), grade = opt(f.grade), issuer = opt(f.issuer);
+    if (section) q = q.eq('section_id', section);
+    if (branch) q = q.eq('branch_id', branch);
+    if (grade) q = q.eq('grade_id', grade);
+    if (issuer) q = q.eq('issued_by', issuer);
+    if (f.before) q = q.lt('created_at', parse(z.string().datetime({ offset: true }), f.before));
+    if (f.q?.trim()) q = q.ilike('student_name', `%${f.q.trim().replace(/[%_,()]/g, ' ').slice(0, 60)}%`);
+    const rows = must(await q) as IssueRow[];
+    return { rows: rows.slice(0, 50), more: rows.length > 50 };
+  });
 }

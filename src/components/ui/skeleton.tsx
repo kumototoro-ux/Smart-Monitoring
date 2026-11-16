@@ -114,6 +114,14 @@ export function NoticeSheetSkeleton({ label = 'جارٍ تحضير الإشعا�
 }
 
 export const PageSkeletons = {
+  report: () => (
+    <div><Header actions={1} />
+      <div className="mb-3 flex gap-2 overflow-hidden">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-9 w-24 shrink-0 rounded-full" />)}</div>
+      <Skeleton className="mb-3 h-20 rounded-card" />
+      <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-4">{Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} className="h-16 rounded-card" />)}</div>
+      <div className="card space-y-2 p-3">{Array.from({ length: 7 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
+    </div>
+  ),
   notices: () => (
     <div><Header actions={0} />
       <div className="grid grid-cols-[minmax(0,1fr)] gap-5 lg:grid-cols-[380px_minmax(0,1fr)]">

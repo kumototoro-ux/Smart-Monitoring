@@ -20,6 +20,7 @@ export async function missingMigrations(supabase: SupabaseClient): Promise<strin
     ['0011_sheet_drafts.sql', () => supabase.rpc('branch_sheet_drafts', { p_branch: '00000000-0000-0000-0000-000000000000' })],
     ['0012_grade_notices.sql', () => supabase.rpc('notice_has_access')],
     ['0013_notice_batch.sql', () => supabase.rpc('notice_section', { p_section: '00000000-0000-0000-0000-000000000000', p_term: 1 })],
+    ['0014_notice_issue_log_excluded.sql', () => supabase.rpc('excluded_students')],
   ];
   const res = await Promise.all(checks.map(async ([file, run]) => {
     try {

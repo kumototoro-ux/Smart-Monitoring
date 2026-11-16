@@ -4,6 +4,7 @@ import { audit } from '@/lib/audit';
 import { newBook } from '@/lib/excel';
 import { loadSectionReport, writeSectionSheet, writeProgressSheet } from '@/lib/reports';
 import { buildStudentTemplate } from '@/lib/template';
+import { writeExcludedSheets, writeIssuesSheets } from '@/lib/issue-reports';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -90,6 +91,13 @@ export async function GET(req: NextRequest) {
       const branch = role === 'supervisor' ? s.profile.branch_id! : (p.get('branch') && UUID.test(p.get('branch')!) ? p.get('branch')! : null);
       await writeProgressSheet(wb, s.supabase, branch, term);
       filename = 'متابعة-الرصد';
+    } else if (type === 'excluded' || type === 'issues') {
+      if (role === 'teacher') return fail(403, 'غير مصرّح');
+      const opt = (k: string) => (p.get(k) && UUID.test(p.get(k)!) ? p.get(k)! : undefined);
+      // المشرفة محصورة بفرعها داخل قاعدة البيانات نفسها؛ نقيّد المرشّح أيضاً
+      const f = { branch: role === 'supervisor' ? s.profile.branch_id ?? undefined : opt('branch'), grade: opt('grade'), section: opt('section') };
+      if (type === 'excluded') { await writeExcludedSheets(wb, s.supabase, f); filename = 'الطلاب-المستبعدون'; }
+      else { await writeIssuesSheets(wb, s.supabase, term, f); filename = 'متابعة-إصدار-الإشعارات'; }
     } else {
       return fail(400, 'نوع غير معروف');
     }

@@ -106,7 +106,7 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
     if (ready) { // الضغطة الثانية: مشاركة فورية
       const r = await shareFile(ready, `إشعار درجات الطالب ${ready.name.replace(/\.(pdf|png)$/, '')}`);
       if (r === 'fallback') toast.error('تعذّرت المشاركة المباشرة', `نُزّل الملف، أرفقيه في واتساب يدوياً (${lastShareError})`);
-      if (r !== 'cancelled') void logNoticeIssued(id, term, 'png');
+      if (r !== 'cancelled') void logNoticeIssued(id, term, 'share');
       files.current.delete(id);
       setRows((m) => ({ ...m, [id]: undefined }));
       return;
@@ -160,7 +160,7 @@ export function NoticesClient({ role, sections, currentTerm }: { role: Role; sec
       if (cancel.current) { toast.error('أُلغي التحميل'); setBatch(null); return; }
       const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
       saveBlob(blob, `إشعارات-${sec.grade}-${secLabel(sec.name)}-الفصل-${term === 1 ? 'الأول' : 'الثاني'}.zip`.replace(/\s+/g, '-'));
-      void logNoticeBatch(section, term, done, skipped, batchKind);
+      void logNoticeBatch(section, term, ready.slice(0, done).map((d) => d.student.id), skipped, batchKind);
       toast.success(`نُزّل ${done} إشعار في ملف مضغوط`, skipped ? `تخطّينا ${skipped} طالباً لنقص رصدهم` : undefined);
     } catch (e) {
       logNoticeFailure('batch', e);
