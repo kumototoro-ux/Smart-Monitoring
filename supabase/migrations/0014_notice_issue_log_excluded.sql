@@ -170,3 +170,11 @@ begin
 end $$;
 revoke all on function public.excluded_students() from public, anon;
 grant execute on function public.excluded_students() to authenticated;
+
+-- ---------------------------------------------------------------------
+-- فهارس تسريع (آمنة وتُنشأ مرة واحدة)
+-- ---------------------------------------------------------------------
+create index if not exists sheet_exclusions_year_idx  on public.sheet_exclusions(academic_year);
+create index if not exists students_grade_idx         on public.students(grade_id);
+create index if not exists students_inactive_idx      on public.students(branch_id) where not is_active;
+create index if not exists assignments_section_gs_idx on public.teacher_assignments(section_id, grade_subject_id);
