@@ -16,7 +16,7 @@ export interface NavGroup { title?: string; items: NavItem[] }
 const home: NavItem = { href: '/', label: 'الرئيسية', icon: LayoutDashboard };
 const account: NavItem = { href: '/account', label: 'حسابي', icon: UserRound };
 const notices: NavItem = { href: '/notices', label: 'إشعارات الدرجات', short: 'الإشعارات', icon: FileBadge };
-const noticeLog: NavItem = { href: '/notices/log', label: 'سجل الإشعارات', short: 'سجل الإشعارات', icon: ClipboardCheck };
+const noticeLog: NavItem = { href: '/notices/log', label: 'سجل الإشعارات', short: 'الإصدار', icon: ClipboardCheck };
 const excluded: NavItem = { href: '/excluded', label: 'الطلاب المستبعدون', short: 'المستبعدون', icon: UserX };
 const reviews: NavItem = { href: '/reviews', label: 'مراجعة الطلاب', short: 'المراجعة', icon: UserCheck, badge: 'reviews' };
 
