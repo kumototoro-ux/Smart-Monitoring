@@ -24,7 +24,12 @@ function Person({ p, active, onClick }: { p: MergePerson; active?: boolean; onCl
     <Tag type={onClick ? 'button' : undefined} onClick={onClick}
       className={cn('min-w-0 rounded-xl border p-3 text-start', active ? 'border-black bg-surface ring-1 ring-black' : 'border-line bg-white', onClick && 'hover:border-ink-faint')}>
       <p className="break-words text-[14px] font-medium leading-6">{p.name}</p>
-      <p className="mt-0.5 text-[12.5px] text-ink-muted">{p.grade}{p.section ? ` · ${secLabel(p.section)}` : ''}{p.number ? ` · ${p.number}` : ''}</p>
+      <p className="mt-0.5 text-[12.5px] text-ink-muted">{p.grade}{p.section ? ` · ${secLabel(p.section)}` : ''}</p>
+      <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12.5px]">
+        <span className="text-ink-muted">الرقم الأكاديمي:</span>
+        {p.number ? <bdi dir="ltr" className="num rounded-md bg-surface px-2 py-0.5 text-[13.5px] font-semibold tracking-wide">{p.number}</bdi> : <span className="text-rose">بلا رقم</span>}
+        {p.number && /^TMP-\d+$/.test(p.number) && <Badge tone="warning">رقم مؤقت</Badge>}
+      </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         <Badge tone={p.results ? 'success' : 'neutral'}>{p.results} رصد</Badge>
         {(p.source === 'teacher' || p.needsReview) && <Badge tone="warning">أضافته معلمة</Badge>}
@@ -131,7 +136,7 @@ function MergeDialog({ a, b, suggest, onClose, onDone }: { a: MergePerson; b: Me
 
             <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-surface p-3 text-[13px] leading-6">
               <input type="checkbox" checked={ok} onChange={(e) => setOk(e.target.checked)} className="mt-1.5 h-4 w-4 accent-black" />
-              <span>أؤكد أن «<b>{remove.name}</b>» و«<b>{keep.name}</b>» هما نفس الطالب، وسيُحذف الاسم الأول بعد نقل رصده.{unresolved > 0 && <span className="text-rose"> (بقي {unresolved} تعارض)</span>}</span>
+              <span>أؤكد أن «<b>{remove.name}</b>» (الرقم <bdi dir="ltr" className="num">{remove.number ?? '—'}</bdi>) و«<b>{keep.name}</b>» (الرقم <bdi dir="ltr" className="num">{keep.number ?? '—'}</bdi>) هما نفس الطالب، وسيُحذف الاسم الأول بعد نقل رصده.{unresolved > 0 && <span className="text-rose"> (بقي {unresolved} تعارض)</span>}</span>
             </label>
           </>
         )}
@@ -259,7 +264,7 @@ function HistoryTab({ version }: { version: number }) {
       {rows.map((r) => (
         <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div className="min-w-0 flex-1 basis-60">
-            <p className="text-[13.5px] leading-6"><b>{r.removed_name}</b> <span className="text-ink-muted">← دُمج في</span> <b>{r.kept_name}</b></p>
+            <p className="text-[13.5px] leading-6"><b>{r.removed_name}</b>{r.removed_number ? <bdi dir="ltr" className="num mx-1 text-[12px] text-ink-muted">({r.removed_number})</bdi> : null}<span className="text-ink-muted"> ← دُمج في </span> <b>{r.kept_name}</b></p>
             <p className="num text-[12px] text-ink-muted">{r.merged_by_name ?? '—'} · {fmtDateTime(r.merged_at)} · {r.moved} رصد منقول</p>
           </div>
           {r.undone_at ? <Badge tone="neutral">تم التراجع</Badge> : (
