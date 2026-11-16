@@ -58,13 +58,14 @@ const OP: Record<string, string> = {
 /** أسماء الصفحات */
 const PAGES: Record<string, string> = {
   '/': 'الرئيسية', '/grading': 'رصد الدرجات', '/records': 'سجلات الرصد', '/requests': 'الطلبات', '/account': 'حسابي',
-  '/results': 'نتائج الرصد', '/accounts': 'الحسابات', '/assignments': 'الإسناد', '/students': 'الطلاب', '/logs': 'سجل التتبع', '/follow-up': 'متابعة الرصد', '/notices': 'إشعارات الدرجات', '/settings/notices': 'إعدادات الإشعارات',
+  '/results': 'نتائج الرصد', '/accounts': 'الحسابات', '/assignments': 'الإسناد', '/students': 'الطلاب', '/logs': 'سجل التتبع', '/follow-up': 'متابعة الرصد', '/notices': 'إشعارات الدرجات', '/notices/log': 'سجل إصدار الإشعارات', '/excluded': 'الطلاب المستبعدون', '/settings/notices': 'إعدادات الإشعارات',
   '/settings': 'الإعدادات العامة', '/settings/branches': 'الفروع', '/settings/structure': 'الصفوف والشعب', '/settings/subjects': 'المواد والتقييم',
   '/api/export': 'تصدير إكسل', '/reviews': 'مراجعة الطلاب',
 };
 
 /** أي ملف تحديث (migration) يُنشئ هذا الجدول/الدالة/العمود — لنقول للمسؤول بالضبط ماذا يشغّل */
 const MIGRATION_OF: [RegExp, string][] = [
+  [/notice_issues|notice_log_issue|notice_issue_summary|excluded_students/i, '0014_notice_issue_log_excluded.sql'],
   [/notice_section/i, '0013_notice_batch.sql'],
   [/notice_(settings|branch_settings|student|roster|sections|can|has_access|missing)|class_teachers|subjects?\.name_en|grades?\.name_en/i, '0012_grade_notices.sql'],
   [/sheet_drafts|branch_sheet_drafts|cleanup_sheet_drafts/i, '0011_sheet_drafts.sql'],

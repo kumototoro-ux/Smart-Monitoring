@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, ClipboardPen, History, Inbox, Users, GraduationCap, Link2,
-  FileSpreadsheet, ScrollText, Radar, Settings, Building2, Layers, BookOpen, UserRound, UserCheck, FileBadge,
+  FileSpreadsheet, ScrollText, Radar, Settings, Building2, Layers, BookOpen, UserRound, UserCheck, FileBadge, ClipboardCheck, UserX,
 } from 'lucide-react';
 import type { Role } from '@/lib/types';
 
@@ -16,6 +16,8 @@ export interface NavGroup { title?: string; items: NavItem[] }
 const home: NavItem = { href: '/', label: 'الرئيسية', icon: LayoutDashboard };
 const account: NavItem = { href: '/account', label: 'حسابي', icon: UserRound };
 const notices: NavItem = { href: '/notices', label: 'إشعارات الدرجات', short: 'الإشعارات', icon: FileBadge };
+const noticeLog: NavItem = { href: '/notices/log', label: 'سجل الإشعارات', short: 'سجل الإشعارات', icon: ClipboardCheck };
+const excluded: NavItem = { href: '/excluded', label: 'الطلاب المستبعدون', short: 'المستبعدون', icon: UserX };
 const reviews: NavItem = { href: '/reviews', label: 'مراجعة الطلاب', short: 'المراجعة', icon: UserCheck, badge: 'reviews' };
 
 export const NAV: Record<Role, NavGroup[]> = {
@@ -34,9 +36,11 @@ export const NAV: Record<Role, NavGroup[]> = {
       home,
       { href: '/results', label: 'نتائج الرصد', short: 'النتائج', icon: FileSpreadsheet },
       notices,
+      noticeLog,
       { href: '/follow-up', label: 'متابعة الرصد', icon: Radar },
       { href: '/requests', label: 'الطلبات', icon: Inbox, badge: 'requests' },
       reviews,
+      excluded,
     ] },
     { items: [
       { href: '/accounts', label: 'المعلمات', icon: Users },
@@ -51,9 +55,11 @@ export const NAV: Record<Role, NavGroup[]> = {
       home,
       { href: '/results', label: 'نتائج الرصد', short: 'النتائج', icon: FileSpreadsheet },
       notices,
+      noticeLog,
       { href: '/follow-up', label: 'متابعة الرصد', icon: Radar },
       { href: '/requests', label: 'الطلبات', icon: Inbox, badge: 'requests' },
       reviews,
+      excluded,
       { href: '/accounts', label: 'الحسابات', icon: Users },
       { href: '/assignments', label: 'الإسناد', icon: Link2 },
       { href: '/students', label: 'الطلاب', icon: GraduationCap },
@@ -85,4 +91,4 @@ export function bottomItems(role: Role, noticeAccess = true) {
 }
 
 export const isActive = (path: string, href: string) =>
-  href === '/' ? path === '/' : href === '/settings' ? path === '/settings' : path === href || path.startsWith(href + '/');
+  href === '/' || href === '/notices' ? path === href : href === '/settings' ? path === '/settings' : path === href || path.startsWith(href + '/');

@@ -6,27 +6,24 @@ import { Shell } from '@/components/shell/shell';
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const s = await getSession();
   if (!s) redirect('/login');
-  const [settings, stats] = await Promise.all([getSettings(), getStats()]);
-
-  let branchName: string | null = null;
-  if (s.profile.branch_id) {
-    const { data } = await s.supabase.from('branches').select('name').eq('id', s.profile.branch_id).single();
-    branchName = data?.name ?? null;
-  }
-
-  // طلاب ينتظرون مراجعة المشرفة/الأدمن (RLS تحصرها بفرع المشرفة)
-  let pendingReviews = 0;
-  if (s.profile.role !== 'teacher') {
-    const { count } = await s.supabase.from('student_reviews').select('id', { count: 'exact', head: true }).eq('status', 'pending');
-    pendingReviews = count ?? 0;
-  }
-
-  // «إشعارات الدرجات» تظهر لمن يملك صلاحية إصدارها فقط (إن لم يُشغَّل 0012 تُخفى بصمت)
-  let noticeAccess = s.profile.role === 'admin';
-  if (!noticeAccess) {
-    const { data } = await s.supabase.rpc('notice_has_access');
-    noticeAccess = data === true;
-  }
+  const role = s.profile.role;
+  // كل الاستعلامات معاً (بدل تتابعها): كل تنقل بين الصفحات يمرّ من هنا
+  const [settings, stats, branch, reviews, access] = await Promise.all([
+    getSettings(),
+    getStats(),
+    s.profile.branch_id
+      ? s.supabase.from('branches').select('name').eq('id', s.profile.branch_id).single()
+      : Promise.resolve({ data: null }),
+    // طلاب ينتظرون مراجعة المشرفة/الأدمن (RLS تحصرها بفرع المشرفة)
+    role !== 'teacher'
+      ? s.supabase.from('student_reviews').select('id', { count: 'exact', head: true }).eq('status', 'pending')
+      : Promise.resolve({ count: 0 }),
+    // «إشعارات الدرجات» تظهر لمن يملك صلاحية إصدارها فقط (إن لم يُشغَّل 0012 تُخفى بصمت)
+    role !== 'admin' ? s.supabase.rpc('notice_has_access') : Promise.resolve({ data: true }),
+  ]);
+  const branchName: string | null = (branch.data as { name?: string } | null)?.name ?? null;
+  const pendingReviews = reviews.count ?? 0;
+  const noticeAccess = role === 'admin' || access.data === true;
 
   return (
     <Shell

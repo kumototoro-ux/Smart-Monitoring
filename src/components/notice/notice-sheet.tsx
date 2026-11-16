@@ -288,7 +288,7 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
 /* --------------------------------------------------------------------- */
 /** يعرض الإشعار مصغّراً، مع تنزيله أو مشاركته (واتساب) بمقاسه الأصلي. الصورة تُجهَّز مسبقاً فتكون الأزرار فورية */
 export function NoticeViewer({ data, render, onExported, extra }: {
-  data: NoticeData; render: NoticeRender; onExported?: (kind: 'pdf' | 'png') => void; extra?: React.ReactNode;
+  data: NoticeData; render: NoticeRender; onExported?: (kind: 'pdf' | 'png' | 'share') => void; extra?: React.ReactNode;
 }) {
   const wrap = useRef<HTMLDivElement>(null);
   const sheet = useRef<HTMLDivElement>(null);
@@ -360,7 +360,7 @@ export function NoticeViewer({ data, render, onExported, extra }: {
       const f = await fileOf(kind);
       const r = await shareFile(f, `إشعار درجات الطالب ${data.student.name}`);
       if (r === 'fallback') toast.error('تعذّرت المشاركة المباشرة', `نُزّل الملف، أرفقيه في واتساب يدوياً (${lastShareError})`);
-      if (r !== 'cancelled') onExported?.(kind);
+      if (r !== 'cancelled') onExported?.('share');
     } catch (e) {
       logNoticeFailure('share', e, { kind });
       toast.error('تعذّرت المشاركة', 'نزّلي الملف ثم أرسليه يدوياً');
