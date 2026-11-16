@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import { GitMerge } from 'lucide-react';
 import { requireRole } from '@/lib/auth';
 import { PageHeader } from '@/components/ui/page-header';
 import { StudentsClient } from './students-client';
@@ -41,7 +43,8 @@ export default async function StudentsPage({ searchParams }: {
 
   return (
     <div>
-      <PageHeader title="الطلاب" subtitle="إدارة بيانات الطلاب واستيرادها من إكسل" />
+      <PageHeader title="الطلاب" subtitle="إدارة بيانات الطلاب واستيرادها من إكسل"
+        actions={profile.role === 'admin' ? <Link href="/students/duplicates" className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-white px-4 text-[13.5px] hover:border-ink-faint"><GitMerge className="h-4 w-4" />دمج الأسماء المكررة</Link> : undefined} />
       <StudentsClient
         isAdmin={profile.role === 'admin'}
         myBranch={profile.branch_id}
