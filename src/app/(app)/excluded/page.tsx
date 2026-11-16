@@ -5,6 +5,7 @@ import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
 import { ExportButton } from '@/components/ui/export-button';
+import { FilterBar } from '@/components/ui/filter-bar';
 import { cn, fmtDate, secLabel } from '@/lib/utils';
 import type { ExcludedRow } from '@/lib/issue-reports';
 
@@ -61,26 +62,16 @@ export default async function ExcludedPage({ searchParams }: { searchParams: Pro
     const qs = new URLSearchParams(Object.entries(n).filter(([, v]) => v) as [string, string][]);
     return `/excluded${qs.size ? `?${qs}` : ''}`;
   };
-  const chip = (on: boolean) => cn('rounded-full border px-3 py-1.5 text-[13px]', on ? 'border-black bg-black text-white' : 'border-line bg-white text-ink-soft hover:border-ink-faint');
 
   return (
     <div>
       <PageHeader title="الطلاب المستبعدون" subtitle="الطلاب المستبعدون من كشوف مواد (منقول/معفى/منقطع…) والطلاب غير النشطين، لكل فرع وصف وشعبة — مع تقرير إكسل"
         actions={<ExportButton params={{ type: 'excluded', branch: branchId, grade: gradeId }} label="تقرير إكسل" />} />
 
-      {profile.role === 'admin' && branches.length > 1 && (
-        <div className="mb-3 flex flex-wrap gap-2">
-          {[['', 'كل الفروع'] as const, ...branches].map(([id, name]) => <Link key={id || 'all'} href={href({ branch: id || undefined, grade: undefined })} className={chip(id === branchId)}>{name}</Link>)}
-        </div>
-      )}
-      {grades.length > 1 && (
-        <div className="mb-3 flex flex-wrap gap-2">
-          {[['', 'كل الصفوف'] as const, ...grades].map(([id, name]) => (
-            <Link key={id || 'all'} href={href({ grade: id || undefined })}
-              className={cn('rounded-full border px-3 py-1 text-[12.5px]', id === gradeId ? 'border-ink bg-ink-soft/10 font-medium text-ink' : 'border-line bg-white text-ink-muted hover:border-ink-faint')}>{name}</Link>
-          ))}
-        </div>
-      )}
+      <FilterBar keep={{ kind: kind === 'inactive' ? 'inactive' : undefined, q: q || undefined }} fields={[
+        ...(profile.role === 'admin' && branches.length > 1 ? [{ name: 'branch', label: 'الفرع', value: branchId, options: [['', 'كل الفروع'] as const, ...branches] }] : []),
+        ...(grades.length > 1 ? [{ name: 'grade', label: 'الصف', value: gradeId, options: [['', 'كل الصفوف'] as const, ...grades] }] : []),
+      ]} />
 
       <div className="mb-4 grid grid-cols-2 gap-2.5 sm:grid-cols-3">
         {([['subject', 'مستبعدون من مواد', subjectStudents, 'bg-amber-soft text-amber'], ['inactive', 'غير نشطين', new Set(inactiveRows.map((r) => r.student_id)).size, 'bg-rose-soft text-rose']] as const).map(([key, label, n, tone]) => (

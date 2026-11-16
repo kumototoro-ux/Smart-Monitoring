@@ -9,6 +9,7 @@ import { EmptyState } from '@/components/ui/empty';
 import { ExportButton } from '@/components/ui/export-button';
 import { cn, secLabel, timeAgo } from '@/lib/utils';
 import type { SummaryRow } from '@/lib/issue-reports';
+import { FilterBar } from '@/components/ui/filter-bar';
 import { IssueList } from './issue-list';
 
 export const metadata = { title: 'سجل إصدار الإشعارات' };
@@ -47,13 +48,17 @@ export default async function NoticeLogPage({ searchParams }: { searchParams: Pr
   const totalStudents = scoped.reduce((a, r) => a + r.students, 0);
   const pct = totalStudents ? Math.round((issuedStudents / totalStudents) * 100) : 0;
   const section = UUID.test(sp.section ?? '') ? sp.section! : '';
+  const groups = [...rows.reduce((m, r) => {
+    const g = m.get(`${r.branch_id}|${r.grade_id}`) ?? { key: `${r.branch_id}|${r.grade_id}`, branch: r.branch, grade: r.grade, sort: r.grade_sort, students: 0, issued: 0, rows: [] as SummaryRow[] };
+    g.students += r.students; g.issued += Math.min(r.issued, r.students); g.rows.push(r); m.set(g.key, g); return m;
+  }, new Map<string, { key: string; branch: string; grade: string; sort: number; students: number; issued: number; rows: SummaryRow[] }>()).values()]
+    .sort((a, b) => a.branch.localeCompare(b.branch, 'ar') || a.sort - b.sort);
 
   const href = (o: Partial<SP>) => {
     const n = { branch: branchId || undefined, grade: gradeId || undefined, term: String(term), status: status || undefined, ...o } as Record<string, string | undefined>;
     const qs = new URLSearchParams(Object.entries(n).filter(([, v]) => v) as [string, string][]);
     return `/notices/log?${qs}`;
   };
-  const chip = (on: boolean) => cn('rounded-full border px-3 py-1.5 text-[13px]', on ? 'border-black bg-black text-white' : 'border-line bg-white text-ink-soft hover:border-ink-faint');
   const META = { done: ['success', 'صدر للجميع'], partial: ['warning', 'صدر لبعضهم'], none: ['danger', 'لم يصدر شيء'], empty: ['neutral', 'لا طلاب'] } as const;
 
   return (
@@ -61,24 +66,11 @@ export default async function NoticeLogPage({ searchParams }: { searchParams: Pr
       <PageHeader title="سجل إصدار الإشعارات" subtitle="من أصدر إشعارات الدرجات ومتى، لكل فرع وصف وشعبة، مع الشعب التي لم يصدر لها شيء بعد"
         actions={<ExportButton params={{ type: 'issues', term: String(term), branch: branchId, grade: gradeId }} label="تقرير إكسل" />} />
 
-      <div className="mb-3 flex flex-wrap gap-2">
-        {([1, 2] as const).map((t) => <Link key={t} href={href({ term: String(t) })} className={chip(t === term)}>{t === 1 ? 'الفصل الأول' : 'الفصل الثاني'}</Link>)}
-        <Link href="/excluded" className="ms-auto inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[13px] text-ink-soft hover:border-ink-faint"><UserX className="h-3.5 w-3.5" />الطلاب المستبعدون</Link>
-      </div>
-
-      {profile.role === 'admin' && branches.length > 1 && (
-        <div className="mb-3 flex flex-wrap gap-2">
-          {[['', 'كل الفروع'] as const, ...branches].map(([id, name]) => <Link key={id || 'all'} href={href({ branch: id || undefined, grade: undefined })} className={chip(id === branchId)}>{name}</Link>)}
-        </div>
-      )}
-      {grades.length > 1 && (
-        <div className="mb-3 flex flex-wrap gap-2">
-          {[['', 'كل الصفوف'] as const, ...grades].map(([id, name]) => (
-            <Link key={id || 'all'} href={href({ grade: id || undefined })}
-              className={cn('rounded-full border px-3 py-1 text-[12.5px]', id === gradeId ? 'border-ink bg-ink-soft/10 font-medium text-ink' : 'border-line bg-white text-ink-muted hover:border-ink-faint')}>{name}</Link>
-          ))}
-        </div>
-      )}
+      <FilterBar keep={{ status: status || undefined }} fields={[
+        { name: 'term', label: 'الفصل', value: String(term), options: [['1', 'الفصل الأول'], ['2', 'الفصل الثاني']] },
+        ...(profile.role === 'admin' && branches.length > 1 ? [{ name: 'branch', label: 'الفرع', value: branchId, options: [['', 'كل الفروع'] as const, ...branches] }] : []),
+        ...(grades.length > 1 ? [{ name: 'grade', label: 'الصف', value: gradeId, options: [['', 'كل الصفوف'] as const, ...grades] }] : []),
+      ]} />
 
       <div className="card mb-3 p-4">
         <div className="mb-2 flex items-baseline justify-between gap-2">
@@ -101,30 +93,40 @@ export default async function NoticeLogPage({ searchParams }: { searchParams: Pr
       {rows.length === 0 ? (
         <div className="card"><EmptyState icon={<ClipboardCheck className="h-6 w-6" />} title="لا توجد شعب في هذا التصفية" /></div>
       ) : (
-        <div className="card overflow-hidden">
-          <ul className="divide-y divide-line">
-            {rows.map((r) => {
-              const s = st(r); const [tone, label] = META[s];
-              const p = r.students ? Math.round((Math.min(r.issued, r.students) / r.students) * 100) : 0;
-              return (
-                <li key={r.section_id} className={cn('flex flex-col gap-2 px-4 py-3 sm:flex-row sm:items-center sm:gap-4', section === r.section_id && 'bg-surface')}>
-                  <div className="min-w-0 sm:w-64">
-                    <p className="truncate text-[14px] font-medium">{r.grade} · {secLabel(r.section)}</p>
-                    <p className="truncate text-[12.5px] text-ink-muted">{profile.role === 'admin' && !branchId ? `${r.branch} · ` : ''}{r.homeroom ? `المربية: ${r.homeroom}` : 'لم تُسنَد مربية فصل'}</p>
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="mb-1 flex items-center justify-between text-[12.5px] text-ink-muted"><span className="num">{Math.min(r.issued, r.students)} من {r.students} طالب</span><span className="num">{p}%</span></div>
-                    <Bar value={p} />
-                  </div>
-                  <div className="flex items-center justify-between gap-3 sm:w-72 sm:justify-end">
-                    <p className="min-w-0 truncate text-[12px] text-ink-muted">{r.last_at ? <>آخر إصدار {timeAgo(r.last_at)}{r.last_by ? ` · ${r.last_by}` : ''}</> : '—'}</p>
-                    <Badge tone={tone}>{label}</Badge>
-                    {r.total > 0 && <Link href={`${href({})}&section=${r.section_id}#list`} className="whitespace-nowrap text-[12px] text-peri-deep hover:underline">السجل</Link>}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
+        <div className="space-y-4">
+          {groups.map((g) => (
+            <div key={g.key} className="card overflow-hidden">
+              <div className="flex items-center justify-between gap-3 border-b border-line bg-surface px-4 py-2.5">
+                <p className="min-w-0 truncate text-[14px] font-semibold">{g.grade}{profile.role === 'admin' && !branchId ? <span className="font-normal text-ink-muted"> · {g.branch}</span> : null}</p>
+                <p className="num shrink-0 text-[12.5px] text-ink-muted">{g.issued} من {g.students} طالب · {g.rows.length} {g.rows.length === 1 ? 'شعبة' : 'شعب'}</p>
+              </div>
+              <ul className="divide-y divide-line">
+                {g.rows.map((r) => {
+                  const s = st(r); const [tone, label] = META[s];
+                  const p = r.students ? Math.round((Math.min(r.issued, r.students) / r.students) * 100) : 0;
+                  return (
+                    <li key={r.section_id} className={cn('px-4 py-3', section === r.section_id && 'bg-surface')}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="truncate text-[14px] font-medium">{secLabel(r.section)}</p>
+                          <p className="truncate text-[12.5px] text-ink-muted">{r.homeroom ? `المربية: ${r.homeroom}` : 'لم تُسنَد مربية فصل'}</p>
+                        </div>
+                        <Badge tone={tone}>{label}</Badge>
+                      </div>
+                      <div className="mt-2 flex items-center gap-3">
+                        <div className="min-w-0 flex-1"><Bar value={p} /></div>
+                        <span className="num shrink-0 text-[12.5px] text-ink-muted">{Math.min(r.issued, r.students)}/{r.students}</span>
+                      </div>
+                      <div className="mt-1.5 flex items-center justify-between gap-3 text-[12px] text-ink-muted">
+                        <span className="min-w-0 truncate">{r.last_at ? <>آخر إصدار {timeAgo(r.last_at)}{r.last_by ? ` · ${r.last_by}` : ''}</> : 'لم يصدر بعد'}</span>
+                        {r.total > 0 && <Link href={`${href({})}&section=${r.section_id}#list`} className="shrink-0 text-peri-deep hover:underline">عرض السجل</Link>}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))}
         </div>
       )}
 
