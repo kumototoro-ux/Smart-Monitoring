@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ClipboardCheck, Search, UserX } from 'lucide-react';
+import { ClipboardCheck, Search } from 'lucide-react';
 import { requireRole } from '@/lib/auth';
 import { getSettings } from '@/lib/data';
 import { PageHeader } from '@/components/ui/page-header';
