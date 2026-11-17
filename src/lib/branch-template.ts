@@ -22,7 +22,7 @@ export const META_MAGIC = 'mirqat-branch-v1';
 const safeSheet = (n: string) => n.replace(/[\\/?*[\]:]/g, '-').slice(0, 31);
 
 /** ملف الفرع الموحّد: ورقة لكل صف مفتوح، بيانات الطلاب + أعمدة الدرجات لمواد الصف الفعّالة في هذا الفرع */
-export async function buildBranchTemplate(supabase: SupabaseClient, branchId: string, opts: { grades?: boolean } = {}) {
+export async function buildBranchTemplate(supabase: SupabaseClient, branchId: string, opts: { grades?: boolean; gradeIds?: string[] } = {}) {
   const withGrades = !!opts.grades;
   const [{ data: branch }, { data: set }, { data: bg }] = await Promise.all([
     supabase.from('branches').select('id, name').eq('id', branchId).single(),
@@ -51,9 +51,16 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
   (comps.data ?? []).forEach((c) => compsOf.set(c.grade_subject_id as string, [...(compsOf.get(c.grade_subject_id as string) ?? []), { id: c.id as string, name: c.name as string, max_score: c.max_score === null ? null : Number(c.max_score) }]));
 
   const wb = newBook();
-  const meta = wb.addWorksheet(META_SHEET, { state: 'veryHidden' });
+  // الورقتان المخفيتان تُنشآن في النهاية: وإلا جعل إكسل أولى الأوراق (المخفية) هي الورقة النشطة عند الفتح
+  const metaRows: unknown[][] = [];
+  const meta = { addRow: (r: unknown[]) => { metaRows.push(r); } };
+  const listCells: [number, number, string][] = [];
+  const colLetter = (n: number) => { let s = ''; for (let x = n; x > 0; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(65 + ((x - 1) % 26)) + s; return s; };
+  const lists = {
+    getCell: (r: number, c: number) => ({ set value(v: string) { listCells.push([r, c, v]); } }),
+    getColumn: (c: number) => ({ letter: colLetter(c) }),
+  };
   meta.addRow([META_MAGIC, branch.id, set?.academic_year ?? '', new Date().toISOString(), withGrades ? 'grades' : 'students', DATA_START]);
-  const lists = wb.addWorksheet('lists', { state: 'hidden' });
   ['طالب', 'طالبة'].forEach((n, i) => (lists.getCell(i + 1, 1).value = n));
   ['هوية وطنية', 'إقامة', 'جواز سفر', 'هوية زائر', 'بدون'].forEach((n, i) => (lists.getCell(i + 1, 2).value = n));
   let listCol = 3;
@@ -67,7 +74,8 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
   const STYLED_ROWS = 400;
   const fillOf = (argb: string) => ({ type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb } });
 
-  for (const g of grades.data ?? []) {
+  const only = opts.gradeIds?.length ? new Set(opts.gradeIds) : null;
+  for (const g of (grades.data ?? []).filter((x) => !only || only.has(x.id as string))) {
     let name = safeSheet(g.name as string); while (used.has(name)) name += '_'; used.add(name);
     const ws = wb.addWorksheet(name, {
       views: [{ rightToLeft: true, state: 'frozen', ySplit: DATA_START - 1, xSplit: 2, showGridLines: false }],
@@ -201,5 +209,10 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
     c.font = kind === 'title' ? { name: 'Arial', size: 16, bold: true } : kind === 'h' ? { name: 'Arial', size: 12.5, bold: true, color: { argb: 'FF5A5FC2' } } : { name: 'Arial', size: 11.5, color: { argb: XL.ink } };
     help.getRow(i + 2).height = kind === 'title' ? 34 : kind === 'h' ? 30 : t.length > 95 ? 36 : 22;
   });
+  const lw = wb.addWorksheet('lists', { state: 'hidden' });
+  listCells.forEach(([r, c, v]) => { lw.getCell(r, c).value = v; });
+  const mw = wb.addWorksheet(META_SHEET, { state: 'veryHidden' });
+  metaRows.forEach((r) => mw.addRow(r));
+  wb.views = [{ x: 0, y: 0, width: 20000, height: 12000, firstSheet: 0, activeTab: 0 }] as never;
   return { wb, branchName: branch.name as string, resultColumns: totalCols };
 }
