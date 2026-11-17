@@ -14,7 +14,7 @@ export interface ParsedRow {
   sheet: string; row: number; grade_id: string;
   full_name: string; student_number: string | null; national_id: string | null; name_en: string | null;
   birth_date: string | null; nationality: string | null; id_type: string | null; gender: 'male' | 'female' | null; section: string;
-  section_id: string | null; newSection: boolean;
+  section_id: string | null; newSection: boolean; sectionKey: string | null;
   /** new = طالب جديد، update = موجود بنفس الرقم، adopt = برقم مؤقت يأخذ الحقيقي، matched = موجود بنفس الاسم وبلا رقم في الملف */
   kind: 'new' | 'update' | 'adopt' | 'matched'; studentId: string | null;
   results: ParsedResult[];
@@ -23,7 +23,7 @@ export interface ParsedRow {
 export interface ExistingResult { score: number | null; verbal_level_id: string | null; is_absent: boolean }
 export interface BranchModel {
   branch: { id: string; name: string }; year: string; term: 1 | 2;
-  rows: ParsedRow[]; newSections: { grade_id: string; name: string; label: string }[];
+  rows: ParsedRow[]; newSections: { key: string; grade_id: string; name: string; label: string }[];
   existing: Map<string, ExistingResult>; // studentId|componentId
   compLabel: Map<string, string>; levelLabel: Map<string, string>;
 }
@@ -108,7 +108,7 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
   const sections = ((await supabase.from('sections').select('id, grade_id, name').eq('branch_id', branchId)).data ?? []) as { id: string; grade_id: string; name: string }[];
 
   const rows: ParsedRow[] = [];
-  const newSec = new Map<string, { grade_id: string; name: string; label: string }>();
+  const newSec = new Map<string, { key: string; grade_id: string; name: string; label: string }>();
   const fileNums = new Map<string, string>();
   const takenExisting = new Set<string>();
   const compLabel = new Map<string, string>();
@@ -146,7 +146,7 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
         national_id: normalizeDigits(g(7)).replace(/\s+/g, '') || null, name_en: g(3).replace(/\s+/g, ' ') || null,
         birth_date: g(4) || null, nationality: g(5) || null, id_type: g(6) || null,
         gender: /ذكر|ولد|طالب$|male|^m$/.test(gender) ? 'male' : /انث|بنت|طالبه|female|^f$/.test(gender) ? 'female' : null,
-        section: g(9), section_id: null, newSection: false, kind: 'new', studentId: null, results: [], errors, warnings,
+        section: g(9), section_id: null, newSection: false, sectionKey: null, kind: 'new', studentId: null, results: [], errors, warnings,
       };
       if (!name) errors.push('اسم الطالب مفقود');
       else if (name.split(' ').length < 2) errors.push('الاسم ناقص');
@@ -161,7 +161,7 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
       if (item.section) {
         const sec = sections.find((x) => x.grade_id === gradeId && sectionKey(x.name) === sectionKey(item.section));
         if (sec) item.section_id = sec.id;
-        else { item.newSection = true; newSec.set(`${gradeId}:${sectionKey(item.section)}`, { grade_id: gradeId, name: item.section, label: `${gradeName.get(gradeId)} · ${item.section}` }); }
+        else { const key = `${gradeId}:${sectionKey(item.section)}`; item.newSection = true; item.sectionKey = key; if (!newSec.has(key)) newSec.set(key, { key, grade_id: gradeId, name: item.section, label: `${gradeName.get(gradeId)} · ${item.section}` }); }
       } else {
         const only = sections.filter((x) => x.grade_id === gradeId);
         if (only.length === 1) { item.section_id = only[0].id; item.section = only[0].name; }
@@ -186,6 +186,12 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
             if (!num) warnings.push('بلا رقم أكاديمي — لن تُمنع إعادة التكرار عند إعادة الرفع');
           }
         }
+      }
+
+      // الدرجات تُحفظ على كشف الشعبة، فلا بد للطالب من شعبة (من الملف أو موجودة له)
+      if (hasRes && name && !errors.length && !item.section_id && !item.newSection) {
+        const cur = item.studentId ? stu.find((x) => x.id === item.studentId)?.section_id : null;
+        if (!cur) errors.push('له درجات وبلا شعبة — اكتبي شعبته في الملف');
       }
 
       // الدرجات

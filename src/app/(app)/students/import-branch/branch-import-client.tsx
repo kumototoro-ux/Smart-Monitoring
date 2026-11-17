@@ -1,13 +1,14 @@
 'use client';
-import { useRef, useState } from 'react';
-import { Download, UploadCloud, AlertTriangle, CheckCircle2, FileSpreadsheet, RefreshCcw } from 'lucide-react';
-import { previewBranchImport, type BranchPreview } from '@/app/actions/branch-import';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { UploadCloud, AlertTriangle, CheckCircle2, FileSpreadsheet, RefreshCcw, Undo2, Save } from 'lucide-react';
+import { previewBranchImport, commitBranchImport, listBranchImports, undoBranchImport, type BranchPreview, type BranchImportLog } from '@/app/actions/branch-import';
 import { useAction } from '@/lib/use-action';
 import { ExportButton } from '@/components/ui/export-button';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Field, Select, Switch } from '@/components/ui/field';
-import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn, fmtDateTime } from '@/lib/utils';
 
 const toBase64 = (f: File) => new Promise<string>((res, rej) => {
   const r = new FileReader();
@@ -29,6 +30,9 @@ export function BranchImportClient({ branches, currentTerm, year, branchGrades, 
   const [branch, setBranch] = useState(branches[0]?.id ?? '');
   const [term, setTerm] = useState<1 | 2>(currentTerm);
   const [file, setFile] = useState<string | null>(null);
+  const [b64, setB64] = useState<string | null>(null);
+  const [overwrite, setOverwrite] = useState(false);
+  const [version, setVersion] = useState(0);
   const [pv, setPv] = useState<BranchPreview | null>(null);
   const [withGrades, setWithGrades] = useState(false);
   const [picked, setPicked] = useState<string[]>([]); // فارغ = كل صفوف الفرع
@@ -36,12 +40,26 @@ export function BranchImportClient({ branches, currentTerm, year, branchGrades, 
   const input = useRef<HTMLInputElement>(null);
   const { exec, busy } = useAction();
 
-  const reset = () => { setFile(null); setPv(null); if (input.current) input.current.value = ''; };
+  const reset = () => { setFile(null); setB64(null); setOverwrite(false); setPv(null); if (input.current) input.current.value = ''; };
   const pick = async (f?: File) => {
     if (!f) return;
     setFile(f.name); setPv(null);
-    const r = await exec(async () => previewBranchImport(await toBase64(f), branch, term), { refresh: false });
-    if (r?.ok && r.data) setPv(r.data); else { setFile(null); if (input.current) input.current.value = ''; }
+    const data = await toBase64(f);
+    const r = await exec(() => previewBranchImport(data, branch, term), { refresh: false });
+    if (r?.ok && r.data) { setPv(r.data); setB64(data); } else { setFile(null); if (input.current) input.current.value = ''; }
+  };
+  const save = async () => {
+    if (!b64 || !pv || !t) return;
+    const r = await exec(() => commitBranchImport(b64, branch, term, overwrite, file ?? ''), {
+      confirm: {
+        title: 'تأكيد حفظ الملف',
+        message: <>سيتم في <b>{pv.branch}</b> (الفصل {term === 1 ? 'الأول' : 'الثاني'}): إضافة <b>{t.newStudents}</b> طالب جديد، وتحديث <b>{t.updated + t.adopted}</b> طالب، وحفظ <b>{t.resNew}</b> درجة جديدة{overwrite && t.resConflict ? <>، واستبدال <b>{t.resConflict}</b> درجة مختلفة</> : ''}.{t.errors ? <> وسيُتجاهل <b>{t.errors}</b> صف به أخطاء.</> : ''} يمكن التراجع عن الدفعة كلها من «سجل الاستيراد».</>,
+        confirmText: 'حفظ',
+      },
+      success: (d) => `تم الحفظ: ${d?.students_new ?? 0} طالب جديد و${d?.results_new ?? 0} درجة`,
+      refresh: false,
+    });
+    if (r?.ok) { reset(); setVersion((v) => v + 1); }
   };
   const t = pv?.totals;
 
@@ -79,7 +97,7 @@ export function BranchImportClient({ branches, currentTerm, year, branchGrades, 
       <ol className="card list-decimal space-y-1.5 p-4 ps-9 text-[13.5px] leading-6 text-ink-soft">
         <li>حمّلي «ملف الفرع»: ورقة لكل صف مفتوح فيها بيانات الطالب، وإن فعّلتِ «تضمين أعمدة الدرجات» تُضاف أعمدة درجات مواد الصف الفعّالة لهذا الفرع.</li>
         <li>أرسليه للفرع ليعبّئه، أو عبّئيه أنتِ، ثم ارفعيه هنا.</li>
-        <li>تظهر معاينة كاملة: طلاب جدد، موجودون، درجات جديدة، تعارضات، وأخطاء. لا يُحفظ شيء في هذه المرحلة.</li>
+        <li>تظهر معاينة كاملة: طلاب جدد، موجودون، درجات جديدة، تعارضات، وأخطاء. تحفظين بعد المراجعة، ويمكن التراجع عن كل دفعة.</li>
       </ol>
 
       {!pv ? (
@@ -151,13 +169,60 @@ export function BranchImportClient({ branches, currentTerm, year, branchGrades, 
             </div>
           )}
 
-          <div className="card flex items-start gap-3 bg-surface p-4 text-[13px] leading-6">
-            {t.errors ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-mint" />}
-            <p>هذه معاينة فقط ولم يُحفظ شيء. زر الحفظ (مع خيار حماية الدرجات الموجودة، والتراجع عن الدفعة) يُضاف في الخطوة التالية.</p>
+          <div className="card space-y-3 p-4">
+            {t.resConflict > 0 && (
+              <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-amber-soft p-3 text-[13px] leading-6">
+                <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} className="mt-1.5 h-4 w-4 accent-black" />
+                <span>استبدال الـ <b>{t.resConflict}</b> درجة المختلفة عمّا في النظام بقيم الملف. <span className="text-ink-muted">(الافتراضي: تُحمى الدرجات الموجودة ولا تتغير)</span></span>
+              </label>
+            )}
+            <div className="flex items-start gap-3 text-[13px] leading-6">
+              {t.errors ? <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber" /> : <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-mint" />}
+              <p>{t.errors ? `سيُحفظ ${t.valid} صف صالح ويُتجاهل ${t.errors} صف به أخطاء. يمكنكِ تصحيح الملف وإعادة رفعه لاحقًا (الطالب الموجود بنفس الرقم الأكاديمي يُحدَّث ولا يتكرر).` : 'لا أخطاء. الحفظ دفعة واحدة، ويمكن التراجع عنها كلها.'}</p>
+            </div>
+            <Button loading={busy} disabled={!t.valid} onClick={save}><Save className="h-4 w-4" />حفظ {t.valid} صف</Button>
           </div>
-          <Badge tone="neutral">معاينة فقط</Badge>
+          <Badge tone="neutral">لم يُحفظ شيء حتى تضغطي «حفظ»</Badge>
         </>
       )}
+
+      <History version={version} />
     </div>
+  );
+}
+
+function History({ version }: { version: number }) {
+  const { exec, busy } = useAction();
+  const [rows, setRows] = useState<BranchImportLog[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const load = useCallback(async () => { const r = await listBranchImports(); if (r.ok && r.data) { setRows(r.data); setErr(null); } else setErr(r.message ?? 'تعذّر تحميل السجل'); }, []);
+  useEffect(() => { void load(); }, [load, version]);
+  return (
+    <section className="pt-2">
+      <h2 className="mb-2 text-[15px] font-semibold">سجل الاستيراد والتراجع</h2>
+      {err ? <div className="card p-4 text-[13px] text-ink-muted">{err}</div>
+        : !rows ? <div className="card space-y-2 p-3">{Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-14" />)}</div>
+        : rows.length === 0 ? <div className="card p-4 text-[13px] text-ink-muted">لا توجد دفعات بعد.</div>
+        : (
+          <div className="card overflow-hidden"><ul className="divide-y divide-line">
+            {rows.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <div className="min-w-0 flex-1 basis-60">
+                  <p className="text-[13.5px] font-medium">{r.branch_name} · الفصل {r.term === 1 ? 'الأول' : 'الثاني'} · {r.academic_year}</p>
+                  <p className="num text-[12px] text-ink-muted">{r.created_by_name ?? '—'} · {fmtDateTime(r.created_at)}{r.file_name ? ` · ${r.file_name}` : ''}</p>
+                  <p className="num text-[12.5px]">{r.summary.students_new ?? 0} طالب جديد · {r.summary.students_updated ?? 0} محدَّث · {r.summary.results_new ?? 0} درجة جديدة{r.summary.results_overwritten ? ` · ${r.summary.results_overwritten} مستبدلة` : ''}{r.summary.results_skipped ? ` · ${r.summary.results_skipped} محمية` : ''}</p>
+                  {r.undone_at && r.undone_summary && <p className="num text-[12px] text-ink-muted">تم التراجع: حُذفت {r.undone_summary.results_deleted ?? 0} درجة و{r.undone_summary.students_deleted ?? 0} طالب{(r.undone_summary.results_kept || r.undone_summary.students_kept) ? `، وبقي ${r.undone_summary.students_kept ?? 0} طالب و${r.undone_summary.results_kept ?? 0} درجة لأنها عُدّلت بعد الاستيراد` : ''}</p>}
+                </div>
+                {r.undone_at ? <Badge tone="neutral">تم التراجع</Badge> : (
+                  <Button size="sm" variant="secondary" disabled={busy} onClick={() => void exec(() => undoBranchImport(r.id), {
+                    confirm: { title: 'التراجع عن الدفعة', message: <>سيُحذف الطلاب الذين أُضيفوا في هذه الدفعة ودرجاتهم، وتُعاد الدرجات المستبدلة لقيمها القديمة. ما عُدّل بعد الاستيراد يبقى كما هو. هل تريدين التراجع؟</>, confirmText: 'تراجع', tone: 'danger' },
+                    success: 'تم التراجع عن الدفعة', refresh: false,
+                  }).then(() => load())}><Undo2 className="h-4 w-4" />تراجع</Button>
+                )}
+              </li>
+            ))}
+          </ul></div>
+        )}
+    </section>
   );
 }
