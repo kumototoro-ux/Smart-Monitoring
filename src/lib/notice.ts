@@ -35,6 +35,8 @@ export interface NoticeSettings {
   show_footer: boolean;
   /** شرح مستويات التقييم اللفظي أسفل الجدول */
   show_levels_legend: boolean;
+  /** نصوص شرح المستويات لكل مجموعة صفوف (قابلة للتعديل) */
+  legends: LevelLegend[];
   /** ترجمة مستويات التقييم اللفظي: النص العربي ← الإنجليزي (تغلب الترجمة المضمّنة) */
   level_en: Record<string, string>;
   bands: NoticeBands;
@@ -57,6 +59,43 @@ export interface NoticeBranch {
   images: Partial<Record<'logo' | 'signature' | 'stamp', string>>;
 }
 
+/** شرح مستويات الطالب أسفل جدول التقييم اللفظي: مجموعة شروح، لكل مجموعة صفوفها ونصها (يعدّلها الأدمن) */
+export interface LevelLegend {
+  id: string;
+  title: string;
+  /** أسماء الصفوف المشمولة. فارغ = كل الصفوف اللفظية التي لا يشملها شرح آخر */
+  grades: string[];
+  items: { ar: string; en: string }[];
+  note_ar: string;
+  note_en: string;
+}
+
+export const DEFAULT_LEGENDS: LevelLegend[] = [
+  {
+    id: 'kg', title: 'التمهيدي', grades: ['التمهيدي الأول', 'التمهيدي الثاني', 'التمهيدي الثالث'],
+    items: [
+      { ar: 'متفوق: أتقن الطالب المهارات المستهدفة في المادة بدرجة عالية، ويؤديها باستقلالية وتميّز.', en: 'Excelling: The student has mastered the targeted skills with a high level of proficiency, performing them independently and with distinction.' },
+      { ar: 'متقدم: أتقن الطالب معظم المهارات المستهدفة في المادة، ويؤديها باستقلالية مع حاجة محدودة إلى التوجيه.', en: 'Proficient: The student has mastered most of the targeted skills, performing them independently with minimal guidance.' },
+      { ar: 'متمكن دائمًا: يؤدي الطالب المهارات المستهدفة بشكل صحيح ومتكرر في مختلف المواقف.', en: 'Consistently Developing: The student performs the targeted skills correctly and consistently across different situations.' },
+      { ar: 'متمكن أحيانًا: يؤدي الطالب المهارات المستهدفة بشكل صحيح في بعض المواقف، ويحتاج إلى مزيد من التدريب لتثبيتها.', en: 'Occasionally Developing: The student performs the targeted skills correctly in some situations and needs more practice to consolidate them.' },
+      { ar: 'يحتاج دعم: لم يتقن الطالب المهارات المستهدفة بعد، ويحتاج إلى دعم وتوجيه مستمرين.', en: 'Needs Support: The student has not yet mastered the targeted skills and needs continuous support and guidance.' },
+    ],
+    note_ar: 'يُستخدم هذا التقييم لقياس مدى تحقق الطالب من المهارات المستهدفة في مرحلة رياض الأطفال (التمهيدي).',
+    note_en: 'This evaluation is used to measure the student’s attainment of the targeted skills in the kindergarten stage.',
+  },
+  {
+    id: 'primary', title: 'الابتدائي (الأول والثاني)', grades: [],
+    items: [
+      { ar: 'متفوق: أنجز الطالب 95٪ فأكثر من معايير المادة، مع إتقان 100٪ لمعايير الحد الأدنى.', en: 'Excelling: The student has achieved 95% or more of the subject standards, with 100% mastery of the minimum required standards.' },
+      { ar: 'متقدم: أنجز الطالب من 85٪ إلى أقل من 95٪ من معايير المادة، مع إتقان من 90٪ إلى أقل من 100٪ لمعايير الحد الأدنى.', en: 'Proficient: The student has achieved 85% to less than 95% of the subject standards, with 90% to less than 100% mastery of the minimum required standards.' },
+      { ar: 'متمكن: أنجز الطالب من 75٪ إلى أقل من 85٪ من معايير المادة، مع إتقان من 80٪ إلى أقل من 90٪ لمعايير الحد الأدنى.', en: 'Developing: The student has achieved 75% to less than 85% of the subject standards, with 80% to less than 90% mastery of the minimum required standards.' },
+      { ar: 'غير مجتاز: إنجاز الطالب أقل من 75٪ من معايير المادة أو لم يجتز معيارًا أو أكثر من معايير الحد الأدنى.', en: 'Not Achieved: The student has achieved less than 75% of the subject standards or did not meet one or more of the minimum required standards.' },
+    ],
+    note_ar: 'يُستخدم هذا التقييم لقياس مدى تحقق الطالب من معايير المادة في المرحلة الابتدائية.',
+    note_en: 'This evaluation is used to measure the student’s attainment of subject standards in the primary stage.',
+  },
+];
+
 export const NOTICE_DEFAULTS: NoticeSettings = {
   enabled: false,
   allow_supervisor: false,
@@ -74,6 +113,7 @@ export const NOTICE_DEFAULTS: NoticeSettings = {
   show_disclaimer: true,
   show_footer: true,
   show_levels_legend: true,
+  legends: DEFAULT_LEGENDS,
   level_en: {},
   bands: { excellent: 90, vgood: 80, good: 70, pass: 60 },
   images: {},
@@ -130,6 +170,7 @@ export function normalizeNotice(raw: unknown): NoticeSettings {
     show_disclaimer: bool(v.show_disclaimer, D.show_disclaimer),
     show_footer: bool(v.show_footer, D.show_footer),
     show_levels_legend: bool(v.show_levels_legend, D.show_levels_legend),
+    legends: normLegends(v.legends),
     level_en: normLevels(v.level_en),
     bands: { excellent: n(b.excellent, 90), vgood: n(b.vgood, 80), good: n(b.good, 70), pass: n(b.pass, 60) },
     images,
@@ -259,17 +300,29 @@ export function levelEn(label: string | null | undefined, s: NoticeSettings): st
   return BUILTIN_LEVEL_EN.find(([k]) => norm(k) === norm(label))?.[1] ?? '';
 }
 
-/** شرح مستويات الطالب أسفل جدول التقييم اللفظي */
-export const LEVELS_LEGEND: { ar: string; en: string }[] = [
-  { ar: 'متفوق: أنجز الطالب 95٪ فأكثر من معايير المادة، مع إتقان 100٪ لمعايير الحد الأدنى.', en: 'Excelling: The student has achieved 95% or more of the subject standards, with 100% mastery of the minimum required standards.' },
-  { ar: 'متقدم: أنجز الطالب من 85٪ إلى أقل من 95٪ من معايير المادة، مع إتقان من 90٪ إلى أقل من 100٪ لمعايير الحد الأدنى.', en: 'Proficient: The student has achieved 85% to less than 95% of the subject standards, with 90% to less than 100% mastery of the minimum required standards.' },
-  { ar: 'متمكن: أنجز الطالب من 75٪ إلى أقل من 85٪ من معايير المادة، مع إتقان من 80٪ إلى أقل من 90٪ لمعايير الحد الأدنى.', en: 'Developing: The student has achieved 75% to less than 85% of the subject standards, with 80% to less than 90% mastery of the minimum required standards.' },
-  { ar: 'غير مجتاز: إنجاز الطالب أقل من 75٪ من معايير المادة أو لم يجتز معيارًا أو أكثر من معايير الحد الأدنى.', en: 'Not Achieved: The student has achieved less than 75% of the subject standards or did not meet one or more of the minimum required standards.' },
-];
-export const LEVELS_NOTE = {
-  ar: 'يُستخدم هذا التقييم لقياس مدى تحقق الطالب من معايير المادة في المرحلة الابتدائية.',
-  en: 'This evaluation is used to measure the student’s attainment of subject standards in the primary stage.',
-};
+function normLegends(raw: unknown): LevelLegend[] {
+  if (!Array.isArray(raw)) return DEFAULT_LEGENDS.map((l) => ({ ...l, grades: [...l.grades], items: l.items.map((i) => ({ ...i })) }));
+  return raw.slice(0, 8).map((x, i) => {
+    const o = (x && typeof x === 'object' ? x : {}) as Record<string, unknown>;
+    const items = (Array.isArray(o.items) ? o.items : []).slice(0, 10).map((it) => {
+      const q = (it && typeof it === 'object' ? it : {}) as Record<string, unknown>;
+      return { ar: str(q.ar, 400).trim(), en: str(q.en, 400).trim() };
+    }).filter((it) => it.ar || it.en);
+    return {
+      id: str(o.id, 40).trim() || `l${i + 1}`,
+      title: str(o.title, 60).trim() || `شرح ${i + 1}`,
+      grades: (Array.isArray(o.grades) ? o.grades : []).filter((g): g is string => typeof g === 'string').slice(0, 30).map((g) => g.slice(0, 80)),
+      items, note_ar: str(o.note_ar, 400).trim(), note_en: str(o.note_en, 400).trim(),
+    };
+  });
+}
+
+/** الشرح المناسب لصف: الذي سُمّي فيه الصف أولاً، ثم الشامل (بلا صفوف محددة)، وإلا لا شرح */
+export function legendFor(s: NoticeSettings, gradeName: string): LevelLegend | null {
+  const n = norm(gradeName);
+  const hit = s.legends.find((l) => l.grades.some((g) => norm(g) === n)) ?? s.legends.find((l) => l.grades.length === 0);
+  return hit && (hit.items.length || hit.note_ar || hit.note_en) ? hit : null;
+}
 
 /** مقاس صفحة الإشعار (A4 بالبكسل) */
 export const NOTICE_W = 794;

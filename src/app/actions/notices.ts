@@ -33,6 +33,11 @@ const generalSchema = z.object({
   show_disclaimer: z.boolean(),
   show_footer: z.boolean(),
   show_levels_legend: z.boolean(),
+  legends: z.array(z.object({
+    id: z.string().max(40), title: z.string().max(60), grades: z.array(z.string().max(80)).max(30),
+    items: z.array(z.object({ ar: z.string().max(400), en: z.string().max(400) })).max(10),
+    note_ar: z.string().max(400), note_en: z.string().max(400),
+  })).max(8).optional(),
   level_en: z.record(z.string().max(60), z.string().trim().max(60)).default({}),
   bands: z.object({ excellent: bandNum, vgood: bandNum, good: bandNum, pass: bandNum }),
 }).refine((v) => v.bands.excellent > v.bands.vgood && v.bands.vgood > v.bands.good && v.bands.good > v.bands.pass, { message: 'حدود التقدير يجب أن تتنازل: ممتاز > جيد جداً > جيد > مقبول' });

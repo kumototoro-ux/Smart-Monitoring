@@ -11,8 +11,8 @@ import { Dialog } from '@/components/ui/dialog';
 import { Field, Input, Select, Switch } from '@/components/ui/field';
 import { NoticePreview } from '@/components/notice/notice-sheet';
 import {
-  BRANCH_DEFAULTS, NOTICE_IMAGES, levelEn, resolveRender,
-  type NoticeBranch, type NoticeBrand, type NoticeData, type NoticeImageKind, type NoticeSettings,
+  BRANCH_DEFAULTS, DEFAULT_LEGENDS, NOTICE_IMAGES, levelEn, resolveRender,
+  type LevelLegend, type NoticeBranch, type NoticeBrand, type NoticeData, type NoticeImageKind, type NoticeSettings,
 } from '@/lib/notice';
 import { cn, secLabel } from '@/lib/utils';
 
@@ -119,7 +119,7 @@ const untri = (s: string) => (s === 'inherit' ? null : s === 'on');
 export function NoticeSettingsClient({ missing, initial, school, year, branches, branchData, subjects, grades, sections, teachers, levels }: {
   missing: boolean; initial: NoticeSettings; school: string; year: string;
   branches: { id: string; name: string }[]; branchData: Record<string, NoticeBranch>;
-  subjects: { id: string; name: string; name_en: string | null }[]; grades: { id: string; name: string; name_en: string | null }[];
+  subjects: { id: string; name: string; name_en: string | null }[]; grades: { id: string; name: string; name_en: string | null; verbal?: boolean }[];
   sections: SectionRow[]; teachers: TeacherRow[]; levels: string[];
 }) {
   const [tab, setTab] = useState<Tab>('general');
@@ -182,7 +182,7 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
     enabled: v.enabled, allow_supervisor: v.allow_supervisor, allow_homeroom: v.allow_homeroom,
     header_ar: v.header_ar, header_en: v.header_en, show_basmala: v.show_basmala, school_en: v.school_en, year_hijri: v.year_hijri, year_greg: v.year_greg,
     title_ar: v.title_ar, title_en: v.title_en, show_signature: v.show_signature, show_stamp: v.show_stamp,
-    show_disclaimer: v.show_disclaimer, show_footer: v.show_footer, show_levels_legend: v.show_levels_legend, level_en: v.level_en, bands: v.bands,
+    show_disclaimer: v.show_disclaimer, show_footer: v.show_footer, show_levels_legend: v.show_levels_legend, legends: v.legends, level_en: v.level_en, bands: v.bands,
     }), { success: 'تم حفظ الإعدادات' });
   };
 
@@ -262,8 +262,9 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
                 <h3 className="text-[15px] font-semibold">أسفل الإشعار</h3>
                 <Toggle label="شريط «ليس شهادة نهائية»" hint="يوضح أنه إشعار فصل وليس شهادة" checked={v.show_disclaimer} onChange={(x) => set('show_disclaimer', x)} />
                 <Toggle label="عبارة «صادر إلكترونياً من منصة مِرقاة»" checked={v.show_footer} onChange={(x) => set('show_footer', x)} />
-                <Toggle label="شرح مستويات الطالب (للتقييم اللفظي)" hint="متفوق / متقدم / متمكن / غير مجتاز، بالعربي والإنجليزي أسفل الجدول" checked={v.show_levels_legend} onChange={(x) => set('show_levels_legend', x)} />
+                <Toggle label="شرح مستويات الطالب (للتقييم اللفظي)" hint="يظهر أسفل الجدول بالعربي والإنجليزي، ولكل مجموعة صفوف نصها (تعدّلينه أدناه)" checked={v.show_levels_legend} onChange={(x) => set('show_levels_legend', x)} />
               </div>
+              {v.show_levels_legend && <LegendsEditor legends={v.legends} onChange={(l) => set('legends', l)} gradeNames={grades.filter((g) => g.verbal).map((g) => g.name)} />}
               <Button size="lg" onClick={saveGeneral} loading={busy}>حفظ إعدادات الإشعار</Button>
             </>
           )}
@@ -392,7 +393,7 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
                 enabled: v.enabled, allow_supervisor: v.allow_supervisor, allow_homeroom: v.allow_homeroom,
                 header_ar: v.header_ar, header_en: v.header_en, show_basmala: v.show_basmala, school_en: v.school_en, year_hijri: v.year_hijri, year_greg: v.year_greg,
                 title_ar: v.title_ar, title_en: v.title_en, show_signature: v.show_signature, show_stamp: v.show_stamp,
-                show_disclaimer: v.show_disclaimer, show_footer: v.show_footer, show_levels_legend: v.show_levels_legend, level_en: v.level_en, bands: v.bands,
+                show_disclaimer: v.show_disclaimer, show_footer: v.show_footer, show_levels_legend: v.show_levels_legend, legends: v.legends, level_en: v.level_en, bands: v.bands,
               }); return a.ok ? saveEnglishNames({
                 subjects: subjects.map((s) => ({ id: s.id, name_en: en.subjects[s.id] ?? '' })),
                 grades: grades.map((g) => ({ id: g.id, name_en: en.grades[g.id] ?? '' })),
@@ -431,5 +432,59 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
         <NoticePreview data={data} render={render} />
       </Dialog>
     </>
+  );
+}
+
+
+/** تحرير شروح مستويات الطالب: لكل مجموعة صفوف نصها العربي والإنجليزي */
+function LegendsEditor({ legends, onChange, gradeNames }: { legends: LevelLegend[]; onChange: (l: LevelLegend[]) => void; gradeNames: string[] }) {
+  const upd = (i: number, patch: Partial<LevelLegend>) => onChange(legends.map((l, k) => (k === i ? { ...l, ...patch } : l)));
+  const taken = (i: number) => new Set(legends.flatMap((l, k) => (k === i ? [] : l.grades)));
+  return (
+    <div className="card space-y-4 p-5 sm:p-6">
+      <div>
+        <h3 className="text-[15px] font-semibold">نصوص شرح مستويات الطالب</h3>
+        <p className="mt-1 text-[12.5px] leading-6 text-ink-muted">لكل مجموعة صفوف شرحها. الصف الذي لم تحدّديه في أي شرح يأخذ الشرح الذي بلا صفوف محددة، وإن لم يوجد لا يظهر له شرح. اضغطي «حفظ إعدادات الإشعار» بعد التعديل.</p>
+      </div>
+      {legends.map((l, i) => (
+        <div key={l.id + i} className="space-y-3 rounded-2xl border border-line p-4">
+          <div className="flex items-center gap-2">
+            <Input value={l.title} onChange={(e) => upd(i, { title: e.target.value })} maxLength={60} placeholder="اسم الشرح (للتنظيم فقط)" />
+            <Button size="sm" variant="ghost" onClick={() => onChange(legends.filter((_, k) => k !== i))}><Trash2 className="h-4 w-4" />حذف</Button>
+          </div>
+          <div>
+            <p className="mb-1.5 text-[12.5px] text-ink-muted">الصفوف (اتركيها فارغة ليشمل كل الصفوف اللفظية الأخرى)</p>
+            <div className="flex flex-wrap gap-1.5">
+              {gradeNames.map((g) => {
+                const on = l.grades.includes(g), other = taken(i).has(g);
+                return (
+                  <button key={g} type="button" disabled={other && !on} onClick={() => upd(i, { grades: on ? l.grades.filter((x) => x !== g) : [...l.grades, g] })}
+                    className={cn('rounded-full border px-3 py-1 text-[12.5px] transition', on ? 'border-black bg-black text-white' : 'border-line bg-white hover:border-ink-faint', other && !on && 'opacity-40')}>{g}</button>
+                );
+              })}
+              {!gradeNames.length && <span className="text-[12.5px] text-ink-muted">لا صفوف بنظام لفظي</span>}
+            </div>
+          </div>
+          <div className="space-y-2">
+            {l.items.map((it, k) => (
+              <div key={k} className="grid gap-2 rounded-xl bg-surface p-2.5 sm:grid-cols-[1fr_1fr_auto]">
+                <textarea value={it.ar} rows={3} maxLength={400} onChange={(e) => upd(i, { items: l.items.map((x, j) => (j === k ? { ...x, ar: e.target.value } : x)) })} placeholder="النص العربي (مثال: متفوق: …)" className="w-full rounded-lg border border-line bg-white p-2 text-[13px] leading-6" />
+                <textarea dir="ltr" value={it.en} rows={3} maxLength={400} onChange={(e) => upd(i, { items: l.items.map((x, j) => (j === k ? { ...x, en: e.target.value } : x)) })} placeholder="English text (e.g. Excelling: …)" className="w-full rounded-lg border border-line bg-white p-2 text-left text-[13px] leading-6" />
+                <Button size="sm" variant="ghost" onClick={() => upd(i, { items: l.items.filter((_, j) => j !== k) })} aria-label="حذف المستوى"><Trash2 className="h-4 w-4" /></Button>
+              </div>
+            ))}
+            {l.items.length < 10 && <Button size="sm" variant="secondary" onClick={() => upd(i, { items: [...l.items, { ar: '', en: '' }] })}>+ إضافة مستوى</Button>}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <Field label="سطر الختام (عربي)"><Input value={l.note_ar} maxLength={400} onChange={(e) => upd(i, { note_ar: e.target.value })} /></Field>
+            <Field label="Closing line (English)"><Input dir="ltr" className="text-right" value={l.note_en} maxLength={400} onChange={(e) => upd(i, { note_en: e.target.value })} /></Field>
+          </div>
+        </div>
+      ))}
+      <div className="flex flex-wrap gap-2">
+        {legends.length < 8 && <Button size="sm" variant="secondary" onClick={() => onChange([...legends, { id: `l${Date.now().toString(36)}`, title: 'شرح جديد', grades: [], items: [{ ar: '', en: '' }], note_ar: '', note_en: '' }])}>+ شرح جديد</Button>}
+        <Button size="sm" variant="ghost" onClick={() => onChange(DEFAULT_LEGENDS.map((x) => ({ ...x, grades: [...x.grades], items: x.items.map((y) => ({ ...y })) })))}>استعادة الشروح الافتراضية</Button>
+      </div>
+    </div>
   );
 }

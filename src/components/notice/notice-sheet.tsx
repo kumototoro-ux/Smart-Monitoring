@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { capture, makePdf, saveBlob, shareFile, lastShareError, logNoticeFailure, type Captured } from './notice-export';
 import {
-  NOTICE_H, NOTICE_W, LEVELS_LEGEND, LEVELS_NOTE, fmtNum, levelEn, noticeFileName, principalTitle, rate, summarize, titles,
+  NOTICE_H, NOTICE_W, legendFor, fmtNum, levelEn, noticeFileName, principalTitle, rate, summarize, titles,
   type NoticeData, type NoticeRender,
 } from '@/lib/notice';
 
@@ -226,23 +226,29 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
           </table>
 
           {/* شرح مستويات الطالب (التقييم اللفظي) */}
-          {!numeric && S.show_levels_legend && (
-            <div style={{ border: B, marginTop: 8, padding: '6px 10px 7px', fontSize: 9.5, lineHeight: 1.5 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 11.5, marginBottom: 3 }}>
-                <span>مستوى الطالب:</span><span dir="ltr">Student’s Level:</span>
-              </div>
-              {LEVELS_LEGEND.map((l) => (
-                <div key={l.en} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, padding: '3px 0', borderTop: '0.5px solid #c9d3ce' }}>
-                  <div>{l.ar}</div>
-                  <div dir="ltr" style={{ textAlign: 'left', color: '#2c3a34' }}>{l.en}</div>
+          {!numeric && S.show_levels_legend && (() => {
+            const lg = legendFor(S, data.grade.name);
+            if (!lg) return null;
+            return (
+              <div style={{ border: B, marginTop: 8, padding: '6px 10px 7px', fontSize: 9.5, lineHeight: 1.5 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, fontSize: 11.5, marginBottom: 3 }}>
+                  <span>مستوى الطالب:</span><span dir="ltr">Student’s Level:</span>
                 </div>
-              ))}
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, padding: '4px 0 0', borderTop: '0.5px solid #c9d3ce', fontWeight: 600 }}>
-                <div>{LEVELS_NOTE.ar}</div>
-                <div dir="ltr" style={{ textAlign: 'left' }}>{LEVELS_NOTE.en}</div>
+                {lg.items.map((l, i) => (
+                  <div key={i} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, padding: '3px 0', borderTop: '0.5px solid #c9d3ce' }}>
+                    <div>{l.ar}</div>
+                    <div dir="ltr" style={{ textAlign: 'left', color: '#2c3a34' }}>{l.en}</div>
+                  </div>
+                ))}
+                {(lg.note_ar || lg.note_en) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, padding: '4px 0 0', borderTop: '0.5px solid #c9d3ce', fontWeight: 600 }}>
+                    <div>{lg.note_ar}</div>
+                    <div dir="ltr" style={{ textAlign: 'left' }}>{lg.note_en}</div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* المديرة والتوقيع والختم | الملخص */}
           <div style={{ display: 'grid', gridTemplateColumns: render.showStamp ? '1fr 130px 1.35fr' : '1fr 1.35fr', gap: 12, marginTop: 10, alignItems: 'center' }}>
