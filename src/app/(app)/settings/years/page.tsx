@@ -4,6 +4,7 @@ import { requireRole } from '@/lib/auth';
 import { PageHeader } from '@/components/ui/page-header';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { YearMove } from './year-move';
 
 export const metadata = { title: 'الأعوام الدراسية' };
 export const dynamic = 'force-dynamic';
@@ -15,7 +16,7 @@ export default async function YearsPage({ searchParams }: { searchParams: Promis
   const sp = await searchParams;
   const [ov, set, branches, grades, bg] = await Promise.all([
     supabase.rpc('year_overview'),
-    supabase.from('settings').select('academic_year, current_term').eq('id', 1).single(),
+    supabase.from('settings').select('academic_year, current_term, grading_open').eq('id', 1).single(),
     supabase.from('branches').select('id, name').order('name'),
     supabase.from('grades').select('id, name, sort_order').order('sort_order'),
     supabase.from('branch_grades').select('branch_id, grade_id'),
@@ -63,6 +64,8 @@ export default async function YearsPage({ searchParams }: { searchParams: Promis
             <ArchiveRestore className="mt-0.5 h-4 w-4 shrink-0 text-ink-soft" />
             <p>النسخة الاحتياطية ملف إكسل لكل فرع وفصل، فيه كل طلاب الفرع (ورقة لكل صف) ودرجاتهم لهذا العام. هو بنفس تنسيق «ملف الفرع»، فيمكن رفعه من <Link href="/students/import-branch" className="underline">الطلاب ← ملف الفرع</Link> للاستعادة عندما يكون عامه هو العام الحالي، وبمعاينة قبل الحفظ وإمكانية التراجع. احتفظي بنسخة بعد كل أسبوع رصد.</p>
           </div>
+
+          {rows.length > 0 && <YearMove years={[...new Set(rows.map((r) => r.academic_year))].sort().reverse()} current={current} gradingOpen={!!set.data?.grading_open} />}
 
           {(branches.data ?? []).map((b) => {
             const gids = (bg.data ?? []).filter((x) => x.branch_id === b.id).map((x) => x.grade_id as string).sort((a, c) => (gOrder.get(a) ?? 0) - (gOrder.get(c) ?? 0));

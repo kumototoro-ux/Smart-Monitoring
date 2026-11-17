@@ -66,6 +66,7 @@ const PAGES: Record<string, string> = {
 /** أي ملف تحديث (migration) يُنشئ هذا الجدول/الدالة/العمود — لنقول للمسؤول بالضبط ماذا يشغّل */
 const MIGRATION_OF: [RegExp, string][] = [
   [/year_overview/i, '0018_year_overview.sql'],
+  [/year_move/i, '0019_year_move_and_hardening.sql'],
   [/import_batches|branch_import_(commit|undo)/i, '0017_branch_import_commit.sql'],
   [/student_merge|student_merges|student_result_counts/i, '0015_merge_duplicate_students.sql'],
   [/notice_issues|notice_log_issue|notice_issue_summary|excluded_students/i, '0014_notice_issue_log_excluded.sql'],
