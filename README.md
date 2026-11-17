@@ -28,6 +28,7 @@
    13. `supabase/migrations/0013_notice_batch.sql`: إصدار إشعارات الشعبة كاملة وتسريع قائمة الطلاب.
    14. `supabase/migrations/0014_notice_issue_log_excluded.sql`: سجل إصدار الإشعارات (من أصدر ومتى لكل فرع/صف/شعبة) وتقرير الطلاب المستبعدين.
    15. `supabase/migrations/0015_merge_duplicate_students.sql`: دمج الأسماء المكررة (للمسؤول) مع أرشيف وتراجع.
+   16. `supabase/migrations/0016_branch_grade_subjects.sql`: تثبيت مواد كل فرع (إضافة فقط) مع نسخة احتياطية داخلية في schema `backup_0016`.
 3. من **Authentication → Sign In / Providers**:
    - أوقف **Allow new users to sign up**، لأن الحسابات تُنشأ من داخل النظام فقط.
    - أوقف **Confirm email**.
