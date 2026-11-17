@@ -14,7 +14,7 @@ export default async function NoticeSettingsPage() {
     supabase.from('notice_branch_settings').select('branch_id, data'),
     supabase.from('branches').select('id, name').eq('is_active', true).order('name'),
     supabase.from('subjects').select('id, name, name_en').eq('is_active', true).order('sort_order').order('name'),
-    supabase.from('grades').select('id, name, name_en, sort_order').eq('is_active', true).order('sort_order'),
+    supabase.from('grades').select('id, name, name_en, sort_order, assessment_mode').eq('is_active', true).order('sort_order'),
     supabase.from('sections').select('id, name, branch_id, grade_id, sort_order').eq('is_active', true).order('sort_order'),
     supabase.from('profiles').select('id, full_name, branch_id').eq('role', 'teacher').eq('is_active', true).order('full_name'),
     supabase.from('class_teachers').select('section_id, teacher_id'),
@@ -43,7 +43,7 @@ export default async function NoticeSettingsPage() {
         branches={(branches.data ?? []) as { id: string; name: string }[]}
         branchData={branchData}
         subjects={(subjects.data ?? []) as { id: string; name: string; name_en: string | null }[]}
-        grades={(grades.data ?? []).map((x) => ({ id: x.id as string, name: x.name as string, name_en: (x.name_en as string | null) ?? null }))}
+        grades={(grades.data ?? []).map((x) => ({ id: x.id as string, name: x.name as string, name_en: (x.name_en as string | null) ?? null, verbal: x.assessment_mode === 'verbal' }))}
         sections={secRows}
         teachers={(teachers.data ?? []) as TeacherRow[]}
         levels={levels}
