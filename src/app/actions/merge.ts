@@ -13,7 +13,7 @@ const parse = <T>(s: z.ZodType<T>, v: unknown): T => {
 
 export interface MergePerson {
   id: string; name: string; number: string | null; branch: string; grade: string; section: string;
-  source: string | null; needsReview: boolean; createdAt: string; results: number;
+  source: string | null; needsReview: boolean; createdAt: string; results: number; missing: string[];
 }
 export interface SimilarItem { a: MergePerson; b: MergePerson; score: number; reason: string; suggestKeep: 'a' | 'b' }
 export interface MergeConflict {
@@ -24,8 +24,21 @@ export interface MergeConflict {
 export interface MergePreview { year: string; conflicts: MergeConflict[]; movable: number; exclusions: number; issues: number }
 export interface MergeLogRow { id: string; kept_id: string | null; kept_name: string; removed_name: string; removed_number: string | null; kept_number: string | null; merged_by_name: string | null; merged_at: string; undone_at: string | null; moved: number }
 
-const COLS = 'id, full_name, student_number, branch_id, grade_id, section_id, source, needs_review, created_at';
-type Row = { id: string; full_name: string; student_number: string | null; branch_id: string; grade_id: string; section_id: string | null; source: string | null; needs_review: boolean; created_at: string };
+const COLS = 'id, full_name, student_number, branch_id, grade_id, section_id, source, needs_review, created_at, national_id, name_en, birth_date, nationality';
+type Row = { id: string; full_name: string; student_number: string | null; branch_id: string; grade_id: string; section_id: string | null; source: string | null; needs_review: boolean; created_at: string; national_id: string | null; name_en: string | null; birth_date: string | null; nationality: string | null };
+
+const blank = (v: string | null | undefined) => !v || !v.trim();
+/** البيانات الناقصة في ملف الطالب (الرقم المؤقت يُعدّ ناقصًا) */
+function missingOf(r: Row): string[] {
+  const m: string[] = [];
+  if (blank(r.student_number) || /^TMP-\d+$/.test(r.student_number ?? '')) m.push('الرقم الأكاديمي');
+  if (blank(r.national_id)) m.push('رقم الهوية');
+  if (blank(r.section_id)) m.push('الشعبة');
+  if (blank(r.name_en)) m.push('الاسم بالإنجليزية');
+  if (blank(r.birth_date)) m.push('تاريخ الميلاد');
+  if (blank(r.nationality)) m.push('الجنسية');
+  return m;
+}
 
 /** يحوّل صفوف الطلاب لبطاقات عرض (مع أسماء الفرع والصف والشعبة وعدد الدرجات) */
 async function people(supabase: import('@supabase/supabase-js').SupabaseClient, rows: Row[]): Promise<Map<string, MergePerson>> {
@@ -41,7 +54,7 @@ async function people(supabase: import('@supabase/supabase-js').SupabaseClient, 
   const C = new Map(((counts.data ?? []) as { student_id: string; n: number }[]).map((c) => [c.student_id, c.n]));
   return new Map(rows.map((r) => [r.id, {
     id: r.id, name: r.full_name, number: r.student_number, branch: B.get(r.branch_id) ?? '', grade: G.get(r.grade_id) ?? '',
-    section: r.section_id ? S.get(r.section_id) ?? '' : '', source: r.source, needsReview: r.needs_review, createdAt: r.created_at, results: C.get(r.id) ?? 0,
+    section: r.section_id ? S.get(r.section_id) ?? '' : '', source: r.source, needsReview: r.needs_review, createdAt: r.created_at, results: C.get(r.id) ?? 0, missing: missingOf(r),
   }]));
 }
 

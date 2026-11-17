@@ -30,6 +30,10 @@ function Person({ p, active, onClick }: { p: MergePerson; active?: boolean; onCl
         {p.number ? <bdi dir="ltr" className="num rounded-md bg-surface px-2 py-0.5 text-[13.5px] font-semibold tracking-wide">{p.number}</bdi> : <span className="text-rose">بلا رقم</span>}
         {p.number && /^TMP-\d+$/.test(p.number) && <Badge tone="warning">رقم مؤقت</Badge>}
       </p>
+      <p className={cn('mt-1.5 flex items-start gap-1 text-[12.5px] leading-5', p.missing.length ? 'text-amber' : 'text-mint')}>
+        {p.missing.length ? <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> : <Check className="mt-0.5 h-3.5 w-3.5 shrink-0" />}
+        <span>{p.missing.length ? <>بيانات ناقصة: {p.missing.join('، ')}</> : 'بياناته كاملة'}</span>
+      </p>
       <div className="mt-2 flex flex-wrap gap-1.5">
         <Badge tone={p.results ? 'success' : 'neutral'}>{p.results} رصد</Badge>
         {(p.source === 'teacher' || p.needsReview) && <Badge tone="warning">أضافته معلمة</Badge>}
