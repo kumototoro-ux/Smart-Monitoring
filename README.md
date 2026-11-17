@@ -30,6 +30,7 @@
    15. `supabase/migrations/0015_merge_duplicate_students.sql`: دمج الأسماء المكررة (للمسؤول) مع أرشيف وتراجع.
    16. `supabase/migrations/0016_branch_grade_subjects.sql`: تثبيت مواد كل فرع (إضافة فقط) مع نسخة احتياطية داخلية في schema `backup_0016`.
    17. `supabase/migrations/0017_branch_import_commit.sql`: حفظ «ملف الفرع» (طلاب ودرجات) دفعة واحدة مع حماية الدرجات الموجودة والتراجع.
+   18. `supabase/migrations/0018_year_overview.sql`: صفحة «الأعوام الدراسية» (قراءة فقط) مع نسخ احتياطية إكسل لكل فرع وفصل.
 3. من **Authentication → Sign In / Providers**:
    - أوقف **Allow new users to sign up**، لأن الحسابات تُنشأ من داخل النظام فقط.
    - أوقف **Confirm email**.

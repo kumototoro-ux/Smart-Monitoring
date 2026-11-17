@@ -22,8 +22,9 @@ export const META_MAGIC = 'mirqat-branch-v1';
 const safeSheet = (n: string) => n.replace(/[\\/?*[\]:]/g, '-').slice(0, 31);
 
 /** ملف الفرع الموحّد: ورقة لكل صف مفتوح، بيانات الطلاب + أعمدة الدرجات لمواد الصف الفعّالة في هذا الفرع */
-export async function buildBranchTemplate(supabase: SupabaseClient, branchId: string, opts: { grades?: boolean; gradeIds?: string[] } = {}) {
-  const withGrades = !!opts.grades;
+export async function buildBranchTemplate(supabase: SupabaseClient, branchId: string, opts: { grades?: boolean; gradeIds?: string[]; fill?: { year: string; term: 1 | 2 } } = {}) {
+  const fill = opts.fill ?? null; // نسخة احتياطية: يُملأ الملف ببيانات النظام الفعلية
+  const withGrades = !!opts.grades || !!fill;
   const [{ data: branch }, { data: set }, { data: bg }] = await Promise.all([
     supabase.from('branches').select('id, name').eq('id', branchId).single(),
     supabase.from('settings').select('academic_year, school_name').eq('id', 1).single(),
@@ -36,7 +37,7 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
     supabase.from('grades').select('id, name, sort_order, assessment_mode').in('id', gradeIds.length ? gradeIds : ['00000000-0000-0000-0000-000000000000']).order('sort_order'),
     supabase.from('grade_subjects').select('id, grade_id, subject_id, sort_order').in('grade_id', gradeIds.length ? gradeIds : ['00000000-0000-0000-0000-000000000000']).order('sort_order'),
     supabase.from('branch_subject_exclusions').select('grade_subject_id').eq('branch_id', branchId),
-    supabase.from('sections').select('grade_id, name, sort_order').eq('branch_id', branchId).order('sort_order'),
+    supabase.from('sections').select('id, grade_id, name, sort_order').eq('branch_id', branchId).order('sort_order'),
   ]);
   const off = new Set((excl.data ?? []).map((e) => e.grade_subject_id as string));
   const gs = (gsAll.data ?? []).filter((x) => !off.has(x.id as string)) as { id: string; grade_id: string; subject_id: string; sort_order: number }[];
@@ -44,11 +45,37 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
   const [subjects, comps, levels] = await Promise.all([
     supabase.from('subjects').select('id, name'),
     gsIds.length ? supabase.from('assessment_components').select('id, grade_subject_id, name, max_score, sort_order').in('grade_subject_id', gsIds).order('sort_order') : Promise.resolve({ data: [] }),
-    supabase.from('verbal_levels').select('grade_id, label, sort_order').in('grade_id', gradeIds.length ? gradeIds : ['00000000-0000-0000-0000-000000000000']).order('sort_order'),
+    supabase.from('verbal_levels').select('id, grade_id, label, sort_order').in('grade_id', gradeIds.length ? gradeIds : ['00000000-0000-0000-0000-000000000000']).order('sort_order'),
   ]);
   const sName = new Map((subjects.data ?? []).map((s) => [s.id as string, s.name as string]));
   const compsOf = new Map<string, { id: string; name: string; max_score: number | null }[]>();
   (comps.data ?? []).forEach((c) => compsOf.set(c.grade_subject_id as string, [...(compsOf.get(c.grade_subject_id as string) ?? []), { id: c.id as string, name: c.name as string, max_score: c.max_score === null ? null : Number(c.max_score) }]));
+
+  // بيانات النسخة الاحتياطية: كل طلاب الفرع ودرجاتهم لعام وفصل محددين
+  type Stu = { id: string; grade_id: string; section_id: string | null; full_name: string; student_number: string | null; national_id: string | null; name_en: string | null; birth_date: string | null; nationality: string | null; id_type: string | null; gender: string | null };
+  const stuOf = new Map<string, Stu[]>();
+  const resOf = new Map<string, { score: number | null; level: string | null; absent: boolean }>();
+  const secName = new Map((secs.data ?? []).map((x) => [x.id as string, x.name as string]));
+  if (fill) {
+    const all: Stu[] = [];
+    for (let from = 0; ; from += 1000) {
+      const { data } = await supabase.from('students').select('id, grade_id, section_id, full_name, student_number, national_id, name_en, birth_date, nationality, id_type, gender').eq('branch_id', branchId).eq('is_active', true).order('full_name').range(from, from + 999);
+      all.push(...((data ?? []) as Stu[]));
+      if ((data ?? []).length < 1000) break;
+    }
+    all.forEach((x) => stuOf.set(x.grade_id, [...(stuOf.get(x.grade_id) ?? []), x]));
+    const lvlName = new Map((levels.data ?? []).map((l) => [l.id as string, l.label as string]));
+    const compIds = (comps.data ?? []).map((c) => c.id as string);
+    for (let i = 0; i < all.length; i += 150) {
+      const ids = all.slice(i, i + 150).map((x) => x.id);
+      for (let from = 0; ; from += 1000) {
+        const { data } = await supabase.from('results').select('student_id, component_id, score, verbal_level_id, is_absent')
+          .in('student_id', ids).in('component_id', compIds.length ? compIds : ['00000000-0000-0000-0000-000000000000']).eq('term', fill.term).eq('academic_year', fill.year).range(from, from + 999);
+        (data ?? []).forEach((r) => resOf.set(`${r.student_id}|${r.component_id}`, { score: r.score === null ? null : Number(r.score), level: r.verbal_level_id ? lvlName.get(r.verbal_level_id as string) ?? null : null, absent: !!r.is_absent }));
+        if ((data ?? []).length < 1000) break;
+      }
+    }
+  }
 
   const wb = newBook();
   // الورقتان المخفيتان تُنشآن في النهاية: وإلا جعل إكسل أولى الأوراق (المخفية) هي الورقة النشطة عند الفتح
@@ -60,18 +87,16 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
     getCell: (r: number, c: number) => ({ set value(v: string) { listCells.push([r, c, v]); } }),
     getColumn: (c: number) => ({ letter: colLetter(c) }),
   };
-  meta.addRow([META_MAGIC, branch.id, set?.academic_year ?? '', new Date().toISOString(), withGrades ? 'grades' : 'students', DATA_START]);
+  meta.addRow([META_MAGIC, branch.id, fill?.year ?? set?.academic_year ?? '', new Date().toISOString(), withGrades ? 'grades' : 'students', DATA_START]);
   ['طالب', 'طالبة'].forEach((n, i) => (lists.getCell(i + 1, 1).value = n));
   ['هوية وطنية', 'إقامة', 'جواز سفر', 'هوية زائر', 'بدون'].forEach((n, i) => (lists.getCell(i + 1, 2).value = n));
   let listCol = 3;
 
   const dv = (ws: unknown) => (ws as { dataValidations: { add: (range: string, v: Record<string, unknown>) => void } }).dataValidations;
-  const ROWS = 1500;
   const used = new Set<string>();
   let totalCols = 0;
 
   const PALETTE = [['FF2E8B6A', 'FFE3F4EC'], ['FF5A5FC2', 'FFDCE2F7'], ['FFB7791F', 'FFFBF1DD'], ['FFC0476A', 'FFF6DCE3']] as const;
-  const STYLED_ROWS = 400;
   const fillOf = (argb: string) => ({ type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb } });
 
   const only = opts.gradeIds?.length ? new Set(opts.gradeIds) : null;
@@ -82,6 +107,9 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
       properties: { tabColor: { argb: XL.head } },
       pageSetup: { paperSize: 9, orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: `1:${DATA_START - 1}` },
     });
+    const gStu = (stuOf.get(g.id as string) ?? []).slice().sort((a, b) => (secName.get(a.section_id ?? '') ?? '').localeCompare(secName.get(b.section_id ?? '') ?? '', 'ar') || a.full_name.localeCompare(b.full_name, 'ar'));
+    const STYLED_ROWS = Math.max(400, gStu.length + 40); // 400 صف مجهّزة على الأقل
+    const ROWS = Math.max(1500, STYLED_ROWS + 100);
     const verbal = g.assessment_mode === 'verbal';
     const gradeSubjects = gs.filter((x) => x.grade_id === g.id);
 
@@ -153,6 +181,21 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
         if ((r - DATA_START) % 2 === 1) cell.fill = fillOf(XL.band);
         if (cols[c - 1].text) cell.numFmt = '@';
       }
+    }
+
+    // نسخة احتياطية: تعبئة الطلاب ودرجاتهم
+    if (fill) {
+      gStu.forEach((st, k) => {
+        const row = ws.getRow(DATA_START + k);
+        const base = [st.student_number ?? '', st.full_name, st.name_en ?? '', st.birth_date ?? '', st.nationality ?? '', st.id_type ?? '', st.national_id ?? '', st.gender === 'male' ? 'طالب' : st.gender === 'female' ? 'طالبة' : '', secName.get(st.section_id ?? '') ?? ''];
+        base.forEach((v, i) => { if (v !== '') row.getCell(i + 1).value = v; });
+        cols.forEach((c, i) => {
+          if (!c.comp) return;
+          const r = resOf.get(`${st.id}|${c.comp.id}`);
+          if (!r) return;
+          row.getCell(i + 1).value = r.absent ? 'غ' : r.score !== null ? r.score : r.level ?? '';
+        });
+      });
     }
 
     // القوائم والتحقق
