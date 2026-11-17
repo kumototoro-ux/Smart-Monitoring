@@ -25,12 +25,14 @@ function Stat({ n, label, tone }: { n: number; label: string; tone?: 'ok' | 'war
   );
 }
 
-export function BranchImportClient({ branches, currentTerm, year }: { branches: { id: string; name: string }[]; currentTerm: 1 | 2; year: string }) {
+export function BranchImportClient({ branches, currentTerm, year, branchGrades, grades }: { branches: { id: string; name: string }[]; currentTerm: 1 | 2; year: string; branchGrades: { branch_id: string; grade_id: string }[]; grades: { id: string; name: string }[] }) {
   const [branch, setBranch] = useState(branches[0]?.id ?? '');
   const [term, setTerm] = useState<1 | 2>(currentTerm);
   const [file, setFile] = useState<string | null>(null);
   const [pv, setPv] = useState<BranchPreview | null>(null);
   const [withGrades, setWithGrades] = useState(false);
+  const [picked, setPicked] = useState<string[]>([]); // فارغ = كل صفوف الفرع
+  const open = grades.filter((g) => branchGrades.some((r) => r.branch_id === branch && r.grade_id === g.id));
   const input = useRef<HTMLInputElement>(null);
   const { exec, busy } = useAction();
 
@@ -46,9 +48,25 @@ export function BranchImportClient({ branches, currentTerm, year }: { branches: 
   return (
     <div className="space-y-4">
       <div className="card grid gap-4 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
-        <Field label="الفرع"><Select value={branch} onChange={(e) => { setBranch(e.target.value); reset(); }}>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select></Field>
+        <Field label="الفرع"><Select value={branch} onChange={(e) => { setBranch(e.target.value); setPicked([]); reset(); }}>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select></Field>
         <Field label={`الفصل (السنة ${year})`}><Select value={term} onChange={(e) => { setTerm(Number(e.target.value) as 1 | 2); reset(); }}><option value={1}>الفصل الأول</option><option value={2}>الفصل الثاني</option></Select></Field>
-        <ExportButton params={{ type: 'branch-template', branch, grades: withGrades ? '1' : '0' }} label={withGrades ? 'تحميل ملف (طلاب + درجات)' : 'تحميل ملف (طلاب فقط)'} />
+        <ExportButton params={{ type: 'branch-template', branch, scores: withGrades ? '1' : '0', grade: picked.length ? picked.join(',') : undefined }} label={withGrades ? 'تحميل ملف (طلاب + درجات)' : 'تحميل ملف (طلاب فقط)'} />
+        <div className="rounded-2xl bg-surface p-3.5 sm:col-span-3">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[14px] font-medium">الصفوف في الملف</p>
+            <span className="text-[12.5px] text-ink-muted">{picked.length ? `${picked.length} من ${open.length}` : `كل الصفوف المفتوحة (${open.length})`}</span>
+          </div>
+          {open.length === 0 ? <p className="text-[13px] text-ink-muted">لا صفوف مفتوحة في هذا الفرع. افتحي الصفوف من صفحة الفروع.</p> : (
+            <div className="flex flex-wrap gap-2">
+              <button type="button" onClick={() => setPicked([])} className={cn('rounded-full border px-3.5 py-2 text-[13px] transition', picked.length === 0 ? 'border-black bg-black text-white' : 'border-line bg-white text-ink-soft hover:border-ink-faint')}>الكل</button>
+              {open.map((g) => {
+                const on = picked.includes(g.id);
+                return <button key={g.id} type="button" onClick={() => setPicked((p) => on ? p.filter((x) => x !== g.id) : [...p, g.id])}
+                  className={cn('rounded-full border px-3.5 py-2 text-[13px] transition', on ? 'border-black bg-black text-white' : 'border-line bg-white text-ink-soft hover:border-ink-faint')}>{g.name}</button>;
+              })}
+            </div>
+          )}
+        </div>
         <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface p-3.5 sm:col-span-3">
           <div className="min-w-0">
             <p className="text-[14px] font-medium">تضمين أعمدة الدرجات</p>
