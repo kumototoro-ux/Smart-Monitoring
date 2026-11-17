@@ -104,6 +104,7 @@ function LinkTab({ stages, grades, subjects, gradeSubjects, components, branches
   const [linkOpen, setLinkOpen] = useState(false);
   const [lg, setLg] = useState<string[]>([]);
   const [ls, setLs] = useState<string[]>([]);
+  const [lb, setLb] = useState<string[]>([]);
   const [compFor, setCompFor] = useState<GradeSubject | null>(null);
   const [draft, setDraft] = useState<Draft[]>([]);
   const [applyTo, setApplyTo] = useState<string[]>([]);
@@ -139,7 +140,7 @@ function LinkTab({ stages, grades, subjects, gradeSubjects, components, branches
           </Select>
         </Field>
         {grade && <Badge tone={numeric ? 'neutral' : 'info'} className="self-start sm:self-center">{numeric ? 'رصد درجات' : 'رصد لفظي'}</Badge>}
-        <Button className="sm:mr-auto" onClick={() => { setLinkOpen(true); setLg(gradeId ? [gradeId] : []); setLs([]); }}>
+        <Button className="sm:mr-auto" onClick={() => { setLinkOpen(true); setLg(gradeId ? [gradeId] : []); setLs([]); setLb([]); }}>
           <Link2 className="h-4 w-4" />ربط مواد بصفوف
         </Button>
       </div>
@@ -190,7 +191,7 @@ function LinkTab({ stages, grades, subjects, gradeSubjects, components, branches
         description="اختاري المواد والصفوف، وسيتم ربط كل مادة بكل صف مع إنشاء أنواع التقييم الافتراضية"
         footer={<>
           <Button loading={busy} disabled={!lg.length || !ls.length} onClick={async () => {
-            const r = await exec(() => linkSubjects(lg, ls), { success: (n) => (n ? `تم إنشاء ${n} ربط جديد` : 'كل المواد المختارة مربوطة مسبقاً') });
+            const r = await exec(() => linkSubjects(lg, ls, lb), { success: (n) => (n ? `تم إنشاء ${n} ربط جديد${lb.length ? '' : ' — المادة غير ظاهرة في أي فرع حتى تفعّليها'}` : 'كل المواد المختارة مربوطة مسبقاً') });
             if (r?.ok) setLinkOpen(false);
           }}>ربط {ls.length} مادة × {lg.length} صف</Button>
           <Button variant="secondary" onClick={() => setLinkOpen(false)}>إلغاء</Button>
@@ -208,6 +209,11 @@ function LinkTab({ stages, grades, subjects, gradeSubjects, components, branches
                 <ChipPicker items={grades.filter((g) => g.stage_id === st.id).map((g) => ({ id: g.id, label: g.name }))} value={lg} onChange={setLg} />
               </div>
             ))}
+          </div>
+          <div className="md:col-span-2">
+            <p className="label">الفروع التي تظهر فيها المادة الجديدة</p>
+            <p className="mb-2 text-[12px] text-ink-muted">الربط الجديد يدوي: لا تظهر المادة إلا في الفروع التي تختارينها هنا (يمكنكِ تفعيلها لاحقًا من زر «الفروع»). الربط الموجود مسبقًا لا يتغير.</p>
+            <ChipPicker items={branches.map((b) => ({ id: b.id, label: b.name }))} value={lb} onChange={setLb} />
           </div>
         </div>
       </Dialog>
