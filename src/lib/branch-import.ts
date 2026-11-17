@@ -62,11 +62,14 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
 
   // خريطة الأعمدة من ورقة meta
   const colsBySheet = new Map<string, { col: number; component_id: string; grade_id: string; label: string }[]>();
+  const gradeBySheet = new Map<string, string>();
   for (let r = 2; r <= meta.rowCount; r++) {
     const row = meta.getRow(r);
     const sheet = cellText(row.getCell(1).value);
     if (!sheet) continue;
-    colsBySheet.set(sheet, [...(colsBySheet.get(sheet) ?? []), { col: Number(row.getCell(2).value), component_id: cellText(row.getCell(3).value), grade_id: cellText(row.getCell(4).value), label: cellText(row.getCell(5).value) }]);
+    const comp = cellText(row.getCell(3).value);
+    gradeBySheet.set(sheet, cellText(row.getCell(4).value));
+    if (comp) colsBySheet.set(sheet, [...(colsBySheet.get(sheet) ?? []), { col: Number(row.getCell(2).value), component_id: comp, grade_id: cellText(row.getCell(4).value), label: cellText(row.getCell(5).value) }]);
   }
   const gradeOfSheet = new Map<string, string>();
   const sheetsInfo = wb.worksheets.filter((w) => w.name !== META_SHEET && w.name !== 'lists' && w.name !== 'التعليمات');
@@ -110,10 +113,9 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
   const compLabel = new Map<string, string>();
 
   for (const ws of sheetsInfo) {
-    const cols = colsBySheet.get(ws.name);
-    if (!cols) continue; // ورقة لا تخص النظام
-    const gradeId = cols[0]?.grade_id;
-    if (!gradeId) continue;
+    const gradeId = gradeBySheet.get(ws.name);
+    if (!gradeId) continue; // ورقة لا تخص النظام
+    const cols = colsBySheet.get(ws.name) ?? [];
     gradeOfSheet.set(ws.name, gradeId);
     if (!openGrades.has(gradeId)) throw new ImportError(`الصف «${gradeName.get(gradeId) ?? ws.name}» لم يعد مفتوحاً في هذا الفرع. حمّلي ملفاً جديداً.`);
     // الملف قديم؟ المادة أُوقفت أو تغيّرت درجتها العظمى

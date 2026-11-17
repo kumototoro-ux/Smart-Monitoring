@@ -6,7 +6,7 @@ import { useAction } from '@/lib/use-action';
 import { ExportButton } from '@/components/ui/export-button';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Field, Select } from '@/components/ui/field';
+import { Field, Select, Switch } from '@/components/ui/field';
 import { cn } from '@/lib/utils';
 
 const toBase64 = (f: File) => new Promise<string>((res, rej) => {
@@ -30,6 +30,7 @@ export function BranchImportClient({ branches, currentTerm, year }: { branches: 
   const [term, setTerm] = useState<1 | 2>(currentTerm);
   const [file, setFile] = useState<string | null>(null);
   const [pv, setPv] = useState<BranchPreview | null>(null);
+  const [withGrades, setWithGrades] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const { exec, busy } = useAction();
 
@@ -47,11 +48,18 @@ export function BranchImportClient({ branches, currentTerm, year }: { branches: 
       <div className="card grid gap-4 p-4 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
         <Field label="الفرع"><Select value={branch} onChange={(e) => { setBranch(e.target.value); reset(); }}>{branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}</Select></Field>
         <Field label={`الفصل (السنة ${year})`}><Select value={term} onChange={(e) => { setTerm(Number(e.target.value) as 1 | 2); reset(); }}><option value={1}>الفصل الأول</option><option value={2}>الفصل الثاني</option></Select></Field>
-        <ExportButton params={{ type: 'branch-template', branch }} label="تحميل ملف الفرع" />
+        <ExportButton params={{ type: 'branch-template', branch, grades: withGrades ? '1' : '0' }} label={withGrades ? 'تحميل ملف (طلاب + درجات)' : 'تحميل ملف (طلاب فقط)'} />
+        <div className="flex items-center justify-between gap-3 rounded-2xl bg-surface p-3.5 sm:col-span-3">
+          <div className="min-w-0">
+            <p className="text-[14px] font-medium">تضمين أعمدة الدرجات</p>
+            <p className="text-[12.5px] text-ink-muted">{withGrades ? 'يتضمن الملف أعمدة درجات مواد كل صف (الفعّالة لهذا الفرع)' : 'مغلق: الملف لبيانات الطلاب فقط. فعّليه إن أردتِ رفع الدرجات مع الطلاب'}</p>
+          </div>
+          <Switch checked={withGrades} onChange={setWithGrades} label="تضمين الدرجات" />
+        </div>
       </div>
 
       <ol className="card list-decimal space-y-1.5 p-4 ps-9 text-[13.5px] leading-6 text-ink-soft">
-        <li>حمّلي «ملف الفرع»: ورقة لكل صف مفتوح، فيها بيانات الطالب وأعمدة درجات مواد الصف الفعّالة لهذا الفرع.</li>
+        <li>حمّلي «ملف الفرع»: ورقة لكل صف مفتوح فيها بيانات الطالب، وإن فعّلتِ «تضمين أعمدة الدرجات» تُضاف أعمدة درجات مواد الصف الفعّالة لهذا الفرع.</li>
         <li>أرسليه للفرع ليعبّئه، أو عبّئيه أنتِ، ثم ارفعيه هنا.</li>
         <li>تظهر معاينة كاملة: طلاب جدد، موجودون، درجات جديدة، تعارضات، وأخطاء. لا يُحفظ شيء في هذه المرحلة.</li>
       </ol>

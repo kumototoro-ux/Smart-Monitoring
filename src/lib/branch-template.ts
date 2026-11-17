@@ -21,7 +21,8 @@ export const META_MAGIC = 'mirqat-branch-v1';
 const safeSheet = (n: string) => n.replace(/[\\/?*[\]:]/g, '-').slice(0, 31);
 
 /** ملف الفرع الموحّد: ورقة لكل صف مفتوح، بيانات الطلاب + أعمدة الدرجات لمواد الصف الفعّالة في هذا الفرع */
-export async function buildBranchTemplate(supabase: SupabaseClient, branchId: string) {
+export async function buildBranchTemplate(supabase: SupabaseClient, branchId: string, opts: { grades?: boolean } = {}) {
+  const withGrades = !!opts.grades;
   const [{ data: branch }, { data: set }, { data: bg }] = await Promise.all([
     supabase.from('branches').select('id, name').eq('id', branchId).single(),
     supabase.from('settings').select('academic_year, school_name').eq('id', 1).single(),
@@ -50,7 +51,7 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
 
   const wb = newBook();
   const meta = wb.addWorksheet(META_SHEET, { state: 'veryHidden' });
-  meta.addRow([META_MAGIC, branch.id, set?.academic_year ?? '', new Date().toISOString()]);
+  meta.addRow([META_MAGIC, branch.id, set?.academic_year ?? '', new Date().toISOString(), withGrades ? 'grades' : 'students']);
   const lists = wb.addWorksheet('lists', { state: 'hidden' });
   ['طالب', 'طالبة'].forEach((n, i) => (lists.getCell(i + 1, 1).value = n));
   ['هوية وطنية', 'إقامة', 'جواز سفر', 'هوية زائر', 'بدون'].forEach((n, i) => (lists.getCell(i + 1, 2).value = n));
@@ -69,7 +70,8 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
 
     type Col = { h: string; w: number; note?: string; text?: boolean; req?: boolean; comp?: { id: string; max: number | null; label: string } };
     const cols: Col[] = STUDENT_COLS.map((c) => ({ h: c.h, w: c.w, note: c.note, text: 'text' in c ? c.text : false, req: 'req' in c ? c.req : false }));
-    for (const x of gradeSubjects) {
+    meta.addRow([name, 0, '', g.id, '']); // علامة تربط الورقة بالصف (حتى بلا أعمدة درجات)
+    for (const x of withGrades ? gradeSubjects : []) {
       const subject = sName.get(x.subject_id) ?? '—';
       const cs = compsOf.get(x.id) ?? [];
       const single = cs.length === 1;
@@ -126,17 +128,19 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
   const help = wb.addWorksheet('التعليمات', { views: [{ rightToLeft: true }] });
   help.getColumn(1).width = 4; help.getColumn(2).width = 100;
   const lines: [string, 'title' | 'h' | 'p'][] = [
-    [`${set?.school_name ?? ''} — ملف ${branch.name}: الطلاب والدرجات`, 'title'],
+    [`${set?.school_name ?? ''} — ملف ${branch.name}: ${withGrades ? 'الطلاب والدرجات' : 'بيانات الطلاب'}`, 'title'],
     ['طريقة التعبئة', 'h'],
     ['1. في كل ورقة صف دراسي واحد. اكتبي في كل سطر طالباً واحداً: بياناته ثم درجاته.', 'p'],
     ['2. المطلوب فقط: اسم الطالب الرباعي. ويُنصح بشدة بالرقم الأكاديمي لأنه يمنع تكرار الطالب عند إعادة الرفع.', 'p'],
-    ['3. الأعمدة الخضراء هي الدرجات (مادة، ونوع التقييم إن تعدد، والدرجة العظمى بين قوسين). اتركي الخانة فارغة إن لم تُرصد بعد.', 'p'],
-    ['4. للطالب الغائب اكتبي «غ». في الصفوف اللفظية اختاري التقدير من القائمة.', 'p'],
+    ...(withGrades ? [
+      ['3. الأعمدة الخضراء هي الدرجات (مادة، ونوع التقييم إن تعدد، والدرجة العظمى بين قوسين). اتركي الخانة فارغة إن لم تُرصد بعد.', 'p'],
+      ['4. للطالب الغائب اكتبي «غ». في الصفوف اللفظية اختاري التقدير من القائمة.', 'p'],
+    ] as [string, 'p'][] : [['3. هذا الملف لبيانات الطلاب فقط، بلا أعمدة درجات.', 'p']] as [string, 'p'][]),
     ['5. لا تغيّري عناوين الأعمدة ولا أسماء الأوراق، ولا تحذفي الأعمدة.', 'p'],
     ['6. لا تضيفي مواد أو صفوفاً من عندك: الأعمدة مولّدة من النظام لهذا الفرع. وإن تغيّرت المواد في النظام حمّلي الملف من جديد.', 'p'],
     ['الرفع', 'h'],
     ['• من النظام: الطلاب ← ملف الفرع. ستظهر معاينة كاملة قبل أي حفظ، ولا يُحفظ شيء إلا بعد تأكيدكِ.', 'p'],
-    ['• الدرجات الموجودة مسبقاً في النظام لا تُستبدل إلا إذا اخترتِ ذلك صراحة.', 'p'],
+    ...(withGrades ? [['• الدرجات الموجودة مسبقاً في النظام لا تُستبدل إلا إذا اخترتِ ذلك صراحة.', 'p']] as [string, 'p'][] : []),
   ];
   lines.forEach(([t, kind], i) => {
     const c = help.getCell(i + 2, 2); c.value = t;
