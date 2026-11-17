@@ -22,7 +22,14 @@ export function SettingsForm({ initial }: { initial: Settings }) {
       success: 'تم حفظ الإعدادات',
       confirm: changes.length ? {
         title: 'تأكيد تغيير الإعدادات',
-        message: <ul className="list-disc space-y-1 pr-4">{changes.map((c) => <li key={c}>{c}</li>)}</ul>,
+        message: <div className="space-y-3">
+          <ul className="list-disc space-y-1 pr-4">{changes.map((c) => <li key={c}>{c}</li>)}</ul>
+          {v.academic_year !== initial.academic_year && (
+            <p className="rounded-xl bg-rose-soft p-3 text-[13px] leading-6 text-rose">
+              تنبيه مهم: درجات الطلاب محفوظة تحت العام «{initial.academic_year}»، وبعد تغيير العام إلى «{v.academic_year}» ستختفي كل الدرجات والتسليمات من الصفحات (لن تُحذف، لكنها لن تظهر للمعلمات). غيّري العام فقط عند بدء عام دراسي جديد فعلًا. وإن كان التغيير بالخطأ فأعيدي القيمة السابقة وستعود الدرجات.
+            </p>
+          )}
+        </div>,
         confirmText: 'نعم، احفظ',
       } : undefined,
     });
