@@ -4,6 +4,7 @@ import { audit } from '@/lib/audit';
 import { newBook } from '@/lib/excel';
 import { loadSectionReport, writeSectionSheet, writeProgressSheet } from '@/lib/reports';
 import { buildStudentTemplate } from '@/lib/template';
+import { buildBranchTemplate } from '@/lib/branch-template';
 import { writeExcludedSheets, writeIssuesSheets } from '@/lib/issue-reports';
 
 export const runtime = 'nodejs';
@@ -83,6 +84,20 @@ export async function GET(req: NextRequest) {
         headers: {
           'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           'Content-Disposition': `attachment; filename="template.xlsx"; filename*=UTF-8''${encodeURIComponent('نموذج-استيراد-الطلاب.xlsx')}`,
+          'Cache-Control': 'no-store',
+        },
+      });
+    } else if (type === 'branch-template') {
+      if (role !== 'admin') return fail(403, 'غير مصرّح');
+      const bid = p.get('branch') ?? '';
+      if (!UUID.test(bid)) return fail(400, 'اختاري الفرع');
+      const t = await buildBranchTemplate(s.supabase, bid, { grades: p.get('grades') === '1' });
+      const buf = await t.wb.xlsx.writeBuffer();
+      await audit({ action: 'export.branch_template', actor: s.profile, details: { branch: bid } });
+      return new NextResponse(buf as ArrayBuffer, {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="branch.xlsx"; filename*=UTF-8''${encodeURIComponent(`ملف-${t.branchName}-${p.get('grades') === '1' ? 'الطلاب-والدرجات' : 'الطلاب'}.xlsx`)}`,
           'Cache-Control': 'no-store',
         },
       });
