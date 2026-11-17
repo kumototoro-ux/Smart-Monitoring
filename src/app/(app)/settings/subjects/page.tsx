@@ -7,7 +7,7 @@ export const metadata = { title: 'المواد والتقييم' };
 
 export default async function SubjectsPage() {
   const { supabase } = await requireRole('admin');
-  const [stages, grades, subjects, gs, comps, branches, excl, used] = await Promise.all([
+  const [stages, grades, subjects, gs, comps, branches, excl, used, bgr] = await Promise.all([
     supabase.from('stages').select('id, name, sort_order').order('sort_order'),
     supabase.from('grades').select('id, stage_id, name, sort_order, assessment_mode, is_active').order('sort_order'),
     supabase.from('subjects').select('id, name, kind, sort_order, is_active').order('sort_order'),
@@ -16,6 +16,7 @@ export default async function SubjectsPage() {
     supabase.from('branches').select('id, name, code, is_active').eq('is_active', true).order('name'),
     supabase.from('branch_subject_exclusions').select('branch_id, grade_subject_id'),
     supabase.from('submissions').select('grade_subject_id'),
+    supabase.from('branch_grades').select('branch_id, grade_id'),
   ]);
   return (
     <div>
@@ -28,6 +29,7 @@ export default async function SubjectsPage() {
         components={(comps.data ?? []).map((c) => ({ ...c, max_score: c.max_score === null ? null : Number(c.max_score) })) as Component[]}
         branches={(branches.data ?? []) as Branch[]}
         exclusions={(excl.data ?? []) as { branch_id: string; grade_subject_id: string }[]}
+        branchGrades={(bgr.data ?? []) as { branch_id: string; grade_id: string }[]}
         usedGradeSubjects={[...new Set((used.data ?? []).map((u) => u.grade_subject_id as string))]}
       />
     </div>
