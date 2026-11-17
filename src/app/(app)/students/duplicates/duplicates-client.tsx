@@ -264,7 +264,10 @@ function HistoryTab({ version }: { version: number }) {
       {rows.map((r) => (
         <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
           <div className="min-w-0 flex-1 basis-60">
-            <p className="text-[13.5px] leading-6"><b>{r.removed_name}</b>{r.removed_number ? <bdi dir="ltr" className="num mx-1 text-[12px] text-ink-muted">({r.removed_number})</bdi> : null}<span className="text-ink-muted"> ← دُمج في </span> <b>{r.kept_name}</b></p>
+            <div className="space-y-1.5 text-[13.5px] leading-6">
+              <p className="flex flex-wrap items-center gap-x-2 rounded-lg bg-rose-soft px-2.5 py-1 text-rose"><span className="text-[12px]">✕ حُذف</span><b className="break-words">{r.removed_name}</b>{r.removed_number && <bdi dir="ltr" className="num text-[12.5px]">({r.removed_number})</bdi>}</p>
+              <p className="flex flex-wrap items-center gap-x-2 rounded-lg bg-mint-soft px-2.5 py-1 text-mint"><span className="text-[12px]">✓ بقي</span><b className="break-words">{r.kept_name}</b>{r.kept_number && <bdi dir="ltr" className="num text-[12.5px]">({r.kept_number})</bdi>}</p>
+            </div>
             <p className="num text-[12px] text-ink-muted">{r.merged_by_name ?? '—'} · {fmtDateTime(r.merged_at)} · {r.moved} رصد منقول</p>
           </div>
           {r.undone_at ? <Badge tone="neutral">تم التراجع</Badge> : (

@@ -22,7 +22,7 @@ export interface MergeConflict {
   remove: { score: number | null; verbal: string | null; absent: boolean; by: string | null; at: string };
 }
 export interface MergePreview { year: string; conflicts: MergeConflict[]; movable: number; exclusions: number; issues: number }
-export interface MergeLogRow { id: string; kept_id: string | null; kept_name: string; removed_name: string; removed_number: string | null; merged_by_name: string | null; merged_at: string; undone_at: string | null; moved: number }
+export interface MergeLogRow { id: string; kept_id: string | null; kept_name: string; removed_name: string; removed_number: string | null; kept_number: string | null; merged_by_name: string | null; merged_at: string; undone_at: string | null; moved: number }
 
 const COLS = 'id, full_name, student_number, branch_id, grade_id, section_id, source, needs_review, created_at';
 type Row = { id: string; full_name: string; student_number: string | null; branch_id: string; grade_id: string; section_id: string | null; source: string | null; needs_review: boolean; created_at: string };
@@ -118,7 +118,13 @@ export async function listStudentMerges() {
   return run('students.merge_list', ['admin'], async ({ supabase }) => {
     const rows = must(await supabase.from('student_merges')
       .select('id, kept_id, kept_name, removed_name, removed_number, merged_by_name, merged_at, undone_at, moved_results')
-      .order('merged_at', { ascending: false }).limit(40)) as (Omit<MergeLogRow, 'moved'> & { moved_results: string[] })[];
-    return rows.map(({ moved_results, ...r }) => ({ ...r, moved: moved_results?.length ?? 0 })) as MergeLogRow[];
+      .order('merged_at', { ascending: false }).limit(40)) as (Omit<MergeLogRow, 'moved' | 'kept_number'> & { moved_results: string[] })[];
+    const ids = [...new Set(rows.map((r) => r.kept_id).filter((x): x is string => !!x))];
+    const nums = new Map<string, string | null>();
+    if (ids.length) {
+      const st = (await supabase.from('students').select('id, student_number').in('id', ids)).data ?? [];
+      for (const x of st as { id: string; student_number: string | null }[]) nums.set(x.id, x.student_number);
+    }
+    return rows.map(({ moved_results, ...r }) => ({ ...r, kept_number: r.kept_id ? nums.get(r.kept_id) ?? null : null, moved: moved_results?.length ?? 0 })) as MergeLogRow[];
   });
 }
