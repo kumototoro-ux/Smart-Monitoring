@@ -17,19 +17,20 @@ interface Props {
   stages: Stage[]; grades: Grade[]; subjects: Subject[]; gradeSubjects: GradeSubject[];
   components: Component[]; branches: Branch[];
   exclusions: { branch_id: string; grade_subject_id: string }[]; usedGradeSubjects: string[];
+  branchGrades: { branch_id: string; grade_id: string }[];
 }
 
 export function SubjectsClient(p: Props) {
-  const [tab, setTab] = useState<'link' | 'list'>('link');
+  const [tab, setTab] = useState<'link' | 'list' | 'branch'>('link');
   return (
     <>
       <div className="mb-4 inline-flex rounded-full bg-white p-1 shadow-soft">
-        {([['link', 'المواد في الصفوف'], ['list', 'قائمة المواد']] as const).map(([k, l]) => (
+        {([['link', 'المواد في الصفوف'], ['branch', 'حسب الفرع'], ['list', 'قائمة المواد']] as const).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)}
             className={cn('rounded-full px-4 py-2 text-[13.5px] transition', tab === k ? 'bg-black text-white' : 'text-ink-soft')}>{l}</button>
         ))}
       </div>
-      {tab === 'link' ? <LinkTab {...p} /> : <ListTab {...p} />}
+      {tab === 'link' ? <LinkTab {...p} /> : tab === 'branch' ? <BranchTab {...p} /> : <ListTab {...p} />}
     </>
   );
 }
@@ -272,6 +273,57 @@ function LinkTab({ stages, grades, subjects, gradeSubjects, components, branches
           })}
         </ul>
       </Dialog>
+    </>
+  );
+}
+
+function BranchTab({ grades, subjects, gradeSubjects, branches, exclusions, branchGrades }: Props) {
+  const [branchId, setBranchId] = useState(branches[0]?.id ?? '');
+  const { exec, busy } = useAction();
+  const subjName = useMemo(() => new Map(subjects.map((s) => [s.id, s.name])), [subjects]);
+  const open = useMemo(() => new Set(branchGrades.filter((r) => r.branch_id === branchId).map((r) => r.grade_id)), [branchGrades, branchId]);
+  const off = useMemo(() => new Set(exclusions.filter((e) => e.branch_id === branchId).map((e) => e.grade_subject_id)), [exclusions, branchId]);
+  const rows = grades.filter((g) => open.has(g.id)).map((g) => ({ g, list: gradeSubjects.filter((x) => x.grade_id === g.id) }));
+  const active = rows.reduce((a, r) => a + r.list.filter((x) => !off.has(x.id)).length, 0);
+  return (
+    <>
+      <div className="card mb-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-end">
+        <Field label="الفرع" className="flex-1 sm:max-w-xs">
+          <Select value={branchId} onChange={(e) => setBranchId(e.target.value)}>
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </Select>
+        </Field>
+        <p className="num text-[13px] text-ink-muted">{rows.length} صف مفتوح · {active} مادة فعّالة</p>
+      </div>
+      {rows.length === 0 ? (
+        <div className="card"><EmptyState icon={<Building2 className="h-6 w-6" />} title="لا صفوف مفتوحة في هذا الفرع" hint="افتحي الصفوف من صفحة الفروع." /></div>
+      ) : (
+        <div className="space-y-3">
+          {rows.map(({ g, list }) => (
+            <div key={g.id} className="card p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <p className="text-[14.5px] font-semibold">{g.name}</p>
+                <span className="num text-[12.5px] text-ink-muted">{list.filter((x) => !off.has(x.id)).length} من {list.length} مادة</span>
+              </div>
+              {list.length === 0 ? <p className="text-[13px] text-ink-muted">لا مواد مربوطة بهذا الصف.</p> : (
+                <div className="flex flex-wrap gap-2">
+                  {list.map((x) => {
+                    const on = !off.has(x.id);
+                    return (
+                      <button key={x.id} type="button" disabled={busy}
+                        onClick={() => exec(() => toggleBranchSubject(branchId, x.id, !on), { success: !on ? 'تم تفعيل المادة للفرع' : 'تم إيقاف المادة للفرع' })}
+                        className={cn('rounded-full border px-3.5 py-2 text-[13px] transition disabled:opacity-60', on ? 'border-mint bg-mint-soft text-mint' : 'border-line bg-white text-ink-faint line-through')}>
+                        {subjName.get(x.subject_id) ?? '—'}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="mt-3 text-[12px] text-ink-muted">الأخضر: المادة فعّالة في هذا الفرع. المشطوبة: موقوفة. اضغطي على المادة لتبديل حالتها.</p>
     </>
   );
 }
