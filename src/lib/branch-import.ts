@@ -61,6 +61,7 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
   if (cellText(head!.getCell(3).value) && cellText(head!.getCell(3).value) !== year) throw new ImportError('الملف مولَّد لسنة دراسية أخرى. حمّلي ملفاً جديداً.');
 
   // خريطة الأعمدة من ورقة meta
+  const dataStart = Number(cellText(head!.getCell(6).value)) || 2;
   const colsBySheet = new Map<string, { col: number; component_id: string; grade_id: string; label: string }[]>();
   const gradeBySheet = new Map<string, string>();
   for (let r = 2; r <= meta.rowCount; r++) {
@@ -129,7 +130,7 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
     const levels = levelsByGrade.get(gradeId) ?? new Map<string, string>();
     const sameGrade = stu.filter((s) => s.grade_id === gradeId);
 
-    for (let r = 2; r <= ws.rowCount; r++) {
+    for (let r = dataStart; r <= ws.rowCount; r++) {
       const row = ws.getRow(r);
       const g = (i: number) => cellText(row.getCell(i).value).trim();
       const name = g(2).replace(/\s+/g, ' ');
