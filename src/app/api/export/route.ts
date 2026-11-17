@@ -101,6 +101,21 @@ export async function GET(req: NextRequest) {
           'Cache-Control': 'no-store',
         },
       });
+    } else if (type === 'year-backup') {
+      if (role !== 'admin') return fail(403, 'غير مصرّح');
+      const bid = p.get('branch') ?? '';
+      const year = (p.get('year') ?? '').trim();
+      if (!UUID.test(bid) || !year || year.length > 20) return fail(400, 'اختاري الفرع والعام');
+      const t = await buildBranchTemplate(s.supabase, bid, { fill: { year, term } });
+      const buf = await t.wb.xlsx.writeBuffer();
+      await audit({ action: 'export.year_backup', actor: s.profile, details: { branch: bid, year, term } });
+      return new NextResponse(buf as ArrayBuffer, {
+        headers: {
+          'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'Content-Disposition': `attachment; filename="backup.xlsx"; filename*=UTF-8''${encodeURIComponent(`نسخة-${t.branchName}-${year}-الفصل-${term === 1 ? 'الأول' : 'الثاني'}.xlsx`)}`,
+          'Cache-Control': 'no-store',
+        },
+      });
     } else if (type === 'progress') {
       if (role === 'teacher') return fail(403, 'غير مصرّح');
       const branch = role === 'supervisor' ? s.profile.branch_id! : (p.get('branch') && UUID.test(p.get('branch')!) ? p.get('branch')! : null);
