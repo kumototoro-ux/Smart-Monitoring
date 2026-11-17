@@ -11,16 +11,20 @@ import { EmptyState } from '@/components/ui/empty';
 import { cn } from '@/lib/utils';
 import type { Branch, Grade, Stage } from '@/lib/types';
 
-export function BranchesClient({ branches, stages, grades, gradesByBranch, teacherCount }: {
+export function BranchesClient({ branches, stages, grades, gradesByBranch, teacherCount, gradeSubjects, subjectNames }: {
   branches: Branch[]; stages: Stage[]; grades: Grade[];
   gradesByBranch: Record<string, string[]>; teacherCount: Record<string, number>;
+  gradeSubjects: { id: string; grade_id: string; subject_id: string }[]; subjectNames: Record<string, string>;
 }) {
   const [edit, setEdit] = useState<Partial<Branch> | null>(null);
   const [gradesFor, setGradesFor] = useState<Branch | null>(null);
   const [picked, setPicked] = useState<string[]>([]);
+  const [off, setOff] = useState<string[]>([]); // مواد أزالتها المسؤولة للصفوف الجديدة
   const { exec, busy } = useAction();
 
-  const openGrades = (b: Branch) => { setGradesFor(b); setPicked(gradesByBranch[b.id] ?? []); };
+  const openGrades = (b: Branch) => { setGradesFor(b); setPicked(gradesByBranch[b.id] ?? []); setOff([]); };
+  const existing = new Set(gradesFor ? gradesByBranch[gradesFor.id] ?? [] : []);
+  const newGrades = grades.filter((g) => picked.includes(g.id) && !existing.has(g.id));
 
   return (
     <>
@@ -86,7 +90,7 @@ export function BranchesClient({ branches, stages, grades, gradesByBranch, teach
         description="حددي الصفوف الموجودة في هذا الفرع"
         footer={<>
           <Button loading={busy} onClick={async () => {
-            const r = await exec(() => setBranchGrades(gradesFor!.id, picked), { success: 'تم حفظ صفوف الفرع' });
+            const r = await exec(() => setBranchGrades(gradesFor!.id, picked, off.filter((id) => newGrades.some((g) => gradeSubjects.some((x) => x.id === id && x.grade_id === g.id)))), { success: 'تم حفظ صفوف الفرع' });
             if (r?.ok) setGradesFor(null);
           }}>حفظ ({picked.length})</Button>
           <Button variant="secondary" onClick={() => setGradesFor(null)}>إلغاء</Button>
@@ -119,6 +123,36 @@ export function BranchesClient({ branches, stages, grades, gradesByBranch, teach
               </div>
             );
           })}
+
+          {newGrades.length > 0 && (
+            <div className="rounded-2xl bg-surface p-3.5">
+              <p className="mb-1 text-[13.5px] font-medium">مواد الصفوف الجديدة</p>
+              <p className="mb-3 text-[12px] leading-5 text-ink-muted">كل المواد مفعّلة افتراضيًا. اضغطي على المادة التي لا تخص هذا الفرع لإيقافها (يمكن تغييرها لاحقًا من صفحة المواد).</p>
+              <div className="space-y-3">
+                {newGrades.map((g) => {
+                  const list = gradeSubjects.filter((x) => x.grade_id === g.id);
+                  return (
+                    <div key={g.id}>
+                      <p className="mb-1.5 text-[12.5px] text-ink-muted">{g.name}</p>
+                      {list.length === 0 ? <p className="text-[12.5px] text-ink-faint">لا مواد مربوطة بهذا الصف بعد</p> : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {list.map((x) => {
+                            const stopped = off.includes(x.id);
+                            return (
+                              <button key={x.id} type="button" onClick={() => setOff((o) => stopped ? o.filter((i) => i !== x.id) : [...o, x.id])}
+                                className={cn('rounded-full border px-3 py-1.5 text-[12.5px] transition', stopped ? 'border-line bg-white text-ink-faint line-through' : 'border-mint bg-mint-soft text-mint')}>
+                                {subjectNames[x.subject_id] ?? '—'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </Dialog>
     </>

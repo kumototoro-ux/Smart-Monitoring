@@ -55,10 +55,11 @@ export async function deleteBranch(id: string) {
 }
 
 /** تحديد الصفوف الموجودة في فرع */
-export async function setBranchGrades(branchId: string, gradeIds: string[]) {
+export async function setBranchGrades(branchId: string, gradeIds: string[], excludedGradeSubjects: string[] = []) {
   return run('branch.grades', ['admin'], async ({ supabase }) => {
     const b = parse(uuid, branchId);
     const ids = parse(z.array(uuid), gradeIds);
+    const off = parse(z.array(uuid).max(500), excludedGradeSubjects);
     const current = must(await supabase.from('branch_grades').select('grade_id').eq('branch_id', b)) as { grade_id: string }[];
     const have = new Set(current.map((r) => r.grade_id));
     const toAdd = ids.filter((g) => !have.has(g));
@@ -74,8 +75,13 @@ export async function setBranchGrades(branchId: string, gradeIds: string[]) {
       // كل صف جديد يبدأ بشعبة «عام» — وإذا كان مقسّماً تضيفين شعبه لاحقاً فتُستبدل تلقائياً
       must(await supabase.from('sections').insert(toAdd.map((g) => ({ branch_id: b, grade_id: g, name: GENERAL_SECTION, sort_order: 1 }))));
       await assignToSingleSection(supabase, b, toAdd);
+      // المواد التي أزالتها المسؤولة لهذه الصفوف الجديدة تُسجَّل استثناءً للفرع (تُقبل فقط مواد الصفوف المضافة الآن)
+      if (off.length) {
+        const valid = must(await supabase.from('grade_subjects').select('id').in('id', off).in('grade_id', toAdd)) as { id: string }[];
+        if (valid.length) must(await supabase.from('branch_subject_exclusions').upsert(valid.map((v) => ({ branch_id: b, grade_subject_id: v.id })), { ignoreDuplicates: true }));
+      }
     }
-  }, { revalidate: ['/settings'], log: () => ({ branchId, gradeIds }) });
+  }, { revalidate: ['/settings'], log: () => ({ branchId, gradeIds, excluded: excludedGradeSubjects.length }) });
 }
 
 /**
@@ -263,16 +269,24 @@ export async function deleteSubject(id: string) {
 }
 
 /** ربط مجموعة مواد بمجموعة صفوف دفعة واحدة */
-export async function linkSubjects(gradeIds: string[], subjectIds: string[]) {
+export async function linkSubjects(gradeIds: string[], subjectIds: string[], enabledBranchIds: string[] = []) {
   return run('subject.link', ['admin'], async ({ supabase }) => {
     const g = parse(z.array(uuid).min(1, 'اختاري صفاً واحداً على الأقل'), gradeIds);
     const s = parse(z.array(uuid).min(1, 'اختاري مادة واحدة على الأقل'), subjectIds);
     const subjects = must(await supabase.from('subjects').select('id, sort_order').in('id', s)) as { id: string; sort_order: number }[];
     const order = new Map(subjects.map((x) => [x.id, x.sort_order]));
     const rows = g.flatMap((gid) => s.map((sid) => ({ grade_id: gid, subject_id: sid, sort_order: order.get(sid) ?? 0 })));
+    const enabled = new Set(parse(z.array(uuid).max(200), enabledBranchIds));
     const res = await supabase.from('grade_subjects').upsert(rows, { onConflict: 'grade_id,subject_id', ignoreDuplicates: true }).select('id');
-    return must(res)?.length ?? 0;
-  }, { revalidate: ['/settings'], log: (n) => ({ gradeIds, subjectIds, created: n }) });
+    const created = (must(res) ?? []) as { id: string }[];
+    // الربط الجديد يدوي: لا تظهر المادة إلا في الفروع التي اختارتها المسؤولة، وتُستثنى من البقية حتى تُفعَّل
+    if (created.length) {
+      const branches = must(await supabase.from('branches').select('id')) as { id: string }[];
+      const ex = branches.filter((b) => !enabled.has(b.id)).flatMap((b) => created.map((c) => ({ branch_id: b.id, grade_subject_id: c.id })));
+      if (ex.length) must(await supabase.from('branch_subject_exclusions').upsert(ex, { ignoreDuplicates: true }));
+    }
+    return created.length;
+  }, { revalidate: ['/settings'], log: (n) => ({ gradeIds, subjectIds, created: n, enabledBranches: enabledBranchIds.length }) });
 }
 
 export async function unlinkGradeSubject(id: string) {

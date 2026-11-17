@@ -7,12 +7,14 @@ export const metadata = { title: 'الفروع' };
 
 export default async function BranchesPage() {
   const { supabase } = await requireRole('admin');
-  const [{ data: branches }, { data: stages }, { data: grades }, { data: bg }, { data: teachers }] = await Promise.all([
+  const [{ data: branches }, { data: stages }, { data: grades }, { data: bg }, { data: teachers }, { data: gsRows }, { data: subjRows }] = await Promise.all([
     supabase.from('branches').select('id, name, code, is_active').order('name'),
     supabase.from('stages').select('id, name, sort_order').order('sort_order'),
     supabase.from('grades').select('id, stage_id, name, sort_order, assessment_mode, is_active').order('sort_order'),
     supabase.from('branch_grades').select('branch_id, grade_id'),
     supabase.from('profiles').select('branch_id').eq('role', 'teacher').eq('is_active', true),
+    supabase.from('grade_subjects').select('id, grade_id, subject_id').order('sort_order'),
+    supabase.from('subjects').select('id, name'),
   ]);
   const teacherCount: Record<string, number> = {};
   (teachers ?? []).forEach((t) => { if (t.branch_id) teacherCount[t.branch_id] = (teacherCount[t.branch_id] ?? 0) + 1; });
@@ -28,6 +30,8 @@ export default async function BranchesPage() {
         grades={(grades ?? []) as Grade[]}
         gradesByBranch={gradesByBranch}
         teacherCount={teacherCount}
+        gradeSubjects={(gsRows ?? []) as { id: string; grade_id: string; subject_id: string }[]}
+        subjectNames={Object.fromEntries((subjRows ?? []).map((x) => [x.id, x.name as string]))}
       />
     </div>
   );
