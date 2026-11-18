@@ -113,7 +113,7 @@ begin
   create temp table _sec on commit drop as
   select x->>'key' as key, (x->>'grade_id')::uuid as grade_id, btrim(x->>'name') as name, null::uuid as id
   from jsonb_array_elements(coalesce(p_sections, '[]'::jsonb)) x;
-  update _sec s set id = (select id from sections where branch_id = p_branch and grade_id = s.grade_id and name = s.name limit 1);
+  update _sec s set id = (select id from sections where branch_id = p_branch and grade_id = s.grade_id and name = s.name limit 1) where true;
   insert into branch_grades (branch_id, grade_id)
     select distinct p_branch, grade_id from _sec where id is null
     on conflict do nothing;
