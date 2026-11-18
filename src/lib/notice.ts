@@ -233,6 +233,8 @@ export interface NoticeData {
   missing: { subject: string; teacher: string | null }[];
   complete: boolean;
   subjects: NoticeSubject[];
+  /** متوسط المواظبة والسلوك من كشوف المعلمات (تقييم منفصل لا يدخل في المجموع). null = غير مفعّل أو لم يُرصد */
+  conduct?: { attendance: number | null; behavior: number | null; n: number } | null;
 }
 
 export interface Rating { ar: string; en: string }
@@ -278,6 +280,15 @@ export function summarize(d: NoticeData, bands: NoticeBands) {
   const max = rows.reduce((a, s) => a + Number(s.max), 0);
   const avg = max > 0 ? (total / max) * 100 : null;
   return { total, max, avg, rating: rate(avg, bands) };
+}
+
+/** عبارة المواظبة/السلوك اللفظية من المتوسط: 50 فأكثر = الإيجابي (والتعادل إيجابي) */
+export function conductLabel(kind: 'attendance' | 'behavior', avg: number | null | undefined): Rating | null {
+  if (avg == null) return null;
+  const pos = avg >= 50;
+  return kind === 'attendance'
+    ? (pos ? { ar: 'انتظام في الحضور', en: 'Regular Attendance' } : { ar: 'عدم الانتظام في الحضور', en: 'Irregular Attendance' })
+    : (pos ? { ar: 'التزام بالسلوك الإيجابي', en: 'Commitment to Positive Behavior' } : { ar: 'الحاجة إلى تحسين السلوك', en: 'Needs Improvement in Behavior' });
 }
 
 export const noticeFileName = (d: NoticeData) =>

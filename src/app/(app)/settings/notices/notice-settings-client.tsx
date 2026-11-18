@@ -37,7 +37,7 @@ function demo(school: string, year: string, branch: string): NoticeData {
     student: { id: 'demo', name: 'محمد عبدالله الأحمد', name_en: 'Mohammed Abdullah Alahmad', national_id: '1234567890', number: '20240137', birth_date: '2018/03/04', nationality: 'سعودي', gender: 'male' },
     branch: { id: 'demo', name: branch, code: null },
     grade: { name: 'الأول الابتدائي', name_en: 'Grade 1', mode: 'numeric', stage: 'الابتدائية' },
-    section: 'أ', homeroom: 'أ. سارة العتيبي', term: 1, year, school, missing: [], complete: true,
+    section: 'أ', homeroom: 'أ. سارة العتيبي', term: 1, year, school, missing: [], complete: true, conduct: { attendance: 96, behavior: 92, n: 3 },
     subjects: DEMO_SUBJECTS.map(([name, name_en, total, max], i) => ({ id: `d${i}`, name, name_en, max, total, recorded: 3, comps: 3, absent: false, level: null })),
   };
 }
