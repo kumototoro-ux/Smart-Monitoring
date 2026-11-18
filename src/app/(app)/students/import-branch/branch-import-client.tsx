@@ -41,6 +41,7 @@ export function BranchImportClient({ branches, currentTerm, year, branchGrades, 
   const { exec, busy } = useAction();
 
   const reset = () => { setFile(null); setB64(null); setOverwrite(false); setPv(null); if (input.current) input.current.value = ''; };
+  const [drag, setDrag] = useState(false);
   const pick = async (f?: File) => {
     if (!f) return;
     setFile(f.name); setPv(null);
@@ -102,9 +103,11 @@ export function BranchImportClient({ branches, currentTerm, year, branchGrades, 
 
       {!pv ? (
         <button type="button" disabled={busy || !branch} onClick={() => input.current?.click()}
-          className="card flex w-full flex-col items-center gap-2 border-dashed p-10 text-center hover:border-ink-faint disabled:opacity-60">
+          onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)}
+          onDrop={(e) => { e.preventDefault(); setDrag(false); if (!busy && branch) void pick(e.dataTransfer.files[0]); }}
+          className={`card flex w-full flex-col items-center gap-2 border-dashed p-10 text-center hover:border-ink-faint disabled:opacity-60 ${drag ? 'border-ink bg-surface' : ''}`}>
           {busy ? <FileSpreadsheet className="h-8 w-8 animate-pulse text-ink-muted" /> : <UploadCloud className="h-8 w-8 text-ink-muted" />}
-          <span className="text-[14px] font-medium">{busy ? `جارٍ فحص ${file ?? 'الملف'}…` : 'ارفعي ملف الفرع المعبّأ'}</span>
+          <span className="text-[14px] font-medium">{busy ? `جارٍ فحص ${file ?? 'الملف'}…` : drag ? 'أفلتي الملف هنا' : 'ارفعي ملف الفرع المعبّأ أو اسحبيه هنا'}</span>
           <span className="text-[12.5px] text-ink-muted">xlsx — حتى 10 ميجا</span>
           <input ref={input} type="file" accept=".xlsx" hidden onChange={(e) => void pick(e.target.files?.[0])} />
         </button>

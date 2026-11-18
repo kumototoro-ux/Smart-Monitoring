@@ -29,6 +29,7 @@ export function ImportDialog({ open, onClose, isAdmin, branches, defaultBranch }
   const reset = () => { setFile(null); setPreview(null); if (input.current) input.current.value = ''; };
   const close = () => { reset(); onClose(); };
 
+  const [drag, setDrag] = useState(false);
   const pick = async (f?: File) => {
     if (!f) return;
     const b64 = await toBase64(f);
@@ -77,8 +78,8 @@ export function ImportDialog({ open, onClose, isAdmin, branches, defaultBranch }
             </Field>
           )}
           <button type="button" disabled={busy} onClick={() => input.current?.click()}
-            onDragOver={(e) => e.preventDefault()} onDrop={(e) => { e.preventDefault(); void pick(e.dataTransfer.files[0]); }}
-            className="flex w-full flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed border-line bg-surface py-12 text-center transition hover:border-peri">
+            onDragOver={(e) => { e.preventDefault(); setDrag(true); }} onDragLeave={() => setDrag(false)} onDrop={(e) => { e.preventDefault(); setDrag(false); if (!busy) void pick(e.dataTransfer.files[0]); }}
+            className={`${drag ? 'border-peri bg-white ' : ''}flex w-full flex-col items-center justify-center gap-3 rounded-card border-2 border-dashed border-line bg-surface py-12 text-center transition hover:border-peri`}>
             <span className="grid h-14 w-14 place-items-center rounded-2xl bg-white text-peri-deep">
               {busy ? <FileSpreadsheet className="h-7 w-7 animate-pulse" /> : <UploadCloud className="h-7 w-7" />}
             </span>
