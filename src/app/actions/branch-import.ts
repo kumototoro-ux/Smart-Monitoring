@@ -1,14 +1,14 @@
 'use server';
 import { z } from 'zod';
 import { run, must, ActionError } from '@/lib/action';
-import { parseBranchFile, compareResult, shownOld, ImportError } from '@/lib/branch-import';
+import { parseBranchFile, compareResult, compareConduct, shownOld, ImportError } from '@/lib/branch-import';
 
 const uuid = z.string().uuid();
 
 export interface BranchPreview {
   branch: string; year: string; term: 1 | 2;
   totals: { rows: number; valid: number; errors: number; warnings: number; newStudents: number; updated: number; adopted: number; matched: number; newSections: number;
-    resNew: number; resSame: number; resConflict: number; absent: number };
+    resNew: number; resSame: number; resConflict: number; absent: number; condNew: number; condSame: number; condConflict: number };
   sheets: { name: string; rows: number; errors: number; newStudents: number; results: number }[];
   newSections: string[];
   problems: { sheet: string; row: number; name: string; messages: string[] }[];
@@ -27,7 +27,7 @@ export async function previewBranchImport(base64: string, branchId: string, term
     catch (e) { if (e instanceof ImportError) throw new ActionError(e.message); throw e; }
 
     const ok = m.rows.filter((r) => !r.errors.length);
-    let resNew = 0, resSame = 0, resConflict = 0, absent = 0;
+    let resNew = 0, resSame = 0, resConflict = 0, absent = 0, condNew = 0, condSame = 0, condConflict = 0;
     const conflicts: BranchPreview['conflicts'] = [];
     for (const r of ok) for (const x of r.results) {
       if (x.value.absent) absent++;
@@ -36,6 +36,10 @@ export async function previewBranchImport(base64: string, branchId: string, term
         resConflict++;
         if (conflicts.length < 60) conflicts.push({ sheet: r.sheet, row: r.row, name: r.full_name, label: x.label, old: shownOld(m, m.existing.get(`${r.studentId}|${x.component_id}`)!), incoming: x.shown });
       }
+    }
+    for (const r of ok) {
+      const c = compareConduct(m, r);
+      if (c === 'new') condNew++; else if (c === 'same') condSame++; else if (c === 'conflict') condConflict++;
     }
     const sheetNames = [...new Set(m.rows.map((r) => r.sheet))];
     const pick = (list: typeof m.rows, key: 'errors' | 'warnings', cap: number) =>
@@ -46,11 +50,11 @@ export async function previewBranchImport(base64: string, branchId: string, term
         rows: m.rows.length, valid: ok.length, errors: m.rows.length - ok.length, warnings: ok.filter((r) => r.warnings.length).length,
         newStudents: ok.filter((r) => r.kind === 'new').length, updated: ok.filter((r) => r.kind === 'update').length,
         adopted: ok.filter((r) => r.kind === 'adopt').length, matched: ok.filter((r) => r.kind === 'matched').length,
-        newSections: m.newSections.length, resNew, resSame, resConflict, absent,
+        newSections: m.newSections.length, resNew, resSame, resConflict, absent, condNew, condSame, condConflict,
       },
       sheets: sheetNames.map((n) => {
         const rs = m.rows.filter((r) => r.sheet === n);
-        return { name: n, rows: rs.length, errors: rs.filter((r) => r.errors.length).length, newStudents: rs.filter((r) => !r.errors.length && r.kind === 'new').length, results: rs.filter((r) => !r.errors.length).reduce((a, r) => a + r.results.length, 0) };
+        return { name: n, rows: rs.length, errors: rs.filter((r) => r.errors.length).length, newStudents: rs.filter((r) => !r.errors.length && r.kind === 'new').length, results: rs.filter((r) => !r.errors.length).reduce((a, r) => a + r.results.length + (r.conduct ? 1 : 0), 0) };
       }),
       newSections: m.newSections.map((s) => s.label),
       problems: pick(m.rows, 'errors', 150),
@@ -62,12 +66,12 @@ export async function previewBranchImport(base64: string, branchId: string, term
 }
 
 // ------------------------------------------------------------------ الحفظ والتراجع
-export interface BranchImportResult { batch_id: string; students_new: number; students_updated: number; results_new: number; results_same: number; results_overwritten: number; results_skipped: number; sections_created: number }
+export interface BranchImportResult { batch_id: string; students_new: number; students_updated: number; results_new: number; results_same: number; results_overwritten: number; results_skipped: number; sections_created: number; conduct_new?: number; conduct_same?: number; conduct_overwritten?: number; conduct_skipped?: number }
 export interface BranchImportLog {
   id: string; branch_name: string; term: number; academic_year: string; file_name: string | null; overwrite: boolean;
   created_by_name: string | null; created_at: string; undone_at: string | null;
-  summary: { students_new?: number; students_updated?: number; results_new?: number; results_overwritten?: number; results_skipped?: number; sections_created?: number };
-  undone_summary: { results_deleted?: number; results_restored?: number; results_kept?: number; students_deleted?: number; students_kept?: number } | null;
+  summary: { students_new?: number; students_updated?: number; results_new?: number; results_overwritten?: number; results_skipped?: number; sections_created?: number; conduct_new?: number; conduct_overwritten?: number; conduct_skipped?: number };
+  undone_summary: { results_deleted?: number; results_restored?: number; results_kept?: number; students_deleted?: number; students_kept?: number; conduct_deleted?: number; conduct_restored?: number; conduct_kept?: number } | null;
 }
 
 export async function commitBranchImport(base64: string, branchId: string, term: 1 | 2, overwrite: boolean, fileName: string) {
@@ -80,20 +84,23 @@ export async function commitBranchImport(base64: string, branchId: string, term:
     catch (e) { if (e instanceof ImportError) throw new ActionError(e.message); throw e; }
 
     // صفوف صالحة فقط؛ وصفوف «موجود بلا رقم وبلا درجات» لا تحمل تغييراً فلا تُرسل
-    const valid = m.rows.filter((r) => !r.errors.length && !(r.kind === 'matched' && !r.results.length));
+    const valid = m.rows.filter((r) => !r.errors.length && !(r.kind === 'matched' && !r.results.length && !r.conduct));
     if (!valid.length) throw new ActionError('لا توجد صفوف صالحة للحفظ');
     const payload = valid.map((r) => ({
       kind: r.kind, student_id: r.studentId, grade_id: r.grade_id, section_id: r.section_id, section_key: r.sectionKey,
       full_name: r.full_name, student_number: r.student_number, national_id: r.national_id, name_en: r.name_en, birth_date: r.birth_date,
       nationality: r.nationality, id_type: r.id_type, gender: r.gender,
       results: r.results.map((x) => ({ component_id: x.component_id, score: x.value.score, verbal_level_id: x.value.verbal_level_id, absent: x.value.absent })),
+      conduct: r.conduct ? { attendance: r.conduct.attendance, behavior: r.conduct.behavior } : null,
     }));
     const usedKeys = new Set(valid.map((r) => r.sectionKey).filter(Boolean));
     const sections = m.newSections.filter((s) => usedKeys.has(s.key)).map((s) => ({ key: s.key, grade_id: s.grade_id, name: s.name }));
 
-    const data = must(await supabase.rpc('branch_import_commit', {
-      p_branch: b.data, p_term: t, p_overwrite: !!overwrite, p_file: fileName.slice(0, 200), p_sections: sections, p_rows: payload,
-    }));
+    const args = { p_branch: b.data, p_term: t, p_overwrite: !!overwrite, p_file: fileName.slice(0, 200), p_sections: sections, p_rows: payload };
+    const hasConduct = valid.some((r) => r.conduct);
+    const res = await supabase.rpc(hasConduct ? 'branch_import_commit2' : 'branch_import_commit', args);
+    if (hasConduct && res.error && (res.error.code === '42883' || res.error.code === 'PGRST202')) throw new ActionError('الملف يحوي مواظبة وسلوك: شغّلي أولاً 0021_conduct_admin_and_import.sql في Supabase');
+    const data = must(res);
     return { ...(data as BranchImportResult), skipped_rows: m.rows.length - valid.length };
   }, { revalidate: ['/students'], log: (d) => d });
 }
@@ -110,7 +117,9 @@ export async function listBranchImports() {
 export async function undoBranchImport(id: string) {
   return run('student.branch_import_undo', ['admin'], async ({ supabase }) => {
     const b = uuid.safeParse(id); if (!b.success) throw new ActionError('دفعة غير صحيحة');
-    const data = must(await supabase.rpc('branch_import_undo', { p_batch: b.data }));
-    return data as { results_deleted: number; results_restored: number; results_kept: number; students_deleted: number; students_kept: number; students_restored: number; sections_deleted: number };
+    let res = await supabase.rpc('branch_import_undo2', { p_batch: b.data });
+    if (res.error && (res.error.code === '42883' || res.error.code === 'PGRST202')) res = await supabase.rpc('branch_import_undo', { p_batch: b.data });
+    const data = must(res);
+    return data as { conduct_deleted?: number; conduct_restored?: number; conduct_kept?: number; results_deleted: number; results_restored: number; results_kept: number; students_deleted: number; students_kept: number; students_restored: number; sections_deleted: number };
   }, { revalidate: ['/students'], log: (d) => d });
 }

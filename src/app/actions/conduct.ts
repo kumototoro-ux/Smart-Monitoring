@@ -58,3 +58,29 @@ export async function saveConductSettings(enabled: boolean, minSubjects: number)
     return { enabled: !!enabled, min: n.data };
   }, { revalidate: ['/', '/settings', '/conduct'], log: (d) => ({ ...d }) });
 }
+
+export interface ConductBranchStat { branch_id: string; branch: string; students: number; eligible: number; teacher: number; admin: number }
+
+export async function getConductStats() {
+  return run('conduct.stats', ['admin'], async ({ supabase }) => must(await supabase.rpc('conduct_admin_stats')) as ConductBranchStat[]);
+}
+
+const branchArg = z.string().uuid().nullable();
+
+/** رصد الأدمن للكل: الدرجة الكاملة لمن رُصدت لهم درجات في الحد الأدنى من المواد (لا يمس رصد المعلمات) */
+export async function conductFillAll(branchId: string | null) {
+  return run('conduct.fill_all', ['admin'], async ({ supabase }) => {
+    const b = branchArg.safeParse(branchId || null);
+    if (!b.success) throw new ActionError('اختاري الفرع');
+    return must(await supabase.rpc('conduct_fill_all', { p_branch: b.data })) as { filled: number; already: number; below_min: number; sections: number };
+  }, { revalidate: ['/settings'], log: (d) => ({ ...d }) });
+}
+
+/** حذف ما أضافه «رصد الكل» فقط (لا يحذف رصد المعلمات ولا ما استُورد من ملف الفرع) */
+export async function conductClearFill(branchId: string | null) {
+  return run('conduct.clear_fill', ['admin'], async ({ supabase }) => {
+    const b = branchArg.safeParse(branchId || null);
+    if (!b.success) throw new ActionError('اختاري الفرع');
+    return must(await supabase.rpc('conduct_clear_fill', { p_branch: b.data })) as { deleted: number };
+  }, { revalidate: ['/settings'], log: (d) => ({ ...d }) });
+}

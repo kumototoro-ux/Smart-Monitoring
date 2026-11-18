@@ -53,7 +53,7 @@ export function BranchImportClient({ branches, currentTerm, year, branchGrades, 
     const r = await exec(() => commitBranchImport(b64, branch, term, overwrite, file ?? ''), {
       confirm: {
         title: 'تأكيد حفظ الملف',
-        message: <>سيتم في <b>{pv.branch}</b> (الفصل {term === 1 ? 'الأول' : 'الثاني'}): إضافة <b>{t.newStudents}</b> طالب جديد، وتحديث <b>{t.updated + t.adopted}</b> طالب، وحفظ <b>{t.resNew}</b> درجة جديدة{overwrite && t.resConflict ? <>، واستبدال <b>{t.resConflict}</b> درجة مختلفة</> : ''}.{t.errors ? <> وسيُتجاهل <b>{t.errors}</b> صف به أخطاء.</> : ''} يمكن التراجع عن الدفعة كلها من «سجل الاستيراد».</>,
+        message: <>سيتم في <b>{pv.branch}</b> (الفصل {term === 1 ? 'الأول' : 'الثاني'}): إضافة <b>{t.newStudents}</b> طالب جديد، وتحديث <b>{t.updated + t.adopted}</b> طالب، وحفظ <b>{t.resNew}</b> درجة جديدة{t.condNew ? <> و<b>{t.condNew}</b> تقييم مواظبة/سلوك</> : ''}{overwrite && (t.resConflict + t.condConflict) ? <>، واستبدال <b>{t.resConflict + t.condConflict}</b> قيمة مختلفة</> : ''}.{t.errors ? <> وسيُتجاهل <b>{t.errors}</b> صف به أخطاء.</> : ''} يمكن التراجع عن الدفعة كلها من «سجل الاستيراد».</>,
         confirmText: 'حفظ',
       },
       success: (d) => `تم الحفظ: ${d?.students_new ?? 0} طالب جديد و${d?.results_new ?? 0} درجة`,
@@ -125,6 +125,8 @@ export function BranchImportClient({ branches, currentTerm, year, branchGrades, 
             <Stat n={t.resSame} label="درجات مطابقة (بلا تغيير)" />
             <Stat n={t.resConflict} label="درجات تختلف عن الموجود" tone="warn" />
             <Stat n={t.absent} label="غياب" />
+            {(t.condNew + t.condSame + t.condConflict) > 0 && <Stat n={t.condNew} label="مواظبة وسلوك جديدة" tone="ok" />}
+            {t.condConflict > 0 && <Stat n={t.condConflict} label="مواظبة وسلوك تختلف" tone="warn" />}
             <Stat n={t.warnings} label="تنبيهات" tone="warn" />
             <Stat n={t.errors} label="صفوف بها أخطاء" tone="bad" />
           </ul>
@@ -170,10 +172,10 @@ export function BranchImportClient({ branches, currentTerm, year, branchGrades, 
           )}
 
           <div className="card space-y-3 p-4">
-            {t.resConflict > 0 && (
+            {(t.resConflict + t.condConflict) > 0 && (
               <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-amber-soft p-3 text-[13px] leading-6">
                 <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} className="mt-1.5 h-4 w-4 accent-black" />
-                <span>استبدال الـ <b>{t.resConflict}</b> درجة المختلفة عمّا في النظام بقيم الملف. <span className="text-ink-muted">(الافتراضي: تُحمى الدرجات الموجودة ولا تتغير)</span></span>
+                <span>استبدال الـ <b>{t.resConflict + t.condConflict}</b> قيمة المختلفة عمّا في النظام بقيم الملف{t.condConflict ? ` (منها ${t.condConflict} مواظبة وسلوك)` : ''}. <span className="text-ink-muted">(الافتراضي: تُحمى الدرجات الموجودة ولا تتغير)</span></span>
               </label>
             )}
             <div className="flex items-start gap-3 text-[13px] leading-6">
@@ -210,8 +212,8 @@ function History({ version }: { version: number }) {
                 <div className="min-w-0 flex-1 basis-60">
                   <p className="text-[13.5px] font-medium">{r.branch_name} · الفصل {r.term === 1 ? 'الأول' : 'الثاني'} · {r.academic_year}</p>
                   <p className="num text-[12px] text-ink-muted">{r.created_by_name ?? '—'} · {fmtDateTime(r.created_at)}{r.file_name ? ` · ${r.file_name}` : ''}</p>
-                  <p className="num text-[12.5px]">{r.summary.students_new ?? 0} طالب جديد · {r.summary.students_updated ?? 0} محدَّث · {r.summary.results_new ?? 0} درجة جديدة{r.summary.results_overwritten ? ` · ${r.summary.results_overwritten} مستبدلة` : ''}{r.summary.results_skipped ? ` · ${r.summary.results_skipped} محمية` : ''}</p>
-                  {r.undone_at && r.undone_summary && <p className="num text-[12px] text-ink-muted">تم التراجع: حُذفت {r.undone_summary.results_deleted ?? 0} درجة و{r.undone_summary.students_deleted ?? 0} طالب{(r.undone_summary.results_kept || r.undone_summary.students_kept) ? `، وبقي ${r.undone_summary.students_kept ?? 0} طالب و${r.undone_summary.results_kept ?? 0} درجة لأنها عُدّلت بعد الاستيراد` : ''}</p>}
+                  <p className="num text-[12.5px]">{r.summary.students_new ?? 0} طالب جديد · {r.summary.students_updated ?? 0} محدَّث · {r.summary.results_new ?? 0} درجة جديدة{r.summary.results_overwritten ? ` · ${r.summary.results_overwritten} مستبدلة` : ''}{r.summary.results_skipped ? ` · ${r.summary.results_skipped} محمية` : ''}{r.summary.conduct_new || r.summary.conduct_overwritten ? ` · مواظبة وسلوك: ${r.summary.conduct_new ?? 0} جديد${r.summary.conduct_overwritten ? ` و${r.summary.conduct_overwritten} مستبدل` : ''}` : ''}</p>
+                  {r.undone_at && r.undone_summary && <p className="num text-[12px] text-ink-muted">تم التراجع: حُذفت {r.undone_summary.results_deleted ?? 0} درجة و{r.undone_summary.students_deleted ?? 0} طالب{r.undone_summary.conduct_deleted || r.undone_summary.conduct_restored ? ` · مواظبة وسلوك: حُذف ${r.undone_summary.conduct_deleted ?? 0} واسُتعيد ${r.undone_summary.conduct_restored ?? 0}` : ''}{(r.undone_summary.results_kept || r.undone_summary.students_kept) ? `، وبقي ${r.undone_summary.students_kept ?? 0} طالب و${r.undone_summary.results_kept ?? 0} درجة لأنها عُدّلت بعد الاستيراد` : ''}</p>}
                 </div>
                 {r.undone_at ? <Badge tone="neutral">تم التراجع</Badge> : (
                   <Button size="sm" variant="secondary" disabled={busy} onClick={() => void exec(() => undoBranchImport(r.id), {

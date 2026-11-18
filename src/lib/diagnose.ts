@@ -67,6 +67,7 @@ const PAGES: Record<string, string> = {
 const MIGRATION_OF: [RegExp, string][] = [
   [/year_overview/i, '0018_year_overview.sql'],
   [/year_move/i, '0019_year_move_and_hardening.sql'],
+  [/conduct_(fill_all|clear_fill|admin_stats)|branch_import_(commit2|undo2)|import_conduct_log|conduct_scores.*source/i, '0021_conduct_admin_and_import.sql'],
   [/conduct_(sheets|scores|load|save)|notice_conduct/i, '0020_conduct.sql'],
   [/import_batches|branch_import_(commit|undo)/i, '0017_branch_import_commit.sql'],
   [/student_merge|student_merges|student_result_counts/i, '0015_merge_duplicate_students.sql'],

@@ -1,6 +1,7 @@
 import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { XL, box, newBook } from './excel';
+import { conductLabel } from './notice';
 
 /** أعمدة بيانات الطالب الثابتة في كل ورقة (A..I)، وبعدها أعمدة الدرجات */
 export const STUDENT_COLS = [
@@ -32,6 +33,8 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
   ]);
   if (!branch) throw new Error('الفرع غير موجود');
   const gradeIds = (bg ?? []).map((r) => r.grade_id as string);
+  // المواظبة والسلوك: أعمدة إضافية تظهر فقط إن كانت الميزة مفعّلة (والتحقق صامت إن لم يُشغَّل 0020)
+  const conductOn = withGrades && !!(await supabase.from('settings').select('conduct_enabled').eq('id', 1).single()).data?.conduct_enabled;
 
   const [grades, gsAll, excl, secs] = await Promise.all([
     supabase.from('grades').select('id, name, sort_order, assessment_mode').in('id', gradeIds.length ? gradeIds : ['00000000-0000-0000-0000-000000000000']).order('sort_order'),
@@ -55,6 +58,7 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
   type Stu = { id: string; grade_id: string; section_id: string | null; full_name: string; student_number: string | null; national_id: string | null; name_en: string | null; birth_date: string | null; nationality: string | null; id_type: string | null; gender: string | null };
   const stuOf = new Map<string, Stu[]>();
   const resOf = new Map<string, { score: number | null; level: string | null; absent: boolean }>();
+  const conductOf = new Map<string, { attendance: number; behavior: number }>(); // قيمة فعلية لكل طالب
   const secName = new Map((secs.data ?? []).map((x) => [x.id as string, x.name as string]));
   if (fill) {
     const all: Stu[] = [];
@@ -74,6 +78,32 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
         (data ?? []).forEach((r) => resOf.set(`${r.student_id}|${r.component_id}`, { score: r.score === null ? null : Number(r.score), level: r.verbal_level_id ? lvlName.get(r.verbal_level_id as string) ?? null : null, absent: !!r.is_absent }));
         if ((data ?? []).length < 1000) break;
       }
+    }
+  }
+
+  if (fill && conductOn) {
+    const secIds = (secs.data ?? []).map((x) => x.id as string);
+    if (secIds.length) {
+      const { data: sh } = await supabase.from('conduct_sheets').select('id, teacher_id').in('section_id', secIds).eq('term', fill.term).eq('academic_year', fill.year);
+      const kind = new Map((sh ?? []).map((x) => [x.id as string, !!x.teacher_id]));
+      const acc = new Map<string, { t: { a: number; b: number }[]; adm: { a: number; b: number } | null }>();
+      const sheetIds = [...kind.keys()];
+      for (let i = 0; i < sheetIds.length; i += 50) {
+        for (let from = 0; ; from += 1000) {
+          const { data } = await supabase.from('conduct_scores').select('sheet_id, student_id, attendance, behavior').in('sheet_id', sheetIds.slice(i, i + 50)).range(from, from + 999);
+          (data ?? []).forEach((c) => {
+            const a = acc.get(c.student_id as string) ?? { t: [], adm: null };
+            const v = { a: Number(c.attendance), b: Number(c.behavior) };
+            if (kind.get(c.sheet_id as string)) a.t.push(v); else a.adm = v;
+            acc.set(c.student_id as string, a);
+          });
+          if ((data ?? []).length < 1000) break;
+        }
+      }
+      acc.forEach((a, sid) => {
+        if (a.t.length) conductOf.set(sid, { attendance: a.t.reduce((x, y) => x + y.a, 0) / a.t.length, behavior: a.t.reduce((x, y) => x + y.b, 0) / a.t.length });
+        else if (a.adm) conductOf.set(sid, { attendance: a.adm.a, behavior: a.adm.b });
+      });
     }
   }
 
@@ -113,7 +143,7 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
     const verbal = g.assessment_mode === 'verbal';
     const gradeSubjects = gs.filter((x) => x.grade_id === g.id);
 
-    type Col = { h: string; w: number; note?: string; text?: boolean; req?: boolean; group: string; accent: number; comp?: { id: string; max: number | null; label: string } };
+    type Col = { h: string; w: number; note?: string; text?: boolean; req?: boolean; group: string; accent: number; comp?: { id: string; max: number | null; label: string }; conduct?: 'attendance' | 'behavior' };
     const cols: Col[] = STUDENT_COLS.map((c) => ({ h: 'req' in c && c.req ? c.h + ' *' : c.h, w: c.w, note: c.note, text: 'text' in c ? c.text : false, req: 'req' in c ? c.req : false, group: 'بيانات الطالب', accent: -1 }));
     meta.addRow([name, 0, '', g.id, '']); // علامة تربط الورقة بالصف (حتى بلا أعمدة درجات)
     let si = 0;
@@ -127,13 +157,18 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
         cols.push({ h, w: 14, group: subject, accent, comp: { id: c.id, max: c.max_score, label: `${subject} · ${c.name}` } });
       }
     }
+    if (conductOn) {
+      cols.push({ h: verbal ? 'المواظبة' : 'المواظبة\n(من 100)', w: 18, group: 'المواظبة والسلوك', accent: 3, conduct: 'attendance' });
+      cols.push({ h: verbal ? 'السلوك' : 'السلوك\n(من 100)', w: 18, group: 'المواظبة والسلوك', accent: 3, conduct: 'behavior' });
+    }
     const last = cols.length;
     ws.columns = cols.map((c) => ({ width: c.w }));
 
     // 1) شريط العنوان
     ws.mergeCells(1, 1, 1, last);
     const t = ws.getCell(1, 1);
-    t.value = `${set?.school_name ?? ''} — ${branch.name} · ${g.name}`;
+    const noSubjects = withGrades && !gradeSubjects.some((x) => (compsOf.get(x.id) ?? []).length);
+    t.value = `${set?.school_name ?? ''} — ${branch.name} · ${g.name}${noSubjects ? ' — ⚠ لا مواد/أنواع تقييم مربوطة بهذا الصف في هذا الفرع (راجعي الإعدادات ← المواد والتقييم)' : ''}`;
     t.font = { name: 'Arial', bold: true, size: 15, color: { argb: XL.headText } };
     t.fill = fillOf(XL.head); t.alignment = { horizontal: 'right', vertical: 'middle', indent: 1 };
     ws.getRow(1).height = 36;
@@ -189,7 +224,14 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
         const row = ws.getRow(DATA_START + k);
         const base = [st.student_number ?? '', st.full_name, st.name_en ?? '', st.birth_date ?? '', st.nationality ?? '', st.id_type ?? '', st.national_id ?? '', st.gender === 'male' ? 'طالب' : st.gender === 'female' ? 'طالبة' : '', secName.get(st.section_id ?? '') ?? ''];
         base.forEach((v, i) => { if (v !== '') row.getCell(i + 1).value = v; });
+        const cd = conductOf.get(st.id);
         cols.forEach((c, i) => {
+          if (c.conduct) {
+            if (!cd) return;
+            const v = cd[c.conduct];
+            row.getCell(i + 1).value = verbal ? (conductLabel(c.conduct, v)?.ar ?? '') : Math.round(v * 100) / 100;
+            return;
+          }
           if (!c.comp) return;
           const r = resOf.get(`${st.id}|${c.comp.id}`);
           if (!r) return;
@@ -213,6 +255,18 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
       if (lv.length) { const c = listCol++; lv.forEach((n, i) => (lists.getCell(i + 1, c).value = n)); lists.getCell(lv.length + 1, c).value = 'غ'; vcol = `lists!$${lists.getColumn(c).letter}$1:$${lists.getColumn(c).letter}$${lv.length + 1}`; }
     }
     cols.forEach((c, i) => {
+      if (c.conduct) {
+        const L = ws.getColumn(i + 1).letter;
+        if (verbal) {
+          const cl = listCol++;
+          [conductLabel(c.conduct, 100)?.ar ?? '', conductLabel(c.conduct, 0)?.ar ?? ''].forEach((n, k) => (lists.getCell(k + 1, cl).value = n));
+          dv(ws).add(`${L}${D}:${L}${ROWS}`, { type: 'list', allowBlank: true, formulae: [`lists!$${lists.getColumn(cl).letter}$1:$${lists.getColumn(cl).letter}$2`], showErrorMessage: true, errorStyle: 'stop', errorTitle: 'التقييم', error: 'اختاري من القائمة' });
+        } else {
+          dv(ws).add(`${L}${D}:${L}${ROWS}`, { type: 'custom', allowBlank: true, formulae: [`OR(ISBLANK(${L}${D}),AND(ISNUMBER(${L}${D}),${L}${D}>=0,${L}${D}<=100))`], showErrorMessage: true, errorStyle: 'stop', errorTitle: 'قيمة غير صحيحة', error: 'اكتبي رقماً من 0 إلى 100' });
+        }
+        meta.addRow([name, i + 1, `conduct:${c.conduct}`, g.id, c.conduct === 'attendance' ? 'المواظبة' : 'السلوك']);
+        return;
+      }
       if (!c.comp) return;
       const L = ws.getColumn(i + 1).letter;
       if (verbal) {
@@ -244,6 +298,7 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
     ['6. لا تضيفي مواد أو صفوفاً من عندك: الأعمدة مولّدة من النظام لهذا الفرع. وإن تغيّرت المواد في النظام حمّلي الملف من جديد.', 'p'],
     ['الرفع', 'h'],
     ['• من النظام: الطلاب ← ملف الفرع. ستظهر معاينة كاملة قبل أي حفظ، ولا يُحفظ شيء إلا بعد تأكيدكِ.', 'p'],
+    ...(conductOn ? [['• عمودا «المواظبة» و«السلوك» (آخر كل ورقة) تقييم منفصل لا يدخل في المجموع: درجة من 100 للصفوف الرقمية، واختيار من القائمة للصفوف اللفظية. يُحفظ كرصد الأدمن، ولا يغيّر رصد المعلمات ما لم تختاري الاستبدال.', 'p']] as [string, 'p'][] : []),
     ...(withGrades ? [['• الدرجات الموجودة مسبقاً في النظام لا تُستبدل إلا إذا اخترتِ ذلك صراحة.', 'p']] as [string, 'p'][] : []),
   ];
   lines.forEach(([t, kind], i) => {

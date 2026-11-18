@@ -18,6 +18,8 @@ export interface ParsedRow {
   /** new = طالب جديد، update = موجود بنفس الرقم، adopt = برقم مؤقت يأخذ الحقيقي، matched = موجود بنفس الاسم وبلا رقم في الملف */
   kind: 'new' | 'update' | 'adopt' | 'matched'; studentId: string | null;
   results: ParsedResult[];
+  /** المواظبة والسلوك (0–100) — تُحفظ كرصد أدمن منفصل */
+  conduct?: { attendance: number | null; behavior: number | null; shown: { attendance: string; behavior: string } };
   errors: string[]; warnings: string[];
 }
 export interface ExistingResult { score: number | null; verbal_level_id: string | null; is_absent: boolean }
@@ -25,6 +27,7 @@ export interface BranchModel {
   branch: { id: string; name: string }; year: string; term: 1 | 2;
   rows: ParsedRow[]; newSections: { key: string; grade_id: string; name: string; label: string }[];
   existing: Map<string, ExistingResult>; // studentId|componentId
+  existingConduct: Map<string, { attendance: number; behavior: number }>; // رصد الأدمن/الملف الحالي لكل طالب
   compLabel: Map<string, string>; levelLabel: Map<string, string>;
 }
 
@@ -64,12 +67,18 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
   const dataStart = Number(cellText(head!.getCell(6).value)) || 2;
   const colsBySheet = new Map<string, { col: number; component_id: string; grade_id: string; label: string }[]>();
   const gradeBySheet = new Map<string, string>();
+  const condBySheet = new Map<string, { attendance?: number; behavior?: number }>();
   for (let r = 2; r <= meta.rowCount; r++) {
     const row = meta.getRow(r);
     const sheet = cellText(row.getCell(1).value);
     if (!sheet) continue;
     const comp = cellText(row.getCell(3).value);
     gradeBySheet.set(sheet, cellText(row.getCell(4).value));
+    if (comp.startsWith('conduct:')) {
+      const k = comp.slice(8) as 'attendance' | 'behavior';
+      condBySheet.set(sheet, { ...(condBySheet.get(sheet) ?? {}), [k]: Number(row.getCell(2).value) });
+      continue;
+    }
     if (comp) colsBySheet.set(sheet, [...(colsBySheet.get(sheet) ?? []), { col: Number(row.getCell(2).value), component_id: comp, grade_id: cellText(row.getCell(4).value), label: cellText(row.getCell(5).value) }]);
   }
   const gradeOfSheet = new Map<string, string>();
@@ -134,7 +143,8 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
       const row = ws.getRow(r);
       const g = (i: number) => cellText(row.getCell(i).value).trim();
       const name = g(2).replace(/\s+/g, ' ');
-      const hasRes = cols.some((c) => g(c.col) !== '');
+      const cc = condBySheet.get(ws.name);
+      const hasRes = cols.some((c) => g(c.col) !== '') || (!!cc?.attendance && g(cc.attendance) !== '') || (!!cc?.behavior && g(cc.behavior) !== '');
       const num0 = normalizeDigits(g(1)).trim();
       if (!name && !num0 && !hasRes) continue;
 
@@ -214,7 +224,30 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
         else if (n * 4 !== Math.trunc(n * 4)) errors.push(`«${c.label}»: الكسور المسموحة .25 و .5 و .75 فقط`);
         else item.results.push({ component_id: c.component_id, label: c.label, value: { score: n, verbal_level_id: null, absent: false }, shown: String(n) });
       }
-      if (item.results.length && !name) errors.push('درجات بلا اسم طالب');
+      if (cc && name) {
+        const posNeg = (kind: 'attendance' | 'behavior') => ({
+          pos: normAr(kind === 'attendance' ? 'انتظام في الحضور' : 'التزام بالسلوك الإيجابي'),
+          neg: normAr(kind === 'attendance' ? 'عدم الانتظام في الحضور' : 'الحاجة إلى تحسين السلوك'),
+        });
+        const val = (kind: 'attendance' | 'behavior', title: string): number | null => {
+          const col = cc[kind]; if (!col) return null;
+          const raw = g(col); if (raw === '') return null;
+          if (verbal) {
+            const k = normAr(raw); const pn = posNeg(kind);
+            if (k === pn.pos) return 100; if (k === pn.neg) return 0;
+            errors.push(`«${title}»: القيمة «${raw}» غير معروفة — اختاري من القائمة`); return null;
+          }
+          const t = normalizeDigits(raw).replace(/[٫,،]/g, '.').trim();
+          const n = Number(t);
+          if (!/^\d+(\.\d+)?$/.test(t) || Number.isNaN(n)) { errors.push(`«${title}»: القيمة «${raw}» ليست رقماً`); return null; }
+          if (n > 100) { errors.push(`«${title}»: ${n} أكبر من 100`); return null; }
+          if (n * 100 !== Math.trunc(n * 100)) { errors.push(`«${title}»: خانتان عشريتان كحد أقصى`); return null; }
+          return n;
+        };
+        const attendance = val('attendance', 'المواظبة'), behavior = val('behavior', 'السلوك');
+        if (attendance !== null || behavior !== null) item.conduct = { attendance, behavior, shown: { attendance: cc.attendance ? g(cc.attendance) : '', behavior: cc.behavior ? g(cc.behavior) : '' } };
+      }
+      if ((item.results.length || item.conduct) && !name) errors.push('درجات بلا اسم طالب');
       rows.push(item);
     }
   }
@@ -237,7 +270,20 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
       .in('student_id', ids.slice(i, i + 200)).eq('term', term).eq('academic_year', year);
     (data ?? []).forEach((d) => existing.set(`${d.student_id}|${d.component_id}`, { score: d.score === null ? null : Number(d.score), verbal_level_id: d.verbal_level_id as string | null, is_absent: !!d.is_absent }));
   }
-  return { branch: branch as { id: string; name: string }, year, term, rows, newSections: [...newSec.values()], existing, compLabel, levelLabel };
+  // رصد المواظبة والسلوك الحالي (كشوف الأدمن/الملف) لتصنيف الجديد/المطابق/المتعارض
+  const existingConduct = new Map<string, { attendance: number; behavior: number }>();
+  if (ids.length && [...condBySheet.values()].length) {
+    const secIds = sections.map((x) => x.id);
+    const { data: sh, error: she } = secIds.length ? await admin.from('conduct_sheets').select('id').is('teacher_id', null).in('section_id', secIds).eq('term', term).eq('academic_year', year) : { data: [], error: null };
+    if (!she && (sh ?? []).length) {
+      const sheetIds = (sh ?? []).map((x) => x.id as string);
+      for (let i = 0; i < ids.length; i += 200) {
+        const { data } = await admin.from('conduct_scores').select('student_id, attendance, behavior').in('sheet_id', sheetIds).in('student_id', ids.slice(i, i + 200));
+        (data ?? []).forEach((d) => existingConduct.set(d.student_id as string, { attendance: Number(d.attendance), behavior: Number(d.behavior) }));
+      }
+    }
+  }
+  return { branch: branch as { id: string; name: string }, year, term, rows, newSections: [...newSec.values()], existing, existingConduct, compLabel, levelLabel };
 }
 
 /** مقارنة قيمة الملف بما في النظام */
@@ -248,3 +294,12 @@ export function compareResult(model: BranchModel, row: ParsedRow, r: ParsedResul
   return same ? 'same' : 'conflict';
 }
 export const shownOld = (model: BranchModel, old: ExistingResult) => (old.is_absent ? 'غائب' : old.verbal_level_id ? model.levelLabel.get(old.verbal_level_id) ?? '—' : String(old.score ?? '—'));
+
+/** مقارنة المواظبة والسلوك بالرصد الحالي: new = لا رصد، same = مطابق، conflict = يختلف (يُستبدل بخيار الاستبدال فقط) */
+export function compareConduct(model: BranchModel, row: ParsedRow): 'new' | 'same' | 'conflict' | null {
+  if (!row.conduct) return null;
+  const old = row.studentId ? model.existingConduct.get(row.studentId) : undefined;
+  if (!old) return 'new';
+  const a = row.conduct.attendance, b = row.conduct.behavior;
+  return (a === null || a === old.attendance) && (b === null || b === old.behavior) ? 'same' : 'conflict';
+}
