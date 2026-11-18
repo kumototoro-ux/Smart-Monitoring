@@ -354,3 +354,25 @@ export async function toggleBranchSubject(branchId: string, gradeSubjectId: stri
     else must(await supabase.from('branch_subject_exclusions').upsert({ branch_id: b, grade_subject_id: g }, { ignoreDuplicates: true }));
   }, { revalidate: ['/settings'], log: () => ({ branchId, gradeSubjectId, enabled }) });
 }
+
+/** حفظ مصفوفة المواد × الفروع دفعة واحدة: enabled=true يعيد المادة للفرع، false يستثنيها */
+export async function setBranchSubjectsBulk(changes: { branch_id: string; grade_subject_id: string; enabled: boolean }[]) {
+  return run('subject.branch_bulk', ['admin'], async ({ supabase }) => {
+    const list = parse(z.array(z.object({ branch_id: uuid, grade_subject_id: uuid, enabled: z.boolean() })).min(1, 'لا تغييرات').max(3000), changes);
+    // يُسمح فقط للفروع التي فتحت صف المادة
+    const ids = [...new Set(list.map((c) => c.grade_subject_id))];
+    const gsRows = [] as { id: string; grade_id: string }[];
+    for (let i = 0; i < ids.length; i += 200) gsRows.push(...(must(await supabase.from('grade_subjects').select('id, grade_id').in('id', ids.slice(i, i + 200))) as { id: string; grade_id: string }[]));
+    const gradeOf = new Map(gsRows.map((x) => [x.id, x.grade_id]));
+    const bg = must(await supabase.from('branch_grades').select('branch_id, grade_id')) as { branch_id: string; grade_id: string }[];
+    const open = new Set(bg.map((x) => `${x.branch_id}|${x.grade_id}`));
+    const valid = list.filter((c) => gradeOf.has(c.grade_subject_id) && open.has(`${c.branch_id}|${gradeOf.get(c.grade_subject_id)}`));
+    const off = valid.filter((c) => !c.enabled).map((c) => ({ branch_id: c.branch_id, grade_subject_id: c.grade_subject_id }));
+    for (let i = 0; i < off.length; i += 500) must(await supabase.from('branch_subject_exclusions').upsert(off.slice(i, i + 500), { ignoreDuplicates: true }));
+    const on = new Map<string, string[]>();
+    valid.filter((c) => c.enabled).forEach((c) => on.set(c.branch_id, [...(on.get(c.branch_id) ?? []), c.grade_subject_id]));
+    for (const [b, gsIds] of on) for (let i = 0; i < gsIds.length; i += 200)
+      must(await supabase.from('branch_subject_exclusions').delete().eq('branch_id', b).in('grade_subject_id', gsIds.slice(i, i + 200)));
+    return { applied: valid.length, skipped: list.length - valid.length, enabled: valid.filter((c) => c.enabled).length, disabled: off.length };
+  }, { revalidate: ['/settings'], log: (r) => ({ ...r }) });
+}
