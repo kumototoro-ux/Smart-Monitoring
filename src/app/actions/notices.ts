@@ -186,6 +186,15 @@ export async function setClassTeacher(sectionId: string, teacherId: string | nul
 }
 
 // ------------------------------------------------------------------ الإصدار
+/** يضيف متوسط المواظبة والسلوك (إن كانت الميزة مفعّلة ومشغّلة 0020) دون أن يُفشل الإشعار إن لم تتوفر */
+async function attachConduct(supabase: import('@supabase/supabase-js').SupabaseClient, list: NoticeData[], term: 1 | 2) {
+  if (!list.length) return;
+  const { data, error } = await supabase.rpc('notice_conduct', { p_students: list.map((d) => d.student.id), p_term: term });
+  if (error || !data) return;
+  const map = data as Record<string, { attendance: number | null; behavior: number | null; n: number }>;
+  for (const d of list) d.conduct = map[d.student.id] ?? null;
+}
+
 export interface NoticeBundle { data: NoticeData; render: NoticeRender }
 
 export async function getNoticeRoster(sectionId: string, term: 1 | 2) {
@@ -202,6 +211,7 @@ export async function getNoticeRoster(sectionId: string, term: 1 | 2) {
 export async function loadNotice(studentId: string, term: 1 | 2, withRender = true) {
   return run('notice.load', ['admin', 'supervisor', 'teacher'], async ({ supabase }): Promise<{ data: NoticeData; render: NoticeRender | null }> => {
     const data = must(await supabase.rpc('notice_student', { p_student: parse(uuid, studentId), p_term: parse(z.union([z.literal(1), z.literal(2)]), term) })) as NoticeData;
+    await attachConduct(supabase, [data], term);
     return { data, render: withRender ? await buildRender(supabase, data.branch.id) : null };
   }, { context: { student: studentId, term } });
 }
@@ -210,6 +220,7 @@ export async function loadNotice(studentId: string, term: 1 | 2, withRender = tr
 export async function loadNoticeSection(sectionId: string, term: 1 | 2) {
   return run('notice.section', ['admin', 'supervisor'], async ({ supabase }) => {
     const list = must(await supabase.rpc('notice_section', { p_section: parse(uuid, sectionId), p_term: parse(z.union([z.literal(1), z.literal(2)]), term) })) as NoticeData[];
+    await attachConduct(supabase, list, term);
     const first = list[0];
     return { list, render: first ? await buildRender(supabase, first.branch.id) : null };
   }, { context: { section: sectionId, term } });

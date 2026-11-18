@@ -59,7 +59,7 @@ const OP: Record<string, string> = {
 const PAGES: Record<string, string> = {
   '/': 'الرئيسية', '/grading': 'رصد الدرجات', '/records': 'سجلات الرصد', '/requests': 'الطلبات', '/account': 'حسابي',
   '/results': 'نتائج الرصد', '/accounts': 'الحسابات', '/assignments': 'الإسناد', '/students': 'الطلاب', '/logs': 'سجل التتبع', '/follow-up': 'متابعة الرصد', '/notices': 'إشعارات الدرجات', '/notices/log': 'سجل إصدار الإشعارات', '/excluded': 'الطلاب المستبعدون', '/students/duplicates': 'دمج الأسماء المكررة', '/students/import-branch': 'ملف الفرع (طلاب ودرجات)', '/settings/notices': 'إعدادات الإشعارات',
-  '/settings': 'الإعدادات العامة', '/settings/branches': 'الفروع', '/settings/structure': 'الصفوف والشعب', '/settings/subjects': 'المواد والتقييم', '/settings/years': 'الأعوام الدراسية',
+  '/settings': 'الإعدادات العامة', '/settings/branches': 'الفروع', '/settings/structure': 'الصفوف والشعب', '/settings/subjects': 'المواد والتقييم', '/settings/years': 'الأعوام الدراسية', '/conduct': 'المواظبة والسلوك',
   '/api/export': 'تصدير إكسل', '/reviews': 'مراجعة الطلاب',
 };
 
@@ -67,6 +67,7 @@ const PAGES: Record<string, string> = {
 const MIGRATION_OF: [RegExp, string][] = [
   [/year_overview/i, '0018_year_overview.sql'],
   [/year_move/i, '0019_year_move_and_hardening.sql'],
+  [/conduct_(sheets|scores|load|save)|notice_conduct/i, '0020_conduct.sql'],
   [/import_batches|branch_import_(commit|undo)/i, '0017_branch_import_commit.sql'],
   [/student_merge|student_merges|student_result_counts/i, '0015_merge_duplicate_students.sql'],
   [/notice_issues|notice_log_issue|notice_issue_summary|excluded_students/i, '0014_notice_issue_log_excluded.sql'],

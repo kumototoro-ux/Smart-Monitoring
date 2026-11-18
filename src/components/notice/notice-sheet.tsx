@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { capture, makePdf, saveBlob, shareFile, lastShareError, logNoticeFailure, type Captured } from './notice-export';
 import {
-  NOTICE_H, NOTICE_W, legendFor, fmtNum, levelEn, noticeFileName, principalTitle, rate, summarize, titles,
+  NOTICE_H, NOTICE_W, conductLabel, legendFor, fmtNum, levelEn, noticeFileName, principalTitle, rate, summarize, titles,
   type NoticeData, type NoticeRender,
 } from '@/lib/notice';
 
@@ -262,13 +262,25 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
               )}
             </div>
             {render.showStamp && <div style={{ display: 'grid', placeItems: 'center' }}><Img src={brand.stamp} h={122} w={126} /></div>}
-            {sum ? (
+            {(sum || data.conduct) ? (
               <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: 11.5 }}>
                 <colgroup><col style={{ width: '30%' }} /><col style={{ width: '20%' }} /><col style={{ width: '20%' }} /><col style={{ width: '30%' }} /></colgroup>
                 <tbody>
-                  <tr><td style={th()}>المجموع</td><td style={td({ fontWeight: 700, fontSize: 13 })} colSpan={2} dir="ltr">{fmtNum(sum.total)} / {fmtNum(sum.max)}</td><td style={th()} dir="ltr">Total</td></tr>
-                  <tr><td style={th()}>المعدل</td><td style={td({ fontWeight: 700, fontSize: 13 })} colSpan={2} dir="ltr">{sum.avg == null ? '—' : `${fmtNum(sum.avg)}%`}</td><td style={th()} dir="ltr">Average</td></tr>
-                  <tr><td style={th()}>التقدير العام</td><td style={td({ fontWeight: 700, fontSize: 12.5 })}>{sum.rating?.ar ?? '—'}</td><td style={td({ fontWeight: 700 })} dir="ltr">{sum.rating?.en ?? '—'}</td><td style={th()} dir="ltr">General Grade</td></tr>
+                  {sum && <>
+                    <tr><td style={th()}>المجموع</td><td style={td({ fontWeight: 700, fontSize: 13 })} colSpan={2} dir="ltr">{fmtNum(sum.total)} / {fmtNum(sum.max)}</td><td style={th()} dir="ltr">Total</td></tr>
+                    <tr><td style={th()}>المعدل</td><td style={td({ fontWeight: 700, fontSize: 13 })} colSpan={2} dir="ltr">{sum.avg == null ? '—' : `${fmtNum(sum.avg)}%`}</td><td style={th()} dir="ltr">Average</td></tr>
+                    <tr><td style={th()}>التقدير العام</td><td style={td({ fontWeight: 700, fontSize: 12.5 })}>{sum.rating?.ar ?? '—'}</td><td style={td({ fontWeight: 700 })} dir="ltr">{sum.rating?.en ?? '—'}</td><td style={th()} dir="ltr">General Grade</td></tr>
+                  </>}
+                  {data.conduct && (['attendance', 'behavior'] as const).map((k) => {
+                    const val = data.conduct![k];
+                    const lab = k === 'attendance' ? { ar: 'المواظبة', en: 'Attendance' } : { ar: 'السلوك', en: 'Behavior' };
+                    const verbalLab = conductLabel(k, val);
+                    return numeric ? (
+                      <tr key={k}><td style={th()}>{lab.ar}</td><td style={td({ fontWeight: 700, fontSize: 13 })} colSpan={2} dir="ltr">{val == null ? '—' : `${fmtNum(val)} / 100`}</td><td style={th()} dir="ltr">{lab.en}</td></tr>
+                    ) : (
+                      <tr key={k}><td style={th()}>{lab.ar}</td><td style={td({ fontWeight: 700, fontSize: 11 })}>{verbalLab?.ar ?? '—'}</td><td style={td({ fontWeight: 700, fontSize: 10 })} dir="ltr">{verbalLab?.en ?? '—'}</td><td style={th()} dir="ltr">{lab.en}</td></tr>
+                    );
+                  })}
                 </tbody>
               </table>
             ) : <div />}

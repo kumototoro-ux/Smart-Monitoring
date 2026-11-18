@@ -57,7 +57,7 @@ export function RequestsClient({ role, status, rows }: { role: Role; status: str
       ) : (
         <div className="space-y-3">
           {rows.map((r) => {
-            const T = TYPE[r.type];
+            const T = r.type === 'other' && r.payload?.kind === 'conduct_unlock' ? { label: 'فتح كشف المواظبة والسلوك', icon: Unlock } : TYPE[r.type];
             const sheet = [r.grade_subject?.subject?.name, r.section ? `${r.section.grade?.name ?? ''} ${secLabel(r.section.name)}` : null].filter(Boolean).join(' · ');
             return (
               <div key={r.id} className="card p-4 sm:p-5">
@@ -104,8 +104,8 @@ export function RequestsClient({ role, status, rows }: { role: Role; status: str
       )}
 
       <Dialog open={!!review} onClose={() => setReview(null)} title={review?.approve ? 'قبول الطلب' : 'رفض الطلب'}
-        description={review && <>{TYPE[review.r.type].label} — {review.r.requester?.full_name}
-          {review.approve && review.r.type === 'unlock_sheet' && <><br />سيُفتح الكشف للمعلمة للتعديل لمدة محددة في الإعدادات.</>}
+        description={review && <>{review.r.type === 'other' && review.r.payload?.kind === 'conduct_unlock' ? 'فتح كشف المواظبة والسلوك' : TYPE[review.r.type].label} — {review.r.requester?.full_name}
+          {review.approve && (review.r.type === 'unlock_sheet' || review.r.payload?.kind === 'conduct_unlock') && <><br />سيُفتح الكشف للمعلمة للتعديل لمدة محددة في الإعدادات.</>}
           {review.approve && review.r.type === 'add_student' && <><br />سيُضاف الطالب للشعبة مباشرة.</>}
           {review.approve && review.r.type === 'remove_student' && <><br />سيتم إيقاف الطالب من الشعبة.</>}</>}
         footer={<>

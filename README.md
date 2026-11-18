@@ -32,6 +32,7 @@
    17. `supabase/migrations/0017_branch_import_commit.sql`: حفظ «ملف الفرع» (طلاب ودرجات) دفعة واحدة مع حماية الدرجات الموجودة والتراجع.
    18. `supabase/migrations/0018_year_overview.sql`: صفحة «الأعوام الدراسية» (قراءة فقط) مع نسخ احتياطية إكسل لكل فرع وفصل.
    19. `supabase/migrations/0019_year_move_and_hardening.sql`: نقل بيانات عام إلى عام بأمان (الأعوام الدراسية)، وإغلاق تنفيذ دوال النظام عن الزائر غير المسجّل.
+   20. `supabase/migrations/0020_conduct.sql`: كشف المواظبة والسلوك لكل معلمة (تقييم منفصل، متوسطه في الإشعار). يُفعَّل من الإعدادات العامة.
 3. من **Authentication → Sign In / Providers**:
    - أوقف **Allow new users to sign up**، لأن الحسابات تُنشأ من داخل النظام فقط.
    - أوقف **Confirm email**.
