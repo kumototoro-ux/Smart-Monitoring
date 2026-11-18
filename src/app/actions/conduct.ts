@@ -65,6 +65,14 @@ export async function getConductStats() {
   return run('conduct.stats', ['admin'], async ({ supabase }) => must(await supabase.rpc('conduct_admin_stats')) as ConductBranchStat[]);
 }
 
+export async function setGradeConduct(gradeId: string, applies: boolean) {
+  return run('conduct.grade_toggle', ['admin'], async ({ supabase }) => {
+    const g = z.string().uuid().safeParse(gradeId); if (!g.success) throw new ActionError('صف غير صحيح');
+    must(await supabase.rpc('set_grade_conduct', { p_grade: g.data, p_applies: !!applies }));
+    return { ok: true };
+  }, { revalidate: ['/settings', '/conduct'] });
+}
+
 const branchArg = z.string().uuid().nullable();
 
 /** رصد الأدمن للكل: الدرجة الكاملة لمن رُصدت لهم درجات في الحد الأدنى من المواد (لا يمس رصد المعلمات) */

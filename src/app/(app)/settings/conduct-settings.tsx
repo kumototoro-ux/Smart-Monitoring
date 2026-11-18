@@ -1,12 +1,12 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { HeartHandshake, Sparkles, Eraser } from 'lucide-react';
-import { saveConductSettings, getConductStats, conductFillAll, conductClearFill, type ConductBranchStat } from '@/app/actions/conduct';
+import { saveConductSettings, setGradeConduct, getConductStats, conductFillAll, conductClearFill, type ConductBranchStat } from '@/app/actions/conduct';
 import { useAction } from '@/lib/use-action';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/field';
 
-export function ConductSettings({ enabled, min, migrated }: { enabled: boolean; min: number; migrated: boolean }) {
+export function ConductSettings({ enabled, min, migrated, grades }: { enabled: boolean; min: number; migrated: boolean; grades: { id: string; name: string; applies: boolean }[] | null }) {
   const { exec, busy } = useAction();
   const [on, setOn] = useState(enabled);
   const [n, setN] = useState(String(min));
@@ -29,6 +29,22 @@ export function ConductSettings({ enabled, min, migrated }: { enabled: boolean; 
             <input type="number" min={1} max={30} value={n} onChange={(e) => setN(e.target.value)} className="num h-11 w-full rounded-xl border border-line bg-white px-3" />
           </label>
           <Button loading={busy} onClick={() => exec(() => saveConductSettings(on, Number(n)), { success: 'تم حفظ إعدادات المواظبة والسلوك', refresh: false }).then(() => load())}>حفظ</Button>
+
+          {grades && (
+            <div className="space-y-2 border-t border-line pt-4">
+              <h3 className="text-[14px] font-semibold">الصفوف التي تشملها المواظبة والسلوك</h3>
+              <p className="text-[13px] text-ink-muted">الصف المُطفأ لا يظهر في كشف المعلمات ولا في رصد الكل ولا في ملف الفرع ولا في الإشعار. (التمهيدي مُطفأ افتراضيًا)</p>
+              <div className="flex flex-wrap gap-2">
+                {grades.map((g) => (
+                  <label key={g.id} className="flex cursor-pointer items-center gap-2 rounded-full border border-line px-3 py-1.5 text-[13px]">
+                    <input type="checkbox" defaultChecked={g.applies} disabled={busy} className="h-4 w-4 accent-black"
+                      onChange={(e) => { void exec(() => setGradeConduct(g.id, e.target.checked), { success: e.target.checked ? `شُمل ${g.name}` : `استُثني ${g.name}`, refresh: false }).then(() => load()); }} />
+                    {g.name}
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {enabled && (
             <div className="space-y-3 border-t border-line pt-4">

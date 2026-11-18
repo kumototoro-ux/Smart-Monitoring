@@ -35,6 +35,7 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
   const gradeIds = (bg ?? []).map((r) => r.grade_id as string);
   // المواظبة والسلوك: أعمدة إضافية تظهر فقط إن كانت الميزة مفعّلة (والتحقق صامت إن لم يُشغَّل 0020)
   const conductOn = withGrades && !!(await supabase.from('settings').select('conduct_enabled').eq('id', 1).single()).data?.conduct_enabled;
+  const noConduct = new Set(conductOn ? ((await supabase.from('grades').select('id, conduct_applies')).data ?? []).filter((x) => x.conduct_applies === false).map((x) => x.id as string) : []);
 
   const [grades, gsAll, excl, secs] = await Promise.all([
     supabase.from('grades').select('id, name, sort_order, assessment_mode').in('id', gradeIds.length ? gradeIds : ['00000000-0000-0000-0000-000000000000']).order('sort_order'),
@@ -157,7 +158,8 @@ export async function buildBranchTemplate(supabase: SupabaseClient, branchId: st
         cols.push({ h, w: 14, group: subject, accent, comp: { id: c.id, max: c.max_score, label: `${subject} · ${c.name}` } });
       }
     }
-    if (conductOn) {
+    const gConduct = conductOn && !noConduct.has(g.id as string);
+    if (gConduct) {
       cols.push({ h: verbal ? 'المواظبة' : 'المواظبة\n(من 100)', w: 18, group: 'المواظبة والسلوك', accent: 3, conduct: 'attendance' });
       cols.push({ h: verbal ? 'السلوك' : 'السلوك\n(من 100)', w: 18, group: 'المواظبة والسلوك', accent: 3, conduct: 'behavior' });
     }
