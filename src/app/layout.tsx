@@ -8,6 +8,7 @@ export const metadata: Metadata = {
   title: { default: 'مِرقاة للرصد الذكي', template: '%s · مِرقاة' },
   description: 'نظام رصد الدرجات النهائية',
   robots: { index: false, follow: false },
+  other: { google: 'notranslate' }, // الصفحة عربية أصلاً: منع الترجمة التلقائية التي تكسر الواجهة
 };
 
 export const viewport: Viewport = {
@@ -19,7 +20,7 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ar" dir="rtl">
+    <html lang="ar" dir="rtl" translate="no" className="notranslate">
       <body className="font-sans">
         <ToastProvider>
           <ConfirmProvider>{children}</ConfirmProvider>
