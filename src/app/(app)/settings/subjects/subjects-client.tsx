@@ -11,6 +11,7 @@ import { Field, Input, Select, Switch } from '@/components/ui/field';
 import { Badge } from '@/components/ui/badge';
 import { EmptyState } from '@/components/ui/empty';
 import { cn, normalizeDigits } from '@/lib/utils';
+import { MatrixTab } from './matrix-tab';
 import type { Branch, Component, Grade, GradeSubject, Stage, Subject } from '@/lib/types';
 
 interface Props {
@@ -21,16 +22,16 @@ interface Props {
 }
 
 export function SubjectsClient(p: Props) {
-  const [tab, setTab] = useState<'link' | 'list' | 'branch'>('link');
+  const [tab, setTab] = useState<'link' | 'list' | 'branch' | 'matrix'>('matrix');
   return (
     <>
       <div className="mb-4 inline-flex rounded-full bg-white p-1 shadow-soft">
-        {([['link', 'المواد في الصفوف'], ['branch', 'حسب الفرع'], ['list', 'قائمة المواد']] as const).map(([k, l]) => (
+        {([['matrix', 'المصفوفة (الأسرع)'], ['link', 'المواد في الصفوف'], ['branch', 'حسب الفرع'], ['list', 'قائمة المواد']] as const).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)}
             className={cn('rounded-full px-4 py-2 text-[13.5px] transition', tab === k ? 'bg-black text-white' : 'text-ink-soft')}>{l}</button>
         ))}
       </div>
-      {tab === 'link' ? <LinkTab {...p} /> : tab === 'branch' ? <BranchTab {...p} /> : <ListTab {...p} />}
+      {tab === 'matrix' ? <MatrixTab {...p} /> : tab === 'link' ? <LinkTab {...p} /> : tab === 'branch' ? <BranchTab {...p} /> : <ListTab {...p} />}
     </>
   );
 }
