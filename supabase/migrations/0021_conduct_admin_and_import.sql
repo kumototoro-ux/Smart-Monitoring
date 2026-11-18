@@ -186,7 +186,7 @@ begin
   create temp table _cs on commit drop as
   select distinct section_id, null::uuid as sheet_id, false as made from _cd;
   update _cs c set sheet_id = (select x.id from conduct_sheets x where x.section_id = c.section_id and x.teacher_id is null
-                                  and x.term = p_term and x.academic_year = v_set.academic_year);
+                                  and x.term = p_term and x.academic_year = v_set.academic_year) where true;
   update _cs set made = (sheet_id is null) where true; -- Supabase (pg_safeupdate) يرفض UPDATE بلا WHERE
   insert into conduct_sheets (section_id, teacher_id, term, academic_year, submitted_by, edit_until)
     select section_id, null::uuid, p_term, v_set.academic_year, auth.uid(), v_now from _cs where sheet_id is null;
