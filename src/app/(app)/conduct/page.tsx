@@ -12,7 +12,9 @@ export default async function ConductPage() {
   const settings = await getSettings();
   const { data: flag, error } = await supabase.from('settings').select('conduct_enabled').eq('id', 1).single();
   const sheets = await getTeacherSheets(supabase, profile.id, settings.current_term, settings.academic_year);
-  const sections = [...new Map(sheets.map((s) => [s.section_id, { id: s.section_id, name: s.section_name, grade: s.grade_name, order: s.grade_order, mode: s.mode }])).values()]
+  const gr = await supabase.from('grades').select('name, conduct_applies');
+  const off = new Set(gr.error ? [] : (gr.data ?? []).filter((g) => g.conduct_applies === false).map((g) => g.name as string));
+  const sections = [...new Map(sheets.filter((s) => !off.has(s.grade_name)).map((s) => [s.section_id, { id: s.section_id, name: s.section_name, grade: s.grade_name, order: s.grade_order, mode: s.mode }])).values()]
     .sort((a, b) => a.order - b.order || a.name.localeCompare(b.name, 'ar'));
   return (
     <div>

@@ -25,6 +25,7 @@ export async function missingMigrations(supabase: SupabaseClient): Promise<strin
     ['0018_year_overview.sql', () => supabase.rpc('year_overview')],
     ['0019_year_move_and_hardening.sql', () => supabase.rpc('year_move', { p_from: '', p_to: '', p_make_current: false })],
     ['0020_conduct.sql', () => supabase.from('conduct_sheets').select('id').limit(1)],
+    ['0022_conduct_grade_scope.sql', () => supabase.from('grades').select('conduct_applies').limit(1)],
     ['0021_conduct_admin_and_import.sql', () => supabase.rpc('conduct_admin_stats')],
     ['0014_notice_issue_log_excluded.sql', () => supabase.rpc('excluded_students')],
   ];

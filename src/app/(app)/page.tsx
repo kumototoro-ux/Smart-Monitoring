@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ClipboardCheck, GraduationCap, Inbox, Users, ArrowLeft, Lock, CheckCircle2, Clock, Wrench, UserCheck, DatabaseZap } from 'lucide-react';
+import { HeartHandshake, ClipboardCheck, GraduationCap, Inbox, Users, ArrowLeft, Lock, CheckCircle2, Clock, Wrench, UserCheck, DatabaseZap } from 'lucide-react';
 import { diagnose } from '@/lib/diagnose';
 import { missingMigrations } from '@/lib/schema-check';
 import { requireRole } from '@/lib/auth';
@@ -20,6 +20,7 @@ export default async function Dashboard() {
 
   if (s.profile.role === 'teacher') {
     const sheets = await getTeacherSheets(s.supabase, s.profile.id, settings.current_term, settings.academic_year);
+    const conductOn = !!(await s.supabase.from('settings').select('conduct_enabled').eq('id', 1).single()).data?.conduct_enabled;
     return (
       <div className="space-y-5">
         <h1 className="text-[22px] font-semibold lg:hidden">أهلاً، {firstName(s.profile.full_name)}</h1>
@@ -28,6 +29,14 @@ export default async function Dashboard() {
           <StatTile tone="lilac" icon={<GraduationCap className="h-5 w-5" />} label="طلابي" value={stats?.students ?? 0} unit="طالب" />
           <StatTile tone="peri" icon={<Inbox className="h-5 w-5" />} label="طلبات قيد المراجعة" value={stats?.pending_requests ?? 0} />
         </div>
+
+        {conductOn && (
+          <Link href="/conduct" className="card flex items-center gap-3 p-4 transition hover:opacity-80">
+            <HeartHandshake className="h-5 w-5 text-ink-soft" />
+            <div className="min-w-0 flex-1"><p className="text-[14.5px] font-medium">المواظبة والسلوك</p><p className="text-[12.5px] text-ink-muted">قيّمي طالباتك في شعبك، تقييم منفصل لا يدخل في المجموع</p></div>
+            <ArrowLeft className="h-4 w-4 text-ink-faint" />
+          </Link>
+        )}
 
         <section className="card p-5 sm:p-6">
           <div className="mb-4 flex items-center justify-between">
