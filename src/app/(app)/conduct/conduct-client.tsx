@@ -75,7 +75,7 @@ export function ConductClient({ sections, enabled, migrated }: { sections: Sec[]
   const save = () => exec(() => saveConduct(m.section_id, rows.map((r) => ({ student_id: r.id, attendance: r.att, behavior: r.beh }))), {
     confirm: { title: 'حفظ المواظبة والسلوك', message: <>سيُحفظ كشف <b>{m.grade_name}</b> — <b>{secLabel(m.section_name)}</b> ({done} من {rows.length} طالب مكتمل الرصد).</>, confirmText: 'حفظ' },
     success: 'تم حفظ المواظبة والسلوك', refresh: false,
-  }).then(async (r) => { if (r?.ok) await open(); });
+  }).then((r) => { if (r?.ok) { setSheet(null); setRows([]); setDirty(false); setSecId(''); } });
 
   const askUnlock = () => exec(() => requestConductUnlock(m.section_id, ''), {
     confirm: { title: 'طلب فتح الكشف', message: 'سيصل طلبك إلى المشرفة لفتح الكشف للتعديل.', confirmText: 'إرسال الطلب' },
