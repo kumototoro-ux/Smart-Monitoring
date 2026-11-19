@@ -99,7 +99,7 @@ const entrySchema = z.array(z.object({
 })).min(1).max(20000);
 
 export async function saveSheet(sectionId: string, gradeSubjectId: string, term: 1 | 2, entries: z.input<typeof entrySchema>) {
-  return run('sheet.save', ['teacher', 'admin'], async ({ supabase }) => {
+  return run('sheet.save', ['teacher', 'admin', 'supervisor'], async ({ supabase }) => {
     const e = parseOr(entrySchema, entries);
     const { data, error } = await supabase.rpc('save_sheet', {
       p_section: parseOr(uuid, sectionId), p_grade_subject: parseOr(uuid, gradeSubjectId), p_term: term, p_entries: e,

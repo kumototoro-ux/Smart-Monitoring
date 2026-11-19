@@ -35,6 +35,7 @@
    20. `supabase/migrations/0020_conduct.sql`: كشف المواظبة والسلوك لكل معلمة (تقييم منفصل، متوسطه في الإشعار). يُفعَّل من الإعدادات العامة.
    21. `supabase/migrations/0021_conduct_admin_and_import.sql`: «رصد الكل» للأدمن للمواظبة والسلوك + إضافتهما إلى ملف الفرع (معاينة/نسخة احتياطية/استيراد/تراجع).
    22. `supabase/migrations/0022_conduct_grade_scope.sql`: تحديد الصفوف التي تشملها المواظبة والسلوك (التمهيدي مستثنى افتراضيًا).
+   23. `supabase/migrations/0023_supervisor_edit_sheets.sql`: تعديل المشرفة لكشوف فرعها (الترم الحالي فقط، وتُسجَّل باسمها).
 3. من **Authentication → Sign In / Providers**:
    - أوقف **Allow new users to sign up**، لأن الحسابات تُنشأ من داخل النظام فقط.
    - أوقف **Confirm email**.
