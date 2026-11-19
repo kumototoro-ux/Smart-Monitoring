@@ -4,16 +4,30 @@ export const cn = (...v: ClassValue[]) => clsx(v);
 
 // المنطقة الزمنية ثابتة: الخادم (UTC) والمتصفح يرسمان التاريخ بنفس الشكل، وإلا ظهر خطأ React #418
 export const APP_TZ = 'Asia/Riyadh';
-const ar = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', {
-  year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: APP_TZ,
-});
-const arDate = new Intl.DateTimeFormat('ar-SA-u-ca-gregory-nu-latn', { year: 'numeric', month: 'short', day: 'numeric', timeZone: APP_TZ });
+// تنسيق يدوي ثابت (السعودية UTC+3 بلا توقيت صيفي): نتيجته واحدة في الخادم وكل المتصفحات.
+// استعمال Intl مع ar-SA يختلف بين إصدارات ICU (مسافة قبل ص/م مثلاً) فيسبب خطأ React #418.
+const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر'];
+const SA_OFFSET_MS = 3 * 3600 * 1000;
+const parts = (d: Date) => {
+  const x = new Date(d.getTime() + SA_OFFSET_MS);
+  return { y: x.getUTCFullYear(), m: x.getUTCMonth(), d: x.getUTCDate(), h: x.getUTCHours(), n: x.getUTCMinutes() };
+};
+const two = (n: number) => String(n).padStart(2, '0');
 
 /** رقم مؤقت أنشأه النظام لطالب ليس له رقم أكاديمي (مثل TMP-000123) */
 export const isTempNumber = (n?: string | null) => !!n && /^TMP-\d+$/.test(n);
 
-export const fmtDateTime = (d?: string | null) => (d ? ar.format(new Date(d)) : '—');
-export const fmtDate = (d?: string | null) => (d ? arDate.format(new Date(d)) : '—');
+export const fmtDate = (d?: string | null) => {
+  if (!d) return '—';
+  const t = new Date(d); if (Number.isNaN(t.getTime())) return '—';
+  const p = parts(t); return `${p.d} ${MONTHS[p.m]} ${p.y}`;
+};
+export const fmtDateTime = (d?: string | null) => {
+  if (!d) return '—';
+  const t = new Date(d); if (Number.isNaN(t.getTime())) return '—';
+  const p = parts(t); const h12 = p.h % 12 === 0 ? 12 : p.h % 12;
+  return `${p.d} ${MONTHS[p.m]} ${p.y}، ${two(h12)}:${two(p.n)} ${p.h < 12 ? 'ص' : 'م'}`;
+};
 
 /** الوقت المتبقي بصيغة مختصرة */
 export function timeLeft(until: string | null | undefined) {
