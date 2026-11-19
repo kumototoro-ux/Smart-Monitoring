@@ -55,17 +55,17 @@ function cellState(cell: Cell | undefined, max: number | null, verbal: boolean):
 /** مسودة معلمة يفتحها الأدمن للمراجعة والاعتماد نيابةً عنها */
 export interface DraftPreload { values: DraftValues; teacherId: string; teacherName: string; updatedAt: string; deviceLabel: string | null }
 
-export function SheetEditor({ initial, scope, role, onBack, preload }: {
-  initial: SheetData; scope: string[] | 'all'; role: 'teacher' | 'admin' | 'supervisor'; onBack: () => void; preload?: DraftPreload;
+export function SheetEditor({ initial, scope, role, onBack, preload, readOnly }: {
+  initial: SheetData; scope: string[] | 'all'; role: 'teacher' | 'admin' | 'supervisor'; onBack: () => void; preload?: DraftPreload; readOnly?: boolean;
 }) {
   const [data, setData] = useState(initial);
   const verbal = data.meta.mode === 'verbal';
   const comps = useMemo(() => data.components.filter((c) => scope === 'all' || scope.includes(c.id)), [data.components, scope]);
   const draftKey = `mirqat:draft:${data.meta.viewer_id}:${data.meta.section_id}:${data.meta.grade_subject_id}:${data.meta.term}`;
   const dkey = { teacher_id: data.meta.viewer_id, section_id: data.meta.section_id, grade_subject_id: data.meta.grade_subject_id, term: data.meta.term as 1 | 2 };
-  const canWriteRole = role === 'teacher' || role === 'admin';
+  const canWriteRole = !readOnly;
   const closed = role === 'teacher' && (!data.meta.grading_open);
-  const editable = (c: SheetData['components'][number]) => canWriteRole && !closed && (role === 'admin' || c.editable);
+  const editable = (c: SheetData['components'][number]) => canWriteRole && !closed && (role === 'admin' || role === 'supervisor' || c.editable);
   const editableComps = comps.filter(editable);
   const lockedComps = comps.filter((c) => !c.editable && c.submitted_at);
 
@@ -526,8 +526,8 @@ export function SheetEditor({ initial, scope, role, onBack, preload }: {
             انتهت مدة تعديل {lockedComps.map((c) => c.name).join('، ')}.
           </Banner>
         )}
-        {phase === 'entry' && role === 'supervisor' && (
-          <Banner tone="neutral" icon={<Info className="h-4 w-4" />}>عرض فقط — المشرفة لا تعدّل الدرجات.</Banner>
+        {phase === 'entry' && readOnly && (
+          <Banner tone="neutral" icon={<Info className="h-4 w-4" />}>عرض فقط.</Banner>
         )}
         {phase === 'entry' && role !== 'supervisor' && data.poolCount > 0 && data.students.length > 0 && (
           <Banner tone="info" icon={<UserPlus className="h-4 w-4" />}

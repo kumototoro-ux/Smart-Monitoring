@@ -45,7 +45,7 @@ export function ViewSheetButton({ sectionId, gradeSubjectId, label = 'عرض ا�
         <div className="fixed inset-0 z-[60] overflow-y-auto bg-surface" dir="rtl">
           <div className="mx-auto max-w-6xl p-3 sm:p-6">
             <p className="mb-3 rounded-card bg-peri-soft px-4 py-2.5 text-[13px] text-peri-deep">عرض للاطلاع فقط — يظهر ما حُفظ في الموقع. الدرجات التي لم تُحفظ بعد لا تصل للموقع.</p>
-            <SheetEditor initial={sheet} scope="all" role="supervisor" onBack={() => setSheet(null)} />
+            <SheetEditor initial={sheet} scope="all" role="supervisor" readOnly onBack={() => setSheet(null)} />
           </div>
         </div>, document.body)}
     </>
