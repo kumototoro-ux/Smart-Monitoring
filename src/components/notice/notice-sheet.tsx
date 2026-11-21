@@ -183,10 +183,10 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
             <colgroup>
               <col style={{ width: '4%' }} />
               {numeric ? (pcols ? (<>
-                <col style={{ width: `${np > 3 ? 14 : 16}%` }} />
+                <col style={{ width: `${np > 3 ? 16 : 19}%` }} />
                 {pcols.map((_, i) => <col key={i} style={{ width: `${np > 3 ? 7 : 8}%` }} />)}
                 <col style={{ width: '7%' }} /><col style={{ width: '5.5%' }} /><col style={{ width: '6.5%' }} /><col style={{ width: '8%' }} /><col style={{ width: '10%' }} />
-                <col style={{ width: `${100 - 4 - (np > 3 ? 14 : 16) - np * (np > 3 ? 7 : 8) - 7 - 5.5 - 6.5 - 8 - 10}%` }} />
+                <col style={{ width: `${100 - 4 - (np > 3 ? 16 : 19) - np * (np > 3 ? 7 : 8) - 7 - 5.5 - 6.5 - 8 - 10}%` }} />
               </>) : (<><col style={{ width: '22%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '11%' }} /><col style={{ width: '12%' }} /><col style={{ width: '24%' }} /></>))
                 : (<><col style={{ width: '30%' }} /><col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '22%' }} /></>)}
             </colgroup>
@@ -221,7 +221,7 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
                 const rt = rate(pct, S.bands);
                 return (
                   <tr key={s.id} data-row>
-                    <td style={rc({ fontWeight: 700, ...long(s.name, 26) })}>{s.name}</td>
+                    <td style={rc({ fontWeight: 700, ...long(s.name, pcols ? (np > 3 ? 12 : 15) : 26) })}>{s.name}</td>
                     {numeric ? (
                       <>
                         {pcols?.map((c, i) => {
@@ -242,7 +242,7 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
                         <td style={rc()} dir="ltr">{s.absent ? 'Absent' : levelEn(s.level, S)}</td>
                       </>
                     )}
-                    <td style={rc({ fontWeight: 700, ...long(s.name_en, 20) })} dir="ltr">{s.name_en ?? ''}</td>
+                    <td style={rc({ fontWeight: 700, ...long(s.name_en, pcols ? 12 : 20) })} dir="ltr">{s.name_en ?? ''}</td>
                   </tr>
                 );
               })}
