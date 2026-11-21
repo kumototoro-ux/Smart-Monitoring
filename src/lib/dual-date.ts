@@ -23,6 +23,11 @@ const hijriFromJd = (jd: number) => {
 /** يقرأ ما هو مخزَّن (2015-01-16 أو 1436/03/25 ...) ويُرجع التاريخين، أو null إن لم يُفهم. */
 export function dualDate(raw: string | null | undefined): { greg: string; hijri: string } | null {
   const t = (raw ?? '').trim().replace(/[٠-٩]/g, (c) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(c)));
+  // رقم إكسل تسلسلي قديم محفوظ كنص (مثل 42020) → تاريخ ميلادي
+  if (/^\d{5}$/.test(t) && Number(t) >= 10000 && Number(t) <= 80000) {
+    const g0 = gregFromJd(jdFromGreg(1899, 12, 30) + Number(t)); // أصل أرقام إكسل 1899-12-30
+    return dualDate(`${g0.y}-${pad(g0.m)}-${pad(g0.d)}`);
+  }
   const m = t.match(/^(\d{4})\D(\d{1,2})\D(\d{1,2})$/) ?? (() => { const r = t.match(/^(\d{1,2})\D(\d{1,2})\D(\d{4})$/); return r ? [r[0], r[3], r[2], r[1]] : null; })();
   if (!m) return null;
   const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
