@@ -9,7 +9,7 @@ export const metadata = { title: 'إعدادات الإشعارات' };
 export default async function NoticeSettingsPage() {
   const { supabase } = await requireRole('admin');
   const settings = await getSettings();
-  const [g, br, branches, subjects, grades, sections, teachers, ct, vl] = await Promise.all([
+  const [g, br, branches, subjects, grades, sections, teachers, ct, vl, hn] = await Promise.all([
     supabase.from('notice_settings').select('data').eq('id', 1).maybeSingle(),
     supabase.from('notice_branch_settings').select('branch_id, data'),
     supabase.from('branches').select('id, name').eq('is_active', true).order('name'),
@@ -19,7 +19,9 @@ export default async function NoticeSettingsPage() {
     supabase.from('profiles').select('id, full_name, branch_id').eq('role', 'teacher').eq('is_active', true).order('full_name'),
     supabase.from('class_teachers').select('section_id, teacher_id'),
     supabase.from('verbal_levels').select('label'),
+    supabase.from('sections').select('id, homeroom_name'), // يعمل بعد 0027؛ قبلها نتجاهل الخطأ
   ]);
+  const hnames = new Map((hn.error ? [] : hn.data ?? []).map((r) => [r.id as string, (r.homeroom_name as string | null) ?? '']));
   const levels = [...new Set((vl.data ?? []).map((r) => r.label as string))];
   const missing = !!(g.error || br.error || ct.error || subjects.error);
   const homeroom = new Map((ct.data ?? []).map((r) => [r.section_id as string, r.teacher_id as string]));
@@ -27,7 +29,7 @@ export default async function NoticeSettingsPage() {
   const gradeSort = new Map((grades.data ?? []).map((x) => [x.id as string, x.sort_order as number]));
   const secRows: SectionRow[] = (sections.data ?? []).map((s) => ({
     id: s.id, name: s.name, branch_id: s.branch_id, grade: gradeName.get(s.grade_id) ?? '—',
-    sort: (gradeSort.get(s.grade_id) ?? 0) * 1000 + (s.sort_order ?? 0), teacher_id: homeroom.get(s.id) ?? null,
+    sort: (gradeSort.get(s.grade_id) ?? 0) * 1000 + (s.sort_order ?? 0), teacher_id: homeroom.get(s.id) ?? null, homeroom_name: hnames.get(s.id) ?? '',
   }));
   const branchData: Record<string, ReturnType<typeof normalizeBranch>> = {};
   (br.data ?? []).forEach((r) => { branchData[r.branch_id as string] = normalizeBranch(r.data); });

@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, Eye, ImagePlus, Trash2, Check } from 'lucide-react';
 import {
-  loadNoticeAssets, removeNoticeImage, saveEnglishNames, saveNoticeBranch, saveNoticeSettings, setClassTeacher, uploadNoticeImage,
+  loadNoticeAssets, removeNoticeImage, saveEnglishNames, saveNoticeBranch, saveNoticeSettings, setClassTeacher, setClassTeacherName, uploadNoticeImage,
 } from '@/app/actions/notices';
 import { useAction } from '@/lib/use-action';
 import { useConfirm } from '@/components/ui/confirm';
@@ -16,7 +16,7 @@ import {
 } from '@/lib/notice';
 import { cn, secLabel } from '@/lib/utils';
 
-export interface SectionRow { id: string; name: string; branch_id: string; grade: string; sort: number; teacher_id: string | null }
+export interface SectionRow { id: string; name: string; branch_id: string; grade: string; sort: number; teacher_id: string | null; homeroom_name?: string }
 export interface TeacherRow { id: string; full_name: string; branch_id: string | null }
 
 type Tab = 'general' | 'branches' | 'homeroom' | 'english' | 'access';
@@ -138,6 +138,8 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
     subjects: Object.fromEntries(subjects.map((s) => [s.id, s.name_en ?? ''])),
     grades: Object.fromEntries(grades.map((g) => [g.id, g.name_en ?? ''])),
   });
+  const [hname, setHname] = useState<Record<string, string>>(Object.fromEntries(sections.map((s) => [s.id, s.homeroom_name ?? ''])));
+  const [saved, setSaved] = useState<Record<string, string>>(Object.fromEntries(sections.map((s) => [s.id, (s.homeroom_name ?? '').trim()])));
   const [home, setHome] = useState<Record<string, string | null>>(Object.fromEntries(sections.map((s) => [s.id, s.teacher_id])));
   const { exec, busy } = useAction();
   const confirm = useConfirm();
@@ -324,7 +326,7 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
           {tab === 'homeroom' && (
             <>
               <div className="card p-5 sm:p-6">
-                <Field label="الفرع" hint="تُسند مربية الفصل لكل شعبة. مربية الفصل تصدر إشعارات شعبتها فقط (إن سمحتِ بذلك من «الإصدار والصلاحيات»)">
+                <Field label="الفرع" hint="لكل شعبة: اختاري مربية لها حساب (تصدر إشعارات شعبتها إن سمحتِ بذلك من «الإصدار والصلاحيات»)، أو اتركي «بدون حساب» واكتبي اسمها ليظهر في الشهادة فقط">
                   <Select value={bid} onChange={(e) => setBid(e.target.value)}>
                     {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </Select>
@@ -345,11 +347,21 @@ export function NoticeSettingsClient({ missing, initial, school, year, branches,
                             confirmText: val ? 'تغيير' : 'إلغاء الإسناد', tone: 'danger',
                           }))) return;
                           const r = await exec(() => setClassTeacher(s.id, val), { success: val ? 'تم إسناد مربية الفصل' : 'تم إلغاء الإسناد', refresh: false });
-                          if (r?.ok) setHome((m) => ({ ...m, [s.id]: val }));
+                          if (r?.ok) { setHome((m) => ({ ...m, [s.id]: val })); if (val) { setHname((m) => ({ ...m, [s.id]: '' })); setSaved((m) => ({ ...m, [s.id]: '' })); } }
                         }}>
-                        <option value="">— بدون مربية —</option>
+                        <option value="">— بدون حساب —</option>
                         {teachers.filter((t) => t.branch_id === bid).map((t) => <option key={t.id} value={t.id}>{t.full_name}</option>)}
                       </Select>
+                      {!home[s.id] && (
+                        <Input className="mt-2" placeholder="أو اكتبي اسمها هنا (بدون حساب)" maxLength={80} value={hname[s.id] ?? ''} disabled={busy}
+                          onChange={(e) => setHname((m) => ({ ...m, [s.id]: e.target.value }))}
+                          onBlur={async (e) => {
+                            const val = e.target.value.trim();
+                            if ((saved[s.id] ?? '') === val) return;
+                            const r = await exec(() => setClassTeacherName(s.id, val), { success: val ? 'تم حفظ اسم المربية' : 'تم حذف الاسم', refresh: false });
+                            if (r?.ok) setSaved((m) => ({ ...m, [s.id]: val }));
+                          }} />
+                      )}
                     </div>
                   </div>
                 ))}
