@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Download, Image as ImageIcon, Share2 } from 'lucide-react';
+import { dualDate } from '@/lib/dual-date';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { capture, makePdf, saveBlob, shareFile, lastShareError, logNoticeFailure, type Captured } from './notice-export';
@@ -151,7 +152,10 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
               </tr>
               <tr>
                 <td style={th()}>تاريخ الميلاد</td>
-                <td style={td({ fontWeight: 600 })} dir="ltr">{st.birth_date || '—'}</td>
+                <td style={td({ fontWeight: 600, fontSize: 9.5, lineHeight: 1.35 })} dir="ltr">{(() => {
+                  const dd = dualDate(st.birth_date);
+                  return dd ? <>{dd.greg} م<br />{dd.hijri} هـ</> : (st.birth_date || '—');
+                })()}</td>
                 <td style={th()} dir="ltr">Date of Birth</td>
                 <td style={th()}>الجنسية</td>
                 <td style={td({ fontWeight: 600 })}>{st.nationality || '—'}</td>
