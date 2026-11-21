@@ -1,12 +1,23 @@
 import { requireRole } from '@/lib/auth';
 import { PageHeader } from '@/components/ui/page-header';
 import { AccountsClient } from './accounts-client';
+import { EmptyState } from '@/components/ui/empty';
+import { supervisorAccountsOpen } from '@/lib/supervisor';
+import { ShieldCheck } from 'lucide-react';
 import type { Branch, Profile } from '@/lib/types';
 
 export const metadata = { title: 'الحسابات' };
 
 export default async function AccountsPage() {
   const { supabase, profile } = await requireRole('admin', 'supervisor');
+  if (profile.role === 'supervisor' && !(await supervisorAccountsOpen())) {
+    return (
+      <div>
+        <PageHeader title="المعلمات" subtitle="حسابات معلمات الفرع" />
+        <div className="card"><EmptyState icon={<ShieldCheck className="h-6 w-6" />} title="إدارة الحسابات متاحة للمسؤول فقط" hint="للتعديل أو إنشاء حساب أو إعادة تعيين كلمة مرور، تواصلي مع المسؤول." /></div>
+      </div>
+    );
+  }
   let q = supabase.from('profiles')
     .select('id, username, full_name, role, branch_id, phone, is_active, last_login_at, created_at')
     .order('full_name');
