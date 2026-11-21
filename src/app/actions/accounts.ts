@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { run, must, ActionError, parseOr } from '@/lib/action';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { audit } from '@/lib/audit';
+import { supervisorAccountsOpen } from '@/lib/supervisor';
 import { usernameToEmail } from '@/lib/auth';
 import { generatePassword } from '@/lib/utils';
 import { newBook, newSheet, styleHeaderRow, styleBodyRow, titleBlock, toBase64 } from '@/lib/excel';
@@ -11,6 +12,11 @@ import { ROLE_LABEL, type Profile, type Role } from '@/lib/types';
 const USERNAME = /^[a-z0-9._-]{3,32}$/;
 type Target = Pick<Profile, 'id' | 'role' | 'branch_id' | 'full_name' | 'username'>;
 export interface Credential { full_name: string; username: string; password: string; role: Role; branch?: string | null }
+
+async function guardSupervisor(actor: Profile) {
+  if (actor.role === 'supervisor' && !(await supervisorAccountsOpen()))
+    throw new ActionError('إدارة الحسابات متاحة للمسؤول فقط. اطلبي من المسؤول التعديل.');
+}
 
 /** هل يحق للمستخدم الحالي إدارة هذا الحساب؟ */
 function assertCanManage(actor: Profile, target: Target) {
@@ -105,12 +111,13 @@ async function createOne(actor: Profile, input: z.input<typeof createSchema>): P
 }
 
 export async function createAccount(input: z.input<typeof createSchema>) {
-  return run('account.create', ['admin', 'supervisor'], ({ profile }) => createOne(profile, input), { revalidate: ['/accounts'] });
+  return run('account.create', ['admin', 'supervisor'], async ({ profile }) => { await guardSupervisor(profile); return createOne(profile, input); }, { revalidate: ['/accounts'] });
 }
 
 /** إنشاء حسابات معلمات دفعة واحدة: سطر لكل معلمة "الاسم" أو "الاسم، الجوال" */
 export async function bulkCreateTeachers(branchId: string | null, text: string) {
   return run('account.bulk_create', ['admin', 'supervisor'], async ({ profile }) => {
+    await guardSupervisor(profile);
     const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
     if (!lines.length) throw new ActionError('الصقي أسماء المعلمات، اسم في كل سطر');
     if (lines.length > 300) throw new ActionError('الحد الأقصى 300 اسم في المرة');
@@ -130,6 +137,7 @@ export async function bulkCreateTeachers(branchId: string | null, text: string) 
 
 export async function resetPassword(id: string, manual?: string) {
   return run('account.reset_password', ['admin', 'supervisor'], async ({ profile }) => {
+    await guardSupervisor(profile);
     const t = await loadTarget(id);
     assertCanManage(profile, t);
     const password = manual ? checkPassword(manual, t.username) : generatePassword(8);
@@ -142,6 +150,7 @@ export async function resetPassword(id: string, manual?: string) {
 
 export async function changeUsername(id: string, username: string) {
   return run('account.change_username', ['admin', 'supervisor'], async ({ profile }) => {
+    await guardSupervisor(profile);
     const t = await loadTarget(id);
     assertCanManage(profile, t);
     const u = username.trim().toLowerCase();
@@ -167,6 +176,7 @@ const updateSchema = z.object({
 
 export async function updateAccount(id: string, input: z.input<typeof updateSchema>) {
   return run('account.update', ['admin', 'supervisor'], async ({ profile }) => {
+    await guardSupervisor(profile);
     const t = await loadTarget(id);
     assertCanManage(profile, t);
     const v = parseOr(updateSchema, input);
@@ -190,6 +200,7 @@ export async function updateAccount(id: string, input: z.input<typeof updateSche
 
 export async function setAccountActive(id: string, active: boolean) {
   return run('account.set_active', ['admin', 'supervisor'], async ({ profile }) => {
+    await guardSupervisor(profile);
     const t = await loadTarget(id);
     assertCanManage(profile, t);
     if (t.id === profile.id) throw new ActionError('لا يمكنك إيقاف حسابك');
@@ -213,7 +224,8 @@ export async function deleteAccount(id: string) {
 
 /** ملف إكسل ببيانات الدخول لتوزيعها على المعلمات */
 export async function exportCredentials(list: Credential[], branchName?: string) {
-  return run('account.export_credentials', ['admin', 'supervisor'], async () => {
+  return run('account.export_credentials', ['admin', 'supervisor'], async ({ profile }) => {
+    await guardSupervisor(profile);
     const wb = newBook();
     const ws = newSheet(wb, 'بيانات الدخول', false);
     ws.columns = [{ width: 6 }, { width: 34 }, { width: 14 }, { width: 20 }, { width: 16 }];
@@ -238,4 +250,11 @@ export async function exportCredentials(list: Credential[], branchName?: string)
     note.getCell(1).font = { name: 'Arial', size: 10, color: { argb: 'FFC4365E' } };
     return toBase64(wb);
   }, { log: () => ({ count: list.length }) });
+}
+
+export async function saveSupervisorAccounts(enabled: boolean) {
+  return run('settings.supervisor_accounts', ['admin'], async ({ supabase }) => {
+    must(await supabase.from('settings').update({ supervisor_manage_accounts: !!enabled }).eq('id', 1));
+    return { enabled: !!enabled };
+  }, { revalidate: ['/settings', '/accounts'], log: (d) => ({ ...d }) });
 }
