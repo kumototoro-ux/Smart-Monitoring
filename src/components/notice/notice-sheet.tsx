@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/toast';
 import { capture, makePdf, saveBlob, shareFile, lastShareError, logNoticeFailure, type Captured } from './notice-export';
 import {
-  NOTICE_H, NOTICE_W, conductLabel, legendFor, fmtNum, levelEn, noticeFileName, principalTitle, rate, summarize, titles,
+  NOTICE_H, NOTICE_W, conductLabel, legendFor, fmtNum, levelEn, partColumns, partEn, partKey, noticeFileName, principalTitle, rate, summarize, titles,
   type NoticeData, type NoticeRender,
 } from '@/lib/notice';
 
@@ -55,6 +55,10 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
   const pt = principalTitle(BR);
   const when = issued();
   const subjects = data.subjects;
+  const dd = dualDate(st.birth_date);
+  const sm: React.CSSProperties = { fontSize: 9, fontWeight: 600, color: '#55645d' };
+  const pcols = numeric ? partColumns(subjects) : null;
+  const np = pcols?.length ?? 0;
   const logo = brand.logo;
   const vert: React.CSSProperties = { writingMode: 'vertical-rl', transform: 'rotate(180deg)', whiteSpace: 'nowrap', fontWeight: 700, fontSize: 12, margin: '0 auto' };
   const schoolAr = [data.school, data.branch.name].filter(Boolean).join(' · ');
@@ -151,22 +155,24 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
                 <td style={th()} dir="ltr">Class Teacher</td>
               </tr>
               <tr>
-                <td style={th()}>تاريخ الميلاد</td>
-                <td style={td({ fontWeight: 600, fontSize: 9.5, lineHeight: 1.35 })} dir="ltr">{(() => {
-                  const dd = dualDate(st.birth_date);
-                  return dd ? <>{dd.greg} م<br />{dd.hijri} هـ</> : (st.birth_date || '—');
-                })()}</td>
-                <td style={th()} dir="ltr">Date of Birth</td>
+                <td style={th()}>تاريخ الميلاد<div style={sm}>ميلادي</div></td>
+                <td style={td({ fontWeight: 600 })} dir="ltr">{dd ? dd.greg : (st.birth_date || '—')}</td>
+                <td style={th()} dir="ltr">Date of Birth<div style={sm}>Gregorian</div></td>
                 <td style={th()}>الجنسية</td>
                 <td style={td({ fontWeight: 600 })}>{st.nationality || '—'}</td>
                 <td style={th()} dir="ltr">Nationality</td>
               </tr>
               <tr>
+                <td style={th()}>تاريخ الميلاد<div style={sm}>هجري</div></td>
+                <td style={td({ fontWeight: 600 })} dir="ltr">{dd ? dd.hijri : '—'}</td>
+                <td style={th()} dir="ltr">Date of Birth<div style={sm}>Hijri</div></td>
                 <td style={th()}>رقم الهوية</td>
                 <td style={td({ fontWeight: 600 })} dir="ltr">{st.national_id || '—'}</td>
                 <td style={th()} dir="ltr">Identity No.</td>
+              </tr>
+              <tr>
                 <td style={th()}>الرقم الأكاديمي</td>
-                <td style={td({ fontWeight: 600 })} dir="ltr">{st.number || '—'}</td>
+                <td style={td({ fontWeight: 600 })} colSpan={4} dir="ltr">{st.number || '—'}</td>
                 <td style={th()} dir="ltr">Student No.</td>
               </tr>
             </tbody>
@@ -176,7 +182,12 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
           <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: D.font, marginTop: 8 }}>
             <colgroup>
               <col style={{ width: '4%' }} />
-              {numeric ? (<><col style={{ width: '22%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '11%' }} /><col style={{ width: '12%' }} /><col style={{ width: '24%' }} /></>)
+              {numeric ? (pcols ? (<>
+                <col style={{ width: `${np > 3 ? 14 : 16}%` }} />
+                {pcols.map((_, i) => <col key={i} style={{ width: `${np > 3 ? 7 : 8}%` }} />)}
+                <col style={{ width: '7%' }} /><col style={{ width: '5.5%' }} /><col style={{ width: '6.5%' }} /><col style={{ width: '8%' }} /><col style={{ width: '10%' }} />
+                <col style={{ width: `${100 - 4 - (np > 3 ? 14 : 16) - np * (np > 3 ? 7 : 8) - 7 - 5.5 - 6.5 - 8 - 10}%` }} />
+              </>) : (<><col style={{ width: '22%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '11%' }} /><col style={{ width: '12%' }} /><col style={{ width: '24%' }} /></>))
                 : (<><col style={{ width: '30%' }} /><col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '22%' }} /></>)}
             </colgroup>
             <tbody>
@@ -185,7 +196,13 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
                 <th style={rh()}>المادة</th>
                 {numeric ? (
                   <>
-                    <th style={rh()}>الدرجة<div dir="ltr" style={{ fontWeight: 600 }}>Score</div></th>
+                    {pcols?.map((c, i) => (
+                      <th key={i} style={rh({ fontSize: Math.max(8, D.head - 1) })}>{c.name}
+                        {partEn(c.name) && <div dir="ltr" style={{ fontWeight: 600, fontSize: Math.max(7, D.head - 2.5) }}>{partEn(c.name)}</div>}
+                        {c.uniform && c.max != null && <div dir="ltr" style={{ fontWeight: 600 }}>({fmtNum(c.max)})</div>}
+                      </th>
+                    ))}
+                    <th style={rh()}>{pcols ? 'المجموع' : 'الدرجة'}<div dir="ltr" style={{ fontWeight: 600 }}>{pcols ? 'Total' : 'Score'}</div></th>
                     <th style={rh()}>من<div dir="ltr" style={{ fontWeight: 600 }}>Out of</div></th>
                     <th style={rh()}>النسبة<div dir="ltr" style={{ fontWeight: 600 }}>Percent</div></th>
                     <th style={rh()}>التقدير</th>
@@ -207,6 +224,12 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
                     <td style={rc({ fontWeight: 700, ...long(s.name, 26) })}>{s.name}</td>
                     {numeric ? (
                       <>
+                        {pcols?.map((c, i) => {
+                          const part = s.parts?.find((p) => partKey(p.name) === partKey(c.name));
+                          if (!part) return <td key={i} style={rc({ color: '#9aa8a0' })}>—</td>;
+                          const txt = part.absent ? 'غ' : part.score == null ? '' : c.uniform ? fmtNum(part.score) : `${fmtNum(part.score)}/${fmtNum(part.max)}`;
+                          return <td key={i} style={rc()} dir="ltr">{txt}</td>;
+                        })}
                         <td style={rc({ fontWeight: 700 })} dir="ltr">{s.absent && s.total == null ? 'غ' : fmtNum(s.total)}</td>
                         <td style={rc()} dir="ltr">{fmtNum(s.max)}</td>
                         <td style={rc()} dir="ltr">{pct == null ? '' : `${Math.round(pct)}%`}</td>
@@ -224,7 +247,7 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
                 );
               })}
               {!subjects.length && (
-                <tr data-row><td style={rc({ padding: 10, color: '#6b7a72' })} colSpan={numeric ? 7 : 4}>لا درجات معتمدة · No grades</td></tr>
+                <tr data-row><td style={rc({ padding: 10, color: '#6b7a72' })} colSpan={numeric ? 7 + np : 4}>لا درجات معتمدة · No grades</td></tr>
               )}
             </tbody>
           </table>
