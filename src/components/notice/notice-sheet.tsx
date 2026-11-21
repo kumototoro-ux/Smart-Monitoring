@@ -56,6 +56,8 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
   const when = issued();
   const subjects = data.subjects;
   const dd = dualDate(st.birth_date);
+  const LOW: React.CSSProperties = { color: '#c0261d', background: '#fdeceb', fontWeight: 800 };
+  const low = (score: number | null | undefined, max: number | null | undefined) => score != null && max != null && Number(max) > 0 && Number(score) < Number(max) / 2;
   const sm: React.CSSProperties = { fontSize: 9, fontWeight: 600, color: '#55645d' };
   const pcols = numeric ? partColumns(subjects) : null;
   const np = pcols?.length ?? 0;
@@ -94,7 +96,7 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
   const D = density(nRows, target);
   const rc = (x: React.CSSProperties = {}) => td({ padding: `${D.pad}px 4px`, whiteSpace: 'nowrap', overflow: 'hidden', ...x });
   const rh = (x: React.CSSProperties = {}) => th({ fontSize: D.head, padding: '3px 2px', lineHeight: 1.15, ...x });
-  const long = (t: string | null | undefined, n: number) => { const l = (t ?? '').length; return l > n ? { fontSize: `${Math.max(0.72, n / l)}em` } : {}; };
+  const long = (t: string | null | undefined, n: number) => { const l = (t ?? '').length; if (l > n * 1.5) return { fontSize: '0.74em', whiteSpace: 'normal' as const, lineHeight: 1.1 }; return l > n ? { fontSize: `${Math.max(0.78, n / l)}em` } : {}; };
 
   return (
     <div ref={box} data-fitted={fitted ? '1' : undefined} dir="rtl" style={{ width: NOTICE_W, minHeight: NOTICE_H, background: '#fff', color: INK, fontFamily: FONT, padding: 14, boxSizing: 'border-box' }}>
@@ -185,8 +187,8 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
               {numeric ? (pcols ? (<>
                 <col style={{ width: `${np > 3 ? 16 : 19}%` }} />
                 {pcols.map((_, i) => <col key={i} style={{ width: `${np > 3 ? 7 : 8}%` }} />)}
-                <col style={{ width: '7%' }} /><col style={{ width: '5.5%' }} /><col style={{ width: '6.5%' }} /><col style={{ width: '8%' }} /><col style={{ width: '10%' }} />
-                <col style={{ width: `${100 - 4 - (np > 3 ? 16 : 19) - np * (np > 3 ? 7 : 8) - 7 - 5.5 - 6.5 - 8 - 10}%` }} />
+                <col style={{ width: '7%' }} /><col style={{ width: '5.5%' }} /><col style={{ width: '6.5%' }} /><col style={{ width: '8%' }} /><col style={{ width: '11.5%' }} />
+                <col style={{ width: `${100 - 4 - (np > 3 ? 16 : 19) - np * (np > 3 ? 7 : 8) - 7 - 5.5 - 6.5 - 8 - 11.5}%` }} />
               </>) : (<><col style={{ width: '22%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '9%' }} /><col style={{ width: '11%' }} /><col style={{ width: '12%' }} /><col style={{ width: '24%' }} /></>))
                 : (<><col style={{ width: '30%' }} /><col style={{ width: '20%' }} /><col style={{ width: '24%' }} /><col style={{ width: '22%' }} /></>)}
             </colgroup>
@@ -228,13 +230,13 @@ export function NoticeSheet({ data, render }: { data: NoticeData; render: Notice
                           const part = s.parts?.find((p) => partKey(p.name) === partKey(c.name));
                           if (!part) return <td key={i} style={rc({ color: '#9aa8a0' })}>—</td>;
                           const txt = part.absent ? 'غ' : part.score == null ? '' : c.uniform ? fmtNum(part.score) : `${fmtNum(part.score)}/${fmtNum(part.max)}`;
-                          return <td key={i} style={rc()} dir="ltr">{txt}</td>;
+                          return <td key={i} style={rc(!part.absent && low(part.score, part.max) ? LOW : {})} dir="ltr">{txt}</td>;
                         })}
-                        <td style={rc({ fontWeight: 700 })} dir="ltr">{s.absent && s.total == null ? 'غ' : fmtNum(s.total)}</td>
+                        <td style={rc({ fontWeight: 700, ...(low(s.total, s.max) ? LOW : {}) })} dir="ltr">{s.absent && s.total == null ? 'غ' : fmtNum(s.total)}</td>
                         <td style={rc()} dir="ltr">{fmtNum(s.max)}</td>
-                        <td style={rc()} dir="ltr">{pct == null ? '' : `${Math.round(pct)}%`}</td>
-                        <td style={rc({ fontWeight: 600 })}>{rt?.ar ?? ''}</td>
-                        <td style={rc()} dir="ltr">{rt?.en ?? ''}</td>
+                        <td style={rc(low(s.total, s.max) ? LOW : {})} dir="ltr">{pct == null ? '' : `${Math.round(pct)}%`}</td>
+                        <td style={rc({ fontWeight: 600, ...(low(s.total, s.max) ? { color: '#c0261d' } : {}) })}>{rt?.ar ?? ''}</td>
+                        <td style={rc({ fontSize: '0.92em', ...(low(s.total, s.max) ? { color: '#c0261d' } : {}) })} dir="ltr">{rt?.en ?? ''}</td>
                       </>
                     ) : (
                       <>
