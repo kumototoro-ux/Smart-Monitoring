@@ -38,6 +38,7 @@
    23. `supabase/migrations/0023_supervisor_edit_sheets.sql`: تعديل المشرفة لكشوف فرعها (الترم الحالي فقط، وتُسجَّل باسمها).
    24. `supabase/migrations/0024_notice_show_recorded_excluded.sql`: الإشعار يعرض كل مادة فيها درجات مرصودة حتى لو استُبعد الطالب من كشفها. وملف `supabase/fix-excluded-with-results.sql` لتنظيف الحالات القديمة.
    25. `supabase/migrations/0025_supervisor_accounts_toggle.sql`: مفتاح الأدمن لإدارة المشرفات لحسابات المعلمات (مُطفأ افتراضياً).
+   26. `supabase/migrations/0026_notice_parts.sql`: الإشعار يعرض تفصيل كل مادة (أعمال السنة والاختبارات...).
 3. من **Authentication → Sign In / Providers**:
    - أوقف **Allow new users to sign up**، لأن الحسابات تُنشأ من داخل النظام فقط.
    - أوقف **Confirm email**.

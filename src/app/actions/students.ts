@@ -115,6 +115,8 @@ const HEADERS: Record<Col, string[]> = {
 const HEADER_INDEX = new Map<string, Col>();
 (Object.entries(HEADERS) as [Col, string[]][]).forEach(([k, names]) => names.forEach((n) => { if (!HEADER_INDEX.has(normAr(n))) HEADER_INDEX.set(normAr(n), k); }));
 
+import { dateCellText } from '@/lib/excel-date';
+
 function cellText(v: ExcelJS.CellValue): string {
   if (v == null) return '';
   if (v instanceof Date) return v.toISOString().slice(0, 10); // تاريخ إكسل → YYYY-MM-DD
@@ -188,7 +190,7 @@ async function buildPreview(supabase: SupabaseClient, profile: Profile, base64: 
     const g = normAr(get('gender'));
     const item: ImportRow = {
       row: r, full_name: name, national_id: nid, student_number: num,
-      name_en: get('name_en').replace(/\s+/g, ' ') || null, birth_date: get('birth_date') || null,
+      name_en: get('name_en').replace(/\s+/g, ' ') || null, birth_date: (colMap.birth_date ? dateCellText(row.getCell(colMap.birth_date), cellText).trim() : '') || null,
       nationality: get('nationality') || null, id_type: get('id_type') || null,
       gender: /ذكر|ولد|طالب$|male|^m$/.test(g) ? 'male' : /انث|بنت|طالبه|female|^f$/.test(g) ? 'female' : null,
       branch: get('branch'), grade: get('grade'), section: get('section'),

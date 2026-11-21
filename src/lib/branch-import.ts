@@ -42,6 +42,8 @@ const cellText = (v: ExcelJS.CellValue): string => {
   return String(v);
 };
 
+import { dateCellText } from './excel-date';
+
 const ABSENT = new Set(['غ', 'غائب', 'غائبه', 'غياب'].map(normAr));
 
 /** يحلّل ملف الفرع الموحّد دون أي كتابة. نفس الدالة يعتمد عليها الحفظ لاحقاً فلا يختلف ما عُرض عمّا يُحفظ. */
@@ -154,7 +156,7 @@ export async function parseBranchFile(supabase: SupabaseClient, base64: string, 
       const item: ParsedRow = {
         sheet: ws.name, row: r, grade_id: gradeId, full_name: name, student_number: num,
         national_id: normalizeDigits(g(7)).replace(/\s+/g, '') || null, name_en: g(3).replace(/\s+/g, ' ') || null,
-        birth_date: g(4) || null, nationality: g(5) || null, id_type: g(6) || null,
+        birth_date: dateCellText(row.getCell(4), cellText).trim() || null, nationality: g(5) || null, id_type: g(6) || null,
         gender: /ذكر|ولد|طالب$|male|^m$/.test(gender) ? 'male' : /انث|بنت|طالبه|female|^f$/.test(gender) ? 'female' : null,
         section: g(9), section_id: null, newSection: false, sectionKey: null, kind: 'new', studentId: null, results: [], errors, warnings,
       };

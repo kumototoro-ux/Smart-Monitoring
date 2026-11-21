@@ -220,6 +220,27 @@ export function resolveRender(settings: NoticeSettings, branch: NoticeBranch, br
 export interface NoticeSubject {
   id: string; name: string; name_en: string | null;
   max: number; total: number | null; recorded: number; comps: number; absent: boolean | null; level: string | null;
+  /** تفصيل المادة بحسب مكوّناتها (يتوفر بعد 0026) */
+  parts?: { id: string; name: string; max: number | null; score: number | null; absent: boolean }[];
+}
+
+const PART_EN: Record<string, string> = { 'اعمال السنه': 'Classwork', 'الاختبارات القصيره': 'Quizzes', 'الاختبار القصير': 'Quiz', 'الاختبار النهايي': 'Final Exam', 'الاختبار النهائي': 'Final Exam', 'الاختبار التحريري': 'Written Exam', 'الاختبارات التحريريه': 'Written Exams', 'المشاركه': 'Participation' };
+export const partKey = (name: string) => norm(name);
+export const partEn = (name: string) => PART_EN[norm(name)] ?? '';
+
+/** أعمدة التفصيل: اتحاد مكوّنات مواد الصف بالترتيب. null إن لم تتوفر أو كثرت (أكثر من 5) فيُعرض المجموع فقط */
+export function partColumns(subjects: NoticeSubject[]): { name: string; max: number | null; uniform: boolean }[] | null {
+  if (!subjects.length || subjects.some((s) => !s.parts)) return null;
+  const order: string[] = []; const maxes = new Map<string, Set<number | null>>();
+  for (const s of subjects) for (const p of s.parts ?? []) {
+    const k = norm(p.name);
+    if (!maxes.has(k)) { maxes.set(k, new Set()); order.push(k); }
+    maxes.get(k)!.add(p.max == null ? null : Number(p.max));
+  }
+  if (!order.length || order.length > 5) return null;
+  const names = new Map<string, string>();
+  subjects.forEach((s) => (s.parts ?? []).forEach((p) => { if (!names.has(norm(p.name))) names.set(norm(p.name), p.name); }));
+  return order.map((k) => { const m = [...maxes.get(k)!]; return { name: names.get(k) ?? k, max: m.length === 1 ? m[0] : null, uniform: m.length === 1 }; });
 }
 export interface NoticeData {
   student: { id: string; name: string; name_en: string | null; national_id: string | null; number: string | null; birth_date: string | null; nationality: string | null; gender: string | null };
