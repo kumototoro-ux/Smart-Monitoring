@@ -180,8 +180,20 @@ export async function setClassTeacher(sectionId: string, teacherId: string | nul
     if (teacher.role !== 'teacher' || !teacher.is_active) throw new ActionError('اختاري معلمة نشطة');
     if (teacher.branch_id !== section.branch_id) throw new ActionError('المعلمة من فرع آخر');
     must(await supabase.from('class_teachers').upsert({ section_id: sec, teacher_id: tid, assigned_by: profile.id }));
+    must(await supabase.from('sections').update({ homeroom_name: null }).eq('id', sec));
     done();
     return { section: sec, teacher: tid };
+  }, { log: (d) => d });
+}
+
+/** اسم مربية الفصل بدون حساب: يظهر في الشهادة وسجل الإصدار فقط (للأدمن) */
+export async function setClassTeacherName(sectionId: string, name: string) {
+  return run('notice.homeroom_name', ['admin'], async ({ supabase }) => {
+    const sec = parse(uuid, sectionId);
+    const clean = parse(z.string().trim().max(80), name ?? '').replace(/\s+/g, ' ');
+    must(await supabase.from('sections').update({ homeroom_name: clean || null }).eq('id', sec));
+    done();
+    return { section: sec, name: clean || null };
   }, { log: (d) => d });
 }
 
