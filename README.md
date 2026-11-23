@@ -41,6 +41,7 @@
    26. `supabase/migrations/0026_notice_parts.sql`: الإشعار يعرض تفصيل كل مادة (أعمال السنة والاختبارات...).
    27. `supabase/migrations/0027_homeroom_name.sql`: اسم مربية الفصل بدون حساب (يُكتب في الإعدادات ← الإشعارات ← مربيات الفصول).
    28. `supabase/migrations/0028_conduct_manual_edit.sql`: تعديل المواظبة والسلوك من الأدمن والمشرفة (يغلب رصد المعلمات في الإشعار).
+   29. `supabase/migrations/0029_conduct_overview.sql`: ملخص تقدّم المواظبة والسلوك لكل شعبة (بطاقات الأدمن والمشرفة).
 3. من **Authentication → Sign In / Providers**:
    - أوقف **Allow new users to sign up**، لأن الحسابات تُنشأ من داخل النظام فقط.
    - أوقف **Confirm email**.

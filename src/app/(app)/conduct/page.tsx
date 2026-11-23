@@ -3,6 +3,7 @@ import { getSettings } from '@/lib/data';
 import { getTeacherSheets } from '@/lib/teacher';
 import { PageHeader } from '@/components/ui/page-header';
 import { ConductClient } from './conduct-client';
+import { ConductManage, type SectionStat } from './manage';
 
 export const metadata = { title: 'المواظبة والسلوك' };
 export const dynamic = 'force-dynamic';
@@ -28,13 +29,18 @@ export default async function ConductPage() {
       .map((s) => ({
         id: s.id as string, name: s.name as string, grade: gMap.get(s.grade_id as string)!.name as string,
         order: ((gMap.get(s.grade_id as string)!.sort_order as number) ?? 0) * 1000 + ((s.sort_order as number) ?? 0),
-        mode: 'numeric' as const, branch: bMap.get(s.branch_id as string) ?? '',
+        branch: bMap.get(s.branch_id as string) ?? '', branch_id: s.branch_id as string,
       }))
       .sort((a, b) => a.branch.localeCompare(b.branch, 'ar') || a.order - b.order);
+    // ملخص التقدم لكل شعبة (يعمل بعد 0029؛ قبلها تُعرض الشعب بلا أرقام)
+    const ov = enabled ? await supabase.rpc('conduct_manage_overview') : null;
+    const stats: Record<string, SectionStat> | null = ov && !ov.error && Array.isArray(ov.data)
+      ? Object.fromEntries((ov.data as { section_id: string; students: number; done: number; manual: number; low: number }[]).map((r) => [r.section_id, r]))
+      : null;
     return (
       <div>
-        <PageHeader title="المواظبة والسلوك" subtitle={profile.role === 'admin' ? 'تعديل درجات المواظبة والسلوك لأي شعبة في أي فرع' : 'تعديل درجات المواظبة والسلوك لشعب فرعك'} />
-        <ConductClient manager sections={sections} enabled={enabled} migrated={!error} />
+        <PageHeader title="المواظبة والسلوك" subtitle={profile.role === 'admin' ? 'راجعي وعدّلي مواظبة وسلوك أي شعبة في أي فرع' : 'راجعي وعدّلي مواظبة وسلوك شعب فرعك'} />
+        <ConductManage sections={sections} stats={stats} enabled={enabled} migrated={!error} />
       </div>
     );
   }
