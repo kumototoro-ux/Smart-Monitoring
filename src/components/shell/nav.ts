@@ -20,12 +20,14 @@ const noticeLog: NavItem = { href: '/notices/log', label: 'سجل الإشعار
 const excluded: NavItem = { href: '/excluded', label: 'الطلاب المستبعدون', short: 'المستبعدون', icon: UserX };
 const reviews: NavItem = { href: '/reviews', label: 'مراجعة الطلاب', short: 'المراجعة', icon: UserCheck, badge: 'reviews' };
 
+const conduct: NavItem = { href: '/conduct', label: 'المواظبة والسلوك', short: 'السلوك', icon: HeartHandshake };
+
 export const NAV: Record<Role, NavGroup[]> = {
   teacher: [
     { items: [
       home,
       { href: '/grading', label: 'رصد الدرجات', short: 'الرصد', icon: ClipboardPen },
-      { href: '/conduct', label: 'المواظبة والسلوك', short: 'السلوك', icon: HeartHandshake },
+      conduct,
       { href: '/records', label: 'سجلات الرصد', short: 'السجلات', icon: History },
       { href: '/requests', label: 'طلباتي', short: 'الطلبات', icon: Inbox, badge: 'requests' },
       notices,
@@ -39,6 +41,7 @@ export const NAV: Record<Role, NavGroup[]> = {
       notices,
       noticeLog,
       { href: '/follow-up', label: 'متابعة الرصد', icon: Radar },
+      conduct,
       { href: '/requests', label: 'الطلبات', icon: Inbox, badge: 'requests' },
       reviews,
       excluded,
@@ -58,6 +61,7 @@ export const NAV: Record<Role, NavGroup[]> = {
       notices,
       noticeLog,
       { href: '/follow-up', label: 'متابعة الرصد', icon: Radar },
+      conduct,
       { href: '/requests', label: 'الطلبات', icon: Inbox, badge: 'requests' },
       reviews,
       excluded,

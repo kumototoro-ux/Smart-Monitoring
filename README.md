@@ -40,6 +40,7 @@
    25. `supabase/migrations/0025_supervisor_accounts_toggle.sql`: مفتاح الأدمن لإدارة المشرفات لحسابات المعلمات (مُطفأ افتراضياً).
    26. `supabase/migrations/0026_notice_parts.sql`: الإشعار يعرض تفصيل كل مادة (أعمال السنة والاختبارات...).
    27. `supabase/migrations/0027_homeroom_name.sql`: اسم مربية الفصل بدون حساب (يُكتب في الإعدادات ← الإشعارات ← مربيات الفصول).
+   28. `supabase/migrations/0028_conduct_manual_edit.sql`: تعديل المواظبة والسلوك من الأدمن والمشرفة (يغلب رصد المعلمات في الإشعار).
 3. من **Authentication → Sign In / Providers**:
    - أوقف **Allow new users to sign up**، لأن الحسابات تُنشأ من داخل النظام فقط.
    - أوقف **Confirm email**.

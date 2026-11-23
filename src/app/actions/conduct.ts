@@ -37,6 +37,34 @@ export async function saveConduct(sectionId: string, rows: { student_id: string;
   }, { revalidate: ['/conduct'], context: { section: sectionId } });
 }
 
+export interface ConductManageStudent extends ConductStudent {
+  manual: boolean; m_att: number | null; m_beh: number | null; t_att: number | null; t_beh: number | null;
+}
+export interface ConductManageSheet {
+  meta: { section_id: string; section_name: string; grade_name: string; mode: 'numeric' | 'verbal'; term: 1 | 2; year: string; min_subjects: number; applies: boolean };
+  students: ConductManageStudent[];
+}
+
+/** الأدمن والمشرفة (فرعها فقط): فتح شعبة لتعديل المواظبة والسلوك */
+export async function loadConductManage(sectionId: string) {
+  return run('conduct.manage_load', ['admin', 'supervisor'], async ({ supabase }) => {
+    const id = uuid.safeParse(sectionId);
+    if (!id.success) throw new ActionError(id.error.issues[0].message);
+    return must(await supabase.rpc('conduct_manage_load', { p_section: id.data })) as ConductManageSheet;
+  }, { context: { section: sectionId } });
+}
+
+/** حفظ التعديل اليدوي (يغلب رصد المعلمات في الإشعار ولا يمسّ كشوفهن). قيمتان فارغتان = حذف التعديل اليدوي */
+export async function saveConductManage(sectionId: string, rows: { student_id: string; attendance: number | null; behavior: number | null }[]) {
+  return run('conduct.manage_save', ['admin', 'supervisor'], async ({ supabase }) => {
+    const id = uuid.safeParse(sectionId);
+    const r = rowSchema.safeParse(rows);
+    if (!id.success) throw new ActionError(id.error.issues[0].message);
+    if (!r.success) throw new ActionError(r.error.issues[0].message);
+    return must(await supabase.rpc('conduct_manage_save', { p_section: id.data, p_rows: r.data })) as { saved: number; removed: number };
+  }, { revalidate: ['/conduct', '/notices'], context: { section: sectionId } });
+}
+
 /** طلب فتح كشف المواظبة والسلوك للتعديل بعد قفله (يصل للمشرفة/الأدمن مع بقية الطلبات) */
 export async function requestConductUnlock(sectionId: string, note: string) {
   return run('conduct.unlock_request', ['teacher'], async ({ supabase }) => {
